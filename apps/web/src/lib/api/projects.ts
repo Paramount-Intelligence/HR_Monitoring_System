@@ -1,0 +1,42 @@
+import apiClient from './client';
+
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  owner_id: string;
+  manager_id: string;
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  approval_status: 'pending' | 'approved' | 'rejected';
+  project_status: 'draft' | 'pending_approval' | 'approved' | 'active' | 'on_hold' | 'completed' | 'rejected' | 'archived';
+  due_date: string | null;
+  approved_at: string | null;
+  rejected_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const projectsApi = {
+  getProjects: async (params?: Record<string, any>) => {
+    const response = await apiClient.get<Project[]>('/projects', { params });
+    return response.data;
+  },
+
+  getProject: async (id: string) => {
+    const response = await apiClient.get<Project>(`/projects/${id}`);
+    return response.data;
+  },
+
+  createProject: async (data: { title: string; description: string; priority: string; due_date?: string }) => {
+    const response = await apiClient.post<Project>('/projects', data);
+    return response.data;
+  },
+
+  approveProject: async (id: string, decision: 'approved' | 'rejected', reason?: string) => {
+    const response = await apiClient.post<Project>(`/projects/${id}/approve`, {
+      decision,
+      reason: reason || ''
+    });
+    return response.data;
+  }
+};

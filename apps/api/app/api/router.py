@@ -1,0 +1,24 @@
+from fastapi import APIRouter
+
+from app.api.routes import alerts, attendance, audit_logs, auth, dashboard, projects, tasks, time_logs, users, shifts, leaves, departments, holidays, announcements, reports, analytics, growth, permissions as perm_routes, ops
+
+api_router = APIRouter()
+api_router.include_router(auth.router,       prefix="/auth",        tags=["auth"])
+api_router.include_router(users.router,      prefix="/users",       tags=["users"])
+api_router.include_router(attendance.router, prefix="/attendance",  tags=["attendance"])
+api_router.include_router(projects.router,   prefix="/projects",    tags=["projects"])
+api_router.include_router(tasks.router,      prefix="/tasks",       tags=["tasks"])
+api_router.include_router(time_logs.router,  prefix="/time-logs",   tags=["time-logs"])
+api_router.include_router(dashboard.router,  prefix="/dashboard",   tags=["dashboard"])
+api_router.include_router(alerts.router,     prefix="/alerts",      tags=["alerts"])
+api_router.include_router(audit_logs.router, prefix="/audit-logs",  tags=["audit-logs"])
+api_router.include_router(shifts.router,     prefix="/shifts",      tags=["shifts"])
+api_router.include_router(leaves.router,     prefix="/leaves",      tags=["leaves"])
+api_router.include_router(departments.router, prefix="/departments", tags=["departments"])
+api_router.include_router(holidays.router,    prefix="/holidays",    tags=["holidays"])
+api_router.include_router(announcements.router, prefix="/announcements", tags=["announcements"])
+api_router.include_router(reports.router,       prefix="/reports",       tags=["reports"])
+api_router.include_router(analytics.router,     prefix="/analytics",     tags=["analytics"])
+api_router.include_router(growth.router,        prefix="/growth",        tags=["growth"])
+api_router.include_router(perm_routes.router,   prefix="/permissions",   tags=["permissions"])
+api_router.include_router(ops.router,           tags=["ops"])

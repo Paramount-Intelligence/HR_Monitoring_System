@@ -1,0 +1,93 @@
+"""Pydantic schemas for Dashboard endpoint responses."""
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from pydantic import BaseModel
+
+from app.models.enums import AttendanceSessionStatus, TaskStatus, WorkMode
+
+
+# ---------------------------------------------------------------------------
+# Shared building blocks
+# ---------------------------------------------------------------------------
+
+class AttendanceSummary(BaseModel):
+    checked_in_today: bool
+    check_in_at: datetime | None
+    check_out_at: datetime | None
+    work_mode: WorkMode | None
+    session_status: AttendanceSessionStatus | None
+    duration_minutes: int | None
+
+
+class TaskCounts(BaseModel):
+    total: int
+    in_progress: int
+    completed: int
+    blocked: int
+    overdue: int
+
+
+class TimerState(BaseModel):
+    active: bool
+    task_id: uuid.UUID | None
+    started_at: datetime | None
+    elapsed_minutes: int | None
+
+
+# ---------------------------------------------------------------------------
+# Employee dashboard
+# ---------------------------------------------------------------------------
+
+class EmployeeDashboard(BaseModel):
+    attendance: AttendanceSummary
+    tasks: TaskCounts
+    timer: TimerState
+    attendance_status: str | None = None
+    total_time_today: int = 0
+    productive_time_today: int = 0
+    active_timer_task_id: uuid.UUID | None = None
+    tasks_in_progress: int = 0
+    tasks_due_soon: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Manager dashboard
+# ---------------------------------------------------------------------------
+
+class TeamMemberAttendance(BaseModel):
+    user_id: uuid.UUID
+    full_name: str
+    checked_in: bool
+    work_mode: WorkMode | None
+    check_in_at: datetime | None
+
+
+class ManagerDashboard(BaseModel):
+    team_attendance_today: list[TeamMemberAttendance]
+    pending_approvals_count: int
+    overdue_tasks_count: int
+    blocked_tasks_count: int
+    team_members_active: int = 0
+    pending_approvals: int = 0
+    overdue_tasks: int = 0
+    blocked_tasks: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Admin dashboard
+# ---------------------------------------------------------------------------
+
+class AdminDashboard(BaseModel):
+    total_users: int
+    active_users: int
+    checked_in_today: int
+    wfh_today: int
+    office_today: int
+    pending_approvals_count: int
+    open_alerts_count: int
+    overdue_tasks_count: int
+    active_projects: int = 0
+    open_alerts: int = 0
