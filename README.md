@@ -6,7 +6,7 @@ Monorepo for the HR Monitoring / Workforce Intelligence platform.
 - Web: Next.js + TypeScript + Tailwind CSS
 - API: FastAPI
 - Worker: Python worker for alerts and metrics
-- Database: PostgreSQL
+- Database: SQLite
 - Queue/Cache: Redis
 
 ## Structure
