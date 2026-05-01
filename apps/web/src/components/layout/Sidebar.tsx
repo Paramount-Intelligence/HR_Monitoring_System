@@ -119,19 +119,18 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           { title: 'Team Members', href: '/manager/team', icon: Users },
           { title: 'Team Tasks', href: '/manager/tasks', icon: CheckSquare },
           { title: 'Analytics', href: '/manager/analytics', icon: TrendingUp },
-          { title: 'Alerts', href: '/manager/alerts', icon: Bell },
+          { title: 'Alerts', href: '/admin/alerts', icon: Bell },
         ];
       case 'hr_operations':
         return [
           { title: 'HR Dashboard', href: '/hr/dashboard', icon: LayoutDashboard },
           { title: 'All Users', href: '/admin/users', icon: Users },
-          { title: 'Attendance', href: '/manager/approvals', icon: Clock },
-          { title: 'Leave Management', href: '/hr/leaves', icon: Palmtree },
+          { title: 'Attendance & Leaves', href: '/manager/approvals', icon: Clock },
           { title: 'Organization', href: '/admin/organization', icon: Building },
           { title: 'Holidays', href: '/admin/holidays', icon: Calendar },
           { title: 'Announcements', href: '/admin/announcements', icon: Megaphone },
-          { title: 'Reports', href: '/hr/reports', icon: FileText },
-          { title: 'Alerts', href: '/manager/alerts', icon: Bell },
+          { title: 'Reports', href: '/admin/reports', icon: FileText },
+          { title: 'Alerts', href: '/admin/alerts', icon: Bell },
         ];
       case 'admin':
       default:
@@ -143,6 +142,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           { title: 'Holidays', href: '/admin/holidays', icon: Calendar },
           { title: 'Announcements', href: '/admin/announcements', icon: Megaphone },
           { title: 'Permissions', href: '/admin/permissions', icon: Shield },
+          { title: 'Reports', href: '/admin/reports', icon: FileText },
           { title: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
           { title: 'Alerts', href: '/admin/alerts', icon: Bell },
         ];

@@ -35,10 +35,10 @@ class Task(Base, TimestampMixin):
     expected_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     actual_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     priority: Mapped[ProjectPriority] = mapped_column(
-        Enum(ProjectPriority, name="project_priority"), nullable=False, default=ProjectPriority.MEDIUM
+        Enum(ProjectPriority, name="project_priority", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=ProjectPriority.MEDIUM
     )
     status: Mapped[TaskStatus] = mapped_column(
-        Enum(TaskStatus, name="task_status"), nullable=False, default=TaskStatus.CREATED
+        Enum(TaskStatus, name="task_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=TaskStatus.CREATED
     )
     blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)

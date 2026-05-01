@@ -80,7 +80,7 @@ export default function AlertsPage() {
                   </div>
                   <p className="text-sm text-slate-600">{alert.message}</p>
                   <div className="text-xs text-slate-400 pt-1">
-                    Received: {format(parseISO(alert.created_at), 'PPp')}
+                    Received: {alert.created_at ? format(parseISO(alert.created_at), 'PPp') : '-'}
                   </div>
                 </div>
                 

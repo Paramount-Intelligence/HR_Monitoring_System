@@ -7,6 +7,10 @@ export interface AttendanceSession {
   check_out_at: string | null;
   work_mode: 'office' | 'wfh';
   session_status: 'active' | 'completed' | 'incomplete' | 'corrected';
+  attendance_classification: 'active' | 'full_day' | 'half_day' | 'insufficient' | 'leave';
+  is_late_login: boolean;
+  is_early_logout: boolean;
+  is_corrected: boolean;
   correction_requested: boolean;
   correction_reason: string | null;
   created_at: string;

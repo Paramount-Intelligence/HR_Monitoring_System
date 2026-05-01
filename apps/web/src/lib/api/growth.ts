@@ -47,7 +47,10 @@ export const growthApi = {
     return response.data;
   },
   createNote: async (content: string) => {
-    const response = await apiClient.post<Note>('/growth/notes', { content });
+    const response = await apiClient.post<Note>('/growth/notes', { 
+      content,
+      note_date: new Date().toISOString().split('T')[0]
+    });
     return response.data;
   },
   getTeamGrowth: async () => {

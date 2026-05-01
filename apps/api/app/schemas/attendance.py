@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, model_validator
 
-from app.models.enums import AttendanceSessionStatus, WorkMode
+from app.models.enums import AttendanceClassification, AttendanceSessionStatus, WorkMode
 
 
 class CheckInRequest(BaseModel):
@@ -31,6 +31,7 @@ class AttendanceSessionRead(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    user_full_name: str | None = None
     check_in_at: datetime
     check_out_at: datetime | None
     work_mode: WorkMode
@@ -39,6 +40,8 @@ class AttendanceSessionRead(BaseModel):
     correction_reason: str | None
     is_late_login: bool
     is_early_logout: bool
+    is_corrected: bool
+    attendance_classification: AttendanceClassification
     created_at: datetime
     updated_at: datetime
     duration_minutes: int | None = None

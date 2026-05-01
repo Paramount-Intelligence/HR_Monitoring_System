@@ -25,7 +25,7 @@ class DailyStats(Base, TimestampMixin):
     is_absent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
     # Leave / WFH Context
-    leave_type: Mapped[LeaveType | None] = mapped_column(Enum(LeaveType, name="leave_type"), nullable=True)
+    leave_type: Mapped[LeaveType | None] = mapped_column(Enum(LeaveType, name="leave_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=True)
     is_wfh: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
     # Session Reference (Primary session of the day)

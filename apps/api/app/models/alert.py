@@ -31,25 +31,25 @@ class Alert(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     alert_type: Mapped[AlertType] = mapped_column(
-        Enum(AlertType, name="alert_type"), nullable=False
+        Enum(AlertType, name="alert_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     severity: Mapped[AlertSeverity] = mapped_column(
-        Enum(AlertSeverity, name="alert_severity"), nullable=False
+        Enum(AlertSeverity, name="alert_severity", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     recipient_user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     related_entity_type: Mapped[RelatedEntityType] = mapped_column(
-        Enum(RelatedEntityType, name="related_entity_type"), nullable=False
+        Enum(RelatedEntityType, name="related_entity_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     related_entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     email_status: Mapped[AlertEmailStatus] = mapped_column(
-        Enum(AlertEmailStatus, name="alert_email_status"),
+        Enum(AlertEmailStatus, name="alert_email_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default=AlertEmailStatus.QUEUED,
     )
     status: Mapped[AlertStatus] = mapped_column(
-        Enum(AlertStatus, name="alert_status"), nullable=False, default=AlertStatus.OPEN
+        Enum(AlertStatus, name="alert_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=AlertStatus.OPEN
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)

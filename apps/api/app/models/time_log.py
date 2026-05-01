@@ -28,9 +28,9 @@ class TimeLog(Base, TimestampMixin):
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     source_type: Mapped[TimeLogSourceType] = mapped_column(
-        Enum(TimeLogSourceType, name="time_log_source_type"), nullable=False
+        Enum(TimeLogSourceType, name="time_log_source_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[TimeLogStatus] = mapped_column(
-        Enum(TimeLogStatus, name="time_log_status"), nullable=False, default=TimeLogStatus.ACTIVE
+        Enum(TimeLogStatus, name="time_log_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=TimeLogStatus.ACTIVE
     )

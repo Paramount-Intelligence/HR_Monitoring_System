@@ -21,7 +21,7 @@ class ApprovalTimeline(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     
     entity_type: Mapped[ApprovalEntityType] = mapped_column(
-        Enum(ApprovalEntityType, name="approval_entity_type"), nullable=False
+        Enum(ApprovalEntityType, name="approval_entity_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     
@@ -30,7 +30,7 @@ class ApprovalTimeline(Base):
     )
     
     action: Mapped[ApprovalAction] = mapped_column(
-        Enum(ApprovalAction, name="approval_action"), nullable=False
+        Enum(ApprovalAction, name="approval_action", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)

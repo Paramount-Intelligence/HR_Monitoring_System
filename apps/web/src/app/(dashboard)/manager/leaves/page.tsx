@@ -20,7 +20,7 @@ export default function ManagerLeavesPage() {
 
   const fetchLeaves = async () => {
     try {
-      const data = await leavesApi.getLeaves();
+      const data = await leavesApi.getPendingQueue();
       setLeaves(data);
     } catch (error) {
       toast.error('Failed to load leave requests');
@@ -31,7 +31,7 @@ export default function ManagerLeavesPage() {
 
   const handleAction = async (id: string, status: 'APPROVED' | 'REJECTED') => {
     try {
-      await leavesApi.updateLeaveStatus(id, status);
+      await leavesApi.resolveRequest(id, { action: status.toLowerCase() as any });
       toast.success(`Leave ${status.toLowerCase()} successfully`);
       fetchLeaves();
     } catch (error) {

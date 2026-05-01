@@ -56,12 +56,12 @@ export default function LoginPage() {
       
       toast.success('Logged in successfully');
       login(access_token, refresh_token, user);
+      // Do not set isLoading(false) here, so the button stays in loading state until redirect completes
     } catch (error: any) {
       console.error('Login error', error);
       toast.error(
         error.response?.data?.detail || 'Failed to login. Please check your credentials.'
       );
-    } finally {
       setIsLoading(false);
     }
   }
@@ -267,30 +267,7 @@ export default function LoginPage() {
             </Form>
           </div>
 
-          <div className="space-y-4">
-            <p className="text-center text-xs font-medium text-slate-400 uppercase tracking-wider">
-              Role-Based Access
-            </p>
-            <div className="bg-slate-100/50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600">
-              <div className="grid grid-cols-2 gap-y-2.5 gap-x-2">
-                <div className="font-semibold text-slate-900">Admin</div>
-                <div className="text-slate-500">Full system access</div>
-                <div className="font-semibold text-slate-900">HR & Operations</div>
-                <div className="text-slate-500">People operations</div>
-                <div className="font-semibold text-slate-900">Manager</div>
-                <div className="text-slate-500">Team oversight</div>
-                <div className="font-semibold text-slate-900">Team Lead</div>
-                <div className="text-slate-500">Limited team view</div>
-                <div className="font-semibold text-slate-900">Employee</div>
-                <div className="text-slate-500">Own work only</div>
-                <div className="font-semibold text-slate-900">Intern / Junior</div>
-                <div className="text-slate-500">Restricted employee access</div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-slate-200 text-slate-500 text-center">
-                Default password: <strong className="text-slate-700">password123</strong>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>

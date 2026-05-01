@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { ShieldCheck, Search, Filter, Eye } from 'lucide-react';
 import { auditLogsApi } from '@/lib/api/auditLogs';
 import { format } from 'date-fns';
+import { Button } from '@/components/ui/button';
 
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -97,7 +98,7 @@ export default function AdminAuditLogsPage() {
                         {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
                       </TableCell>
                       <TableCell className="font-medium text-xs">
-                        User {log.actor_user_id.substring(0, 8)}
+                        User {log.actor_user_id?.substring(0, 8) || '-'}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getActionColor(log.action_type)}>
@@ -106,7 +107,7 @@ export default function AdminAuditLogsPage() {
                       </TableCell>
                       <TableCell className="capitalize text-sm">{log.entity_type}</TableCell>
                       <TableCell className="text-xs font-mono text-slate-400">
-                        {log.entity_id.substring(0, 8)}...
+                        {log.entity_id ? `${log.entity_id.substring(0, 8)}...` : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="icon" className="h-8 w-8">

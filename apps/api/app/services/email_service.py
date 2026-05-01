@@ -191,6 +191,31 @@ class EmailService:
         cls.send_email(user.email, subject, html_content)
 
     @classmethod
+    def send_password_reset(cls, user: User, token: str) -> None:
+        subject = "Workforce OS: Password Reset Request"
+        reset_url = f"{settings.frontend_base_url}/reset-password?token={token}"
+        
+        html_content = f"""
+        <html>
+            <body style="font-family: sans-serif; line-height: 1.5; color: #333;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 10px;">
+                    <h2 style="color: #0f172a;">Password Reset</h2>
+                    <p>Hi {user.full_name},</p>
+                    <p>You requested to reset your password for your Workforce OS account.</p>
+                    <p>Please click the button below to set a new password. This link will expire in 2 hours.</p>
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{reset_url}" style="background-color: #0f172a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+                    </div>
+                    <p>If you did not request this, you can safely ignore this email.</p>
+                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                    <p style="font-size: 12px; color: #777;">&copy; 2026 Paramount Intelligence. All rights reserved.</p>
+                </div>
+            </body>
+        </html>
+        """
+        cls.send_email(user.email, subject, html_content)
+
+    @classmethod
     def send_escalation_alert(cls, admin: User, entity_type: str, entity_id: str) -> None:
         subject = f"ESCALATION: {entity_type} approval delayed"
         html_content = f"""

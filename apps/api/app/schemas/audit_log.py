@@ -3,12 +3,12 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-from app.models.enums import AuditAction, RelatedEntityType
+from app.models.enums import RelatedEntityType
 
 class AuditLogRead(BaseModel):
     id: UUID
     actor_user_id: UUID = Field(alias="actor_user_id")
-    action_type: AuditAction = Field(alias="action_type")
+    action_type: str = Field(alias="action_type")
     entity_type: str 
     entity_id: UUID
     old_value: dict[str, Any] | None = None

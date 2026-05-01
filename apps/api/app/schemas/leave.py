@@ -24,6 +24,7 @@ class LeaveRequestRead(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    user_full_name: str | None = None
     start_date: date
     end_date: date
     leave_type: LeaveType

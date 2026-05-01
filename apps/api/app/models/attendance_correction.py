@@ -28,6 +28,6 @@ class AttendanceCorrection(Base, TimestampMixin):
     
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[CorrectionStatus] = mapped_column(
-        Enum(CorrectionStatus, name="correction_status"), default=CorrectionStatus.PENDING, nullable=False
+        Enum(CorrectionStatus, name="correction_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), default=CorrectionStatus.PENDING, nullable=False
     )
     manager_comment: Mapped[str | None] = mapped_column(Text, nullable=True)

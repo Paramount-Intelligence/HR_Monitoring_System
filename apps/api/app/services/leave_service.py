@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from sqlalchemy import or_, and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from fastapi import HTTPException, status
 
 from app.models.leave_request import LeaveRequest
@@ -94,9 +94,9 @@ class LeaveService:
     def get_pending_queue(self, actor: User) -> list[LeaveRequest]:
         """Get requests where the actor is the current approver or is admin/HR."""
         if actor.role in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
-             return self.db.query(LeaveRequest).filter(LeaveRequest.status == LeaveStatus.PENDING).all()
+             return self.db.query(LeaveRequest).options(joinedload(LeaveRequest.user)).filter(LeaveRequest.status == LeaveStatus.PENDING).all()
              
-        return self.db.query(LeaveRequest).filter(
+        return self.db.query(LeaveRequest).options(joinedload(LeaveRequest.user)).filter(
             LeaveRequest.current_approver_id == actor.id,
             LeaveRequest.status.in_([LeaveStatus.PENDING, LeaveStatus.NEEDS_CLARIFICATION, LeaveStatus.ESCALATED])
         ).all()

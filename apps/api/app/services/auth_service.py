@@ -18,6 +18,7 @@ from app.models.password_reset_token import PasswordResetToken
 from app.models.account_invitation import AccountInvitation
 from app.models.user import User
 from app.schemas.auth import LoginRequest, LoginResponse, RefreshResponse, TokenUser
+from app.services.email_service import EmailService
 
 
 class AuthService:
@@ -138,6 +139,14 @@ class AuthService:
         )
         self.db.add(reset_token)
         self._write_audit(user.id, "PASSWORD_RESET_REQUEST", "auth", user.id)
+        
+        try:
+            EmailService.send_password_reset(user, raw_token)
+        except Exception as e:
+            # Audit the failure but don't stop the request (token is still valid for manual help)
+            import logging
+            logging.getLogger(__name__).error(f"Failed to send password reset email: {e}")
+            
         self.db.commit()
         return raw_token
 

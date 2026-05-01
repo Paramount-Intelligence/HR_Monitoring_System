@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -194,7 +195,9 @@ export default function ManagerProjectsPage() {
                       {project.due_date ? format(parseISO(project.due_date), 'PP') : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                       <Button variant="ghost" size="sm">View</Button>
+                       <Link href={`/manager/projects/${project.id}`}>
+                         <Button variant="ghost" size="sm">View</Button>
+                       </Link>
                     </TableCell>
                   </TableRow>
                 ))}

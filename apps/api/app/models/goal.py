@@ -22,5 +22,5 @@ class Goal(Base, TimestampMixin):
     current_value: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
     status: Mapped[GoalStatus] = mapped_column(
-        Enum(GoalStatus, name="goal_status"), default=GoalStatus.IN_PROGRESS, nullable=False
+        Enum(GoalStatus, name="goal_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), default=GoalStatus.IN_PROGRESS, nullable=False
     )

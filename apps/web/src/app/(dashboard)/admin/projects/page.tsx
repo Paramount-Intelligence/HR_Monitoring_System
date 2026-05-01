@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Briefcase, Plus } from 'lucide-react';
+import { Loader2, Briefcase, Plus, CheckCircle, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -71,6 +71,16 @@ export default function AdminProjectsPage() {
       } else {
           toast.error(errorMessage || 'Failed to create project');
       }
+    }
+  };
+
+  const handleApprove = async (id: string, decision: 'approved' | 'rejected') => {
+    try {
+      await projectsApi.approveProject(id, decision);
+      toast.success(`Project ${decision}`);
+      loadProjects();
+    } catch (error: any) {
+      toast.error('Failed to update project status');
     }
   };
 
@@ -177,7 +187,8 @@ export default function AdminProjectsPage() {
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Due Date</TableHead>
-                    <TableHead className="text-right">Created</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -192,8 +203,28 @@ export default function AdminProjectsPage() {
                       <TableCell className="text-slate-500">
                         {project.due_date ? format(parseISO(project.due_date), 'PP') : '-'}
                       </TableCell>
-                      <TableCell className="text-right text-slate-500">
+                      <TableCell className="text-slate-500">
                         {format(parseISO(project.created_at), 'PP')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(project.approval_status === 'pending' || project.approval_status === 'pending_approval') && (
+                          <div className="flex justify-end gap-1">
+                            <Button 
+                              variant="ghost" size="icon" 
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8"
+                              onClick={() => handleApprove(project.id, 'approved')}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8"
+                              onClick={() => handleApprove(project.id, 'rejected')}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

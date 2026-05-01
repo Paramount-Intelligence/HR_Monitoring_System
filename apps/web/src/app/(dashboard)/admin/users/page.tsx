@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { usersApi } from '@/lib/api/users';
+import { getErrorMessage } from '@/lib/api/client';
 import { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -127,7 +128,7 @@ export default function AdminUsersPage() {
 
       await fetchUsers();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to create user');
+      toast.error(getErrorMessage(error) || 'Failed to create user');
     }
   };
 
@@ -136,7 +137,7 @@ export default function AdminUsersPage() {
       await (usersApi as any).resendInvitation(id);
       toast.success('Invitation email resent');
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to resend invitation');
+      toast.error(getErrorMessage(error) || 'Failed to resend invitation');
     }
   };
 
@@ -160,7 +161,7 @@ export default function AdminUsersPage() {
       setIsConfirmDialogOpen(false);
       await fetchUsers();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || `Failed to ${action} user`);
+      toast.error(getErrorMessage(error) || `Failed to ${action} user`);
     }
   };
 
@@ -186,12 +187,12 @@ export default function AdminUsersPage() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger render={
+          <DialogTrigger asChild>
             <Button className="bg-blue-600 hover:bg-blue-700">
               <UserPlus className="mr-2 h-4 w-4" />
               New User
             </Button>
-          } />
+          </DialogTrigger>
           <DialogContent className="sm:max-w-[560px]">
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>

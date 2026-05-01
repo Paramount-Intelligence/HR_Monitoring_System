@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { attendanceApi, AttendanceSession } from '@/lib/api/attendance';
+import { getErrorMessage } from '@/lib/api/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,6 +15,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LiveTimer } from '@/components/attendance/live-timer';
 
 export default function AttendancePage() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -47,7 +49,7 @@ export default function AttendancePage() {
       toast.success('Checked in successfully');
       await fetchSessions();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to check in');
+      toast.error(getErrorMessage(error) || 'Failed to check in');
     } finally {
       setIsActionLoading(false);
     }
@@ -60,7 +62,7 @@ export default function AttendancePage() {
       toast.success('Checked out successfully');
       await fetchSessions();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to check out');
+      toast.error(getErrorMessage(error) || 'Failed to check out');
     } finally {
       setIsActionLoading(false);
     }
@@ -79,7 +81,7 @@ export default function AttendancePage() {
       setCorrectionReason('');
       await fetchSessions();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to submit correction request');
+      toast.error(getErrorMessage(error) || 'Failed to submit correction request');
     } finally {
       setIsActionLoading(false);
     }
@@ -88,25 +90,52 @@ export default function AttendancePage() {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '-';
     try {
-      return format(parseISO(dateString), 'PPp');
+      const date = parseISO(dateString);
+      return new Intl.DateTimeFormat('en-PK', {
+        timeZone: 'Asia/Karachi',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
     } catch (e) {
       return dateString;
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
+  const getStatusBadge = (session: AttendanceSession) => {
+    const classification = session.attendance_classification || 'active';
+    
+    switch (classification) {
       case 'active':
         return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Active</Badge>;
-      case 'completed':
-        return <Badge variant="outline" className="bg-slate-50 text-slate-700">Completed</Badge>;
-      case 'incomplete':
-        return <Badge variant="destructive">Incomplete</Badge>;
-      case 'corrected':
-        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Corrected</Badge>;
+      case 'full_day':
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Full Day</Badge>;
+      case 'half_day':
+        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Half Day</Badge>;
+      case 'insufficient':
+        return <Badge variant="destructive">Insufficient</Badge>;
+      case 'leave':
+        return <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-100">Leave</Badge>;
       default:
-        return <Badge variant="secondary">{status}</Badge>;
+        return <Badge variant="secondary">{classification.toUpperCase()}</Badge>;
     }
+  };
+
+  const getFlags = (session: AttendanceSession) => {
+    const flags = [];
+    if (session.is_late_login) flags.push(<Badge key="late" variant="outline" className="text-red-600 border-red-200 bg-red-50">Late</Badge>);
+    if (session.is_early_logout) flags.push(<Badge key="early" variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">Early Out</Badge>);
+    if (session.is_corrected) flags.push(<Badge key="corrected" variant="outline" className="text-blue-600 border-blue-200 bg-blue-50">Corrected</Badge>);
+    
+    if (flags.length === 0) return <span className="text-xs text-slate-400">None</span>;
+    return <div className="flex flex-wrap gap-1">{flags}</div>;
+  };
+
+  const formatDuration = (hours: number | null) => {
+    if (hours === null || hours === undefined) return '-';
+    const totalSeconds = Math.floor(hours * 3600);
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    return `${h}h ${m}m`;
   };
 
   return (
@@ -177,15 +206,18 @@ export default function AttendancePage() {
                   </Button>
                 </>
               ) : (
-                <Button 
-                  onClick={handleCheckOut} 
-                  disabled={isActionLoading}
-                  variant="destructive"
-                  className="min-w-[120px]"
-                >
-                  {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
-                  Check Out
-                </Button>
+                <div className="flex items-center gap-6">
+                  <LiveTimer checkInAt={activeSession.check_in_at} />
+                  <Button 
+                    onClick={handleCheckOut} 
+                    disabled={isActionLoading}
+                    variant="destructive"
+                    className="min-w-[120px]"
+                  >
+                    {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
+                    Check Out
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -211,10 +243,11 @@ export default function AttendancePage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date & Check In</TableHead>
-                    <TableHead>Check Out</TableHead>
-                    <TableHead>Mode</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Check In (PKT)</TableHead>
+                    <TableHead>Check Out (PKT)</TableHead>
+                    <TableHead>Worked Time</TableHead>
+                    <TableHead>Classification</TableHead>
+                    <TableHead>Flags</TableHead>
                     <TableHead className="text-right">Options</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -223,8 +256,9 @@ export default function AttendancePage() {
                     <TableRow key={session.id}>
                       <TableCell className="font-medium">{formatDate(session.check_in_at)}</TableCell>
                       <TableCell>{formatDate(session.check_out_at)}</TableCell>
-                      <TableCell className="capitalize">{session.work_mode}</TableCell>
-                      <TableCell>{getStatusBadge(session.session_status)}</TableCell>
+                      <TableCell className="font-mono text-xs">{formatDuration((session as any).total_hours)}</TableCell>
+                      <TableCell>{getStatusBadge(session)}</TableCell>
+                      <TableCell>{getFlags(session)}</TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-slate-100 hover:text-slate-900 h-8 w-8 p-0">

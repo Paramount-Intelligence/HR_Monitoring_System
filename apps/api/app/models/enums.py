@@ -197,3 +197,12 @@ class GoalStatus(str, enum.Enum):
     IN_PROGRESS = "in_progress"
     ACHIEVED = "achieved"
     FAILED = "failed"
+
+
+class AttendanceClassification(str, enum.Enum):
+    ACTIVE = "active"
+    FULL_DAY = "full_day"
+    HALF_DAY = "half_day"
+    INSUFFICIENT = "insufficient"
+    LEAVE = "leave"
+

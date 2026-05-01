@@ -20,7 +20,7 @@ class User(Base, TimestampMixin):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role"), nullable=False)
+    role: Mapped[UserRole] = mapped_column(Enum(UserRole, name="user_role", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False)
     manager_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
@@ -33,7 +33,7 @@ class User(Base, TimestampMixin):
     )
     designation: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[UserStatus] = mapped_column(
-        Enum(UserStatus, name="user_status"), nullable=False, default=UserStatus.ACTIVE
+        Enum(UserStatus, name="user_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=UserStatus.ACTIVE
     )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True

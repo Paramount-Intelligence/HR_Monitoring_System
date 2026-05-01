@@ -5,12 +5,12 @@ import uuid
 from datetime import date, datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.attendance_session import AttendanceSession
 from app.models.attendance_correction import AttendanceCorrection
 from app.models.shift import Shift
-from app.models.enums import AttendanceSessionStatus, UserRole, WorkMode, CorrectionStatus
+from app.models.enums import AttendanceClassification, AttendanceSessionStatus, UserRole, WorkMode, CorrectionStatus
 from app.models.user import User
 from app.schemas.attendance import CheckInRequest, CorrectionRequest, CorrectionResolveRequest
 from app.services.shift_service import ShiftService
@@ -41,6 +41,7 @@ class AttendanceService:
             check_in_at=now,
             work_mode=payload.work_mode,
             session_status=AttendanceSessionStatus.ACTIVE,
+            attendance_classification=AttendanceClassification.ACTIVE,
             is_late_login=is_late
         )
         self.db.add(session)
@@ -72,6 +73,9 @@ class AttendanceService:
         checkin_aware = ensure_pk_datetime(session.check_in_at)
         duration = checkout_aware - checkin_aware
         session.total_hours = duration.total_seconds() / 3600.0
+        
+        # Calculate classification
+        session.attendance_classification = self._calculate_classification(session)
         
         self.db.commit()
         self.db.refresh(session)
@@ -113,7 +117,7 @@ class AttendanceService:
             if not member_ids:
                 return []
         else:
-            member_ids = [u.id for u in self.db.query(User.id).all()]
+            member_ids = [u.id for u in self.db.query(User).all()]
 
         q = self.db.query(AttendanceSession).filter(
             AttendanceSession.user_id.in_(member_ids)
@@ -124,7 +128,7 @@ class AttendanceService:
             end = datetime.combine(date_to, datetime.max.time(), tzinfo=timezone.utc)
             q = q.filter(AttendanceSession.check_in_at <= end)
 
-        return q.order_by(AttendanceSession.check_in_at.desc()).all()
+        return q.options(joinedload(AttendanceSession.user)).order_by(AttendanceSession.check_in_at.desc()).all()
 
     def request_correction(
         self,
@@ -173,12 +177,13 @@ class AttendanceService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
-            member_ids = [u.id for u in self.db.query(User.id).filter(User.manager_id == actor.id).all()]
+            member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]
         else:
-            member_ids = [u.id for u in self.db.query(User.id).all()]
+            member_ids = [u.id for u in self.db.query(User).all()]
 
         return (
             self.db.query(AttendanceSession)
+            .options(joinedload(AttendanceSession.user))
             .filter(
                 AttendanceSession.user_id.in_(member_ids),
                 AttendanceSession.correction_requested == True
@@ -239,6 +244,8 @@ class AttendanceService:
                     if session.check_out_at:
                         session.is_early_logout = ShiftService.is_early_logout(session.check_out_at, shift)
 
+            session.attendance_classification = self._calculate_classification(session)
+            session.is_corrected = True
             correction.status = CorrectionStatus.APPROVED
             session.correction_requested = False
 
@@ -265,3 +272,16 @@ class AttendanceService:
             )
             .first()
         )
+
+    def _calculate_classification(self, session: AttendanceSession) -> AttendanceClassification:
+        if session.session_status == AttendanceSessionStatus.ACTIVE:
+            return AttendanceClassification.ACTIVE
+        
+        # Rule: 9h for full, 4.5h for half
+        hours = session.total_hours or 0
+        if hours >= 9.0:
+            return AttendanceClassification.FULL_DAY
+        elif hours >= 4.5:
+            return AttendanceClassification.HALF_DAY
+        else:
+            return AttendanceClassification.INSUFFICIENT

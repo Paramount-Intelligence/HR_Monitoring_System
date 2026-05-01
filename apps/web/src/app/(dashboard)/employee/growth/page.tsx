@@ -28,6 +28,7 @@ export default function EmployeeGrowthPage() {
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [isNoteDialogOpen, setIsNoteDialogOpen] = useState(false);
   const [newNote, setNewNote] = useState('');
+  const [newGoal, setNewGoal] = useState({ title: '', target_metric: '', target_value: '', deadline: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -69,6 +70,27 @@ export default function EmployeeGrowthPage() {
     }
   };
 
+  const handleAddGoal = async () => {
+    if (!newGoal.title.trim() || !newGoal.target_metric.trim() || !newGoal.target_value || !newGoal.deadline) return;
+    setIsSubmitting(true);
+    try {
+      await growthApi.createGoal({
+        title: newGoal.title,
+        target_metric: newGoal.target_metric,
+        target_value: Number(newGoal.target_value),
+        deadline: newGoal.deadline,
+      });
+      toast.success('Goal created successfully');
+      setNewGoal({ title: '', target_metric: '', target_value: '', deadline: '' });
+      setIsGoalDialogOpen(false);
+      fetchGrowthData();
+    } catch (error: any) {
+      toast.error('Failed to create goal');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -93,14 +115,14 @@ export default function EmployeeGrowthPage() {
               <DialogContent>
                 <DialogHeader><DialogTitle>Set New Goal</DialogTitle></DialogHeader>
                 <div className="space-y-4 py-4">
-                  <div className="space-y-2"><Label>Title</Label><Input placeholder="e.g. Complete Advanced React Course" /></div>
-                  <div className="space-y-2"><Label>Target Metric</Label><Input placeholder="e.g. Modules completed" /></div>
+                  <div className="space-y-2"><Label>Title</Label><Input placeholder="e.g. Complete Advanced React Course" value={newGoal.title} onChange={e => setNewGoal({...newGoal, title: e.target.value})} /></div>
+                  <div className="space-y-2"><Label>Target Metric</Label><Input placeholder="e.g. Modules completed" value={newGoal.target_metric} onChange={e => setNewGoal({...newGoal, target_metric: e.target.value})} /></div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label>Target Value</Label><Input type="number" /></div>
-                    <div className="space-y-2"><Label>Deadline</Label><Input type="date" /></div>
+                    <div className="space-y-2"><Label>Target Value</Label><Input type="number" value={newGoal.target_value} onChange={e => setNewGoal({...newGoal, target_value: e.target.value})} /></div>
+                    <div className="space-y-2"><Label>Deadline</Label><Input type="date" value={newGoal.deadline} onChange={e => setNewGoal({...newGoal, deadline: e.target.value})} /></div>
                   </div>
                 </div>
-                <DialogFooter><Button onClick={() => setIsGoalDialogOpen(false)}>Create Goal</Button></DialogFooter>
+                <DialogFooter><Button onClick={handleAddGoal} disabled={isSubmitting}>{isSubmitting ? 'Creating...' : 'Create Goal'}</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </CardHeader>

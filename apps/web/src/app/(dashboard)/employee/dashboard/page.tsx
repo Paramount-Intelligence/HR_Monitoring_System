@@ -151,34 +151,41 @@ export default function EmployeeDashboard() {
             <CardDescription>Common things you might want to do</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <Link 
                 href="/employee/attendance"
-                className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
+                className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
               >
                 <Activity className="h-5 w-5 text-blue-600" />
-                <span>Manage Attendance</span>
+                <span className="text-xs font-medium">Attendance</span>
               </Link>
               <Link 
                 href="/employee/time-logs"
-                className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
+                className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
               >
                 <Clock className="h-5 w-5 text-blue-600" />
-                <span>Time Tracking</span>
+                <span className="text-xs font-medium">Time Tracking</span>
               </Link>
               <Link 
                 href="/employee/tasks"
-                className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
+                className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
               >
                 <CheckSquare className="h-5 w-5 text-blue-600" />
-                <span>View Tasks</span>
+                <span className="text-xs font-medium">Tasks</span>
               </Link>
               <Link 
                 href="/employee/duties"
-                className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
+                className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
               >
                 <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                <span>My Duties</span>
+                <span className="text-xs font-medium">Duties</span>
+              </Link>
+              <Link 
+                href="/employee/growth"
+                className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-blue-600"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+                <span className="text-xs font-medium">Notes & Goals</span>
               </Link>
             </div>
           </CardContent>

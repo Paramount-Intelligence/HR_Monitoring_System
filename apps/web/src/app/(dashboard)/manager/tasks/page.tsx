@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { tasksApi, Task } from '@/lib/api/tasks';
 import { usersApi } from '@/lib/api/users';
+import { getErrorMessage } from '@/lib/api/client';
 import { User } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,8 +88,7 @@ export default function ManagerTasksPage() {
       form.reset();
       await fetchData();
     } catch (error: any) {
-      const detail = error.response?.data?.detail;
-      toast.error(typeof detail === 'string' ? detail : 'Failed to create task');
+      toast.error(getErrorMessage(error) || 'Failed to create task');
     }
   };
 
@@ -101,8 +101,7 @@ export default function ManagerTasksPage() {
       setSelectedTask(null);
       await fetchData();
     } catch (error: any) {
-      const detail = error.response?.data?.detail;
-      toast.error(typeof detail === 'string' ? detail : 'Failed to update complexity');
+      toast.error(getErrorMessage(error) || 'Failed to update complexity');
     } finally {
       setIsUpdating(false);
     }

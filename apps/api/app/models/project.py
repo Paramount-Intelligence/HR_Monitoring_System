@@ -26,13 +26,13 @@ class Project(Base, TimestampMixin):
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     priority: Mapped[ProjectPriority] = mapped_column(
-        Enum(ProjectPriority, name="project_priority"), nullable=False, default=ProjectPriority.MEDIUM
+        Enum(ProjectPriority, name="project_priority", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=ProjectPriority.MEDIUM
     )
     approval_status: Mapped[ApprovalStatus] = mapped_column(
-        Enum(ApprovalStatus, name="approval_status"), nullable=False, default=ApprovalStatus.PENDING
+        Enum(ApprovalStatus, name="approval_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=ApprovalStatus.PENDING
     )
     project_status: Mapped[ProjectStatus] = mapped_column(
-        Enum(ProjectStatus, name="project_status"), nullable=False, default=ProjectStatus.DRAFT
+        Enum(ProjectStatus, name="project_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=ProjectStatus.DRAFT
     )
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

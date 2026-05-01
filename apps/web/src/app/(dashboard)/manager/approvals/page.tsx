@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { leavesApi, LeaveRequest } from '@/lib/api/leaves';
 import { attendanceApi, AttendanceSession } from '@/lib/api/attendance';
+import { getErrorMessage } from '@/lib/api/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -100,9 +101,23 @@ export default function ManagerApprovalsPage() {
       setCheckOutTime('');
       fetchData();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to resolve request');
+      toast.error(getErrorMessage(error) || 'Failed to resolve request');
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const formatPKT = (dateString: string | null) => {
+    if (!dateString) return '-';
+    try {
+      const date = parseISO(dateString);
+      return new Intl.DateTimeFormat('en-PK', {
+        timeZone: 'Asia/Karachi',
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
+    } catch (e) {
+      return dateString;
     }
   };
 
@@ -174,7 +189,7 @@ export default function ManagerApprovalsPage() {
                                 <User className="h-4 w-4" />
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-medium text-slate-900 text-sm">{req.id.slice(0, 8)}...</span>
+                                <span className="font-medium text-slate-900 text-sm">{req.user_full_name || req.user_id.slice(0, 8)}</span>
                                 <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Requester</span>
                               </div>
                             </div>
@@ -251,7 +266,7 @@ export default function ManagerApprovalsPage() {
                   <Table>
                     <TableHeader className="bg-slate-50/50">
                       <TableRow>
-                        <TableHead>User ID</TableHead>
+                        <TableHead>Employee</TableHead>
                         <TableHead>Original Session</TableHead>
                         <TableHead>Correction Reason</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -260,11 +275,11 @@ export default function ManagerApprovalsPage() {
                     <TableBody>
                       {corrections.map((corr) => (
                         <TableRow key={corr.id} className="hover:bg-slate-50/30 transition-colors">
-                          <TableCell className="font-medium text-sm">{corr.user_id.slice(0, 8)}...</TableCell>
+                          <TableCell className="font-medium text-sm">{corr.user_full_name || corr.user_id.slice(0, 8)}</TableCell>
                           <TableCell>
                             <div className="flex flex-col text-xs text-slate-500">
-                                <span>IN: {format(parseISO(corr.check_in_at), 'Pp')}</span>
-                                <span>OUT: {corr.check_out_at ? format(parseISO(corr.check_out_at), 'Pp') : 'Active'}</span>
+                                <span>IN: {formatPKT(corr.check_in_at)}</span>
+                                <span>OUT: {corr.check_out_at ? formatPKT(corr.check_out_at) : 'Active'}</span>
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[300px] truncate text-slate-600 text-sm italic">
@@ -287,7 +302,14 @@ export default function ManagerApprovalsPage() {
                                     setSelectedItem({id: corr.id, type: 'correction', check_in_at: corr.check_in_at}); 
                                     setActionType('approved'); 
                                     const dateObj = new Date(corr.check_in_at);
-                                    setCheckInTime(dateObj.toISOString().substr(11, 5));
+                                    // Use Intl to get HH:mm in Asia/Karachi
+                                    const pktTime = new Intl.DateTimeFormat('en-US', {
+                                      timeZone: 'Asia/Karachi',
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      hour12: false
+                                    }).format(dateObj);
+                                    setCheckInTime(pktTime);
                                 }}
                               >
                                 <CheckCircle className="h-4 w-4 text-white" />

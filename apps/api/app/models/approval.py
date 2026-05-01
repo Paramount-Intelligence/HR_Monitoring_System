@@ -20,7 +20,7 @@ class Approval(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     entity_type: Mapped[ApprovalEntityType] = mapped_column(
-        Enum(ApprovalEntityType, name="approval_entity_type"), nullable=False
+        Enum(ApprovalEntityType, name="approval_entity_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False
     )
     entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
     requested_by: Mapped[uuid.UUID] = mapped_column(
@@ -30,7 +30,7 @@ class Approval(Base):
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
     decision: Mapped[ApprovalStatus] = mapped_column(
-        Enum(ApprovalStatus, name="approval_status"),
+        Enum(ApprovalStatus, name="approval_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default=ApprovalStatus.PENDING,
     )

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Enum, ForeignKey, String, Text, Uuid, Date, Boolean, DateTime, Integer
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.models.enums import LeaveType, LeaveStatus, HalfDayPeriod
@@ -19,15 +19,15 @@ class LeaveRequest(Base, TimestampMixin):
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
     
-    leave_type: Mapped[LeaveType] = mapped_column(Enum(LeaveType, name="leave_type"), nullable=False)
+    leave_type: Mapped[LeaveType] = mapped_column(Enum(LeaveType, name="leave_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False)
     status: Mapped[LeaveStatus] = mapped_column(
-        Enum(LeaveStatus, name="leave_status"), default=LeaveStatus.PENDING, nullable=False
+        Enum(LeaveStatus, name="leave_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), default=LeaveStatus.PENDING, nullable=False
     )
     
     # Half-day support
     is_half_day: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     half_day_period: Mapped[HalfDayPeriod | None] = mapped_column(
-        Enum(HalfDayPeriod, name="half_day_period"), nullable=True
+        Enum(HalfDayPeriod, name="half_day_period", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=True
     )
     
     reason: Mapped[str] = mapped_column(Text, nullable=False)
@@ -43,3 +43,10 @@ class LeaveRequest(Base, TimestampMixin):
     escalation_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     
     manager_comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Relationships
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+
+    @property
+    def user_full_name(self) -> str:
+        return self.user.full_name if self.user else "Unknown"

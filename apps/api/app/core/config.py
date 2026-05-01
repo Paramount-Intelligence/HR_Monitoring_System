@@ -24,8 +24,14 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     emails_from_email: str | None = None
     emails_from_name: str | None = None
+    
+    # Production Bootstrap Admin
+    bootstrap_admin_email: str = "hr.picentral@gmail.com"
+    bootstrap_admin_password: str = "aliazzam1995"
+    bootstrap_admin_name: str = "HR Admin"
+    
     api_v1_prefix: str = "/api/v1"
-    cors_origins: list[str] = ["http://localhost:3000"]
+    cors_origins: list[str] = ["*"]
 
     @field_validator("cors_origins", mode="before")
     @classmethod

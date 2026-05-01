@@ -16,7 +16,7 @@ export const getErrorMessage = (error: any): string => {
   
   if (errorData) {
     if (errorData.code === 'VALIDATION_ERROR' && Array.isArray(errorData.details)) {
-      return errorData.details.map((d: any) => `${d.loc.join('.')}: ${d.msg}`).join(', ');
+      return errorData.details.map((d: any) => `${d.loc[d.loc.length - 1] || d.loc.join('.')}: ${d.msg}`).join(' | ');
     }
     return errorData.message || 'An unexpected error occurred';
   }
@@ -26,7 +26,10 @@ export const getErrorMessage = (error: any): string => {
   if (detail) {
     if (typeof detail === 'string') return detail;
     if (Array.isArray(detail)) {
-      return detail.map((d: any) => `${d.loc.join('.')}: ${d.msg}`).join(', ');
+      return detail.map((d: any) => {
+        const fieldName = d.loc[d.loc.length - 1] || d.loc.join('.');
+        return `${fieldName}: ${d.msg}`;
+      }).join(' | ');
     }
   }
   
@@ -50,8 +53,32 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
-      if (!error.config.url.includes('/auth/refresh') && !error.config.url.includes('/auth/login')) {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && typeof window !== 'undefined' && !originalRequest._retry) {
+      if (!originalRequest.url.includes('/auth/refresh') && !originalRequest.url.includes('/auth/login')) {
+         originalRequest._retry = true;
+         try {
+           const refresh_token = localStorage.getItem('refresh_token');
+           if (!refresh_token) throw new Error('No refresh token');
+           
+           const res = await axios.post(`${API_URL}/auth/refresh`, { refresh_token }, {
+             headers: { 'Content-Type': 'application/json' }
+           });
+           
+           const { access_token, refresh_token: new_refresh_token } = res.data;
+           localStorage.setItem('access_token', access_token);
+           if (new_refresh_token) {
+             localStorage.setItem('refresh_token', new_refresh_token);
+           }
+           
+           originalRequest.headers.Authorization = `Bearer ${access_token}`;
+           return apiClient(originalRequest);
+         } catch (refreshError) {
+           window.dispatchEvent(new Event('auth:unauthorized'));
+           return Promise.reject(refreshError);
+         }
+      } else if (originalRequest.url.includes('/auth/refresh')) {
          window.dispatchEvent(new Event('auth:unauthorized'));
       }
     }
