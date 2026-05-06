@@ -2,6 +2,7 @@ import axios from 'axios';
 
 // Ensure the API URL is properly set for development
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+console.log('[API Client] Base URL:', API_URL);
 
 const apiClient = axios.create({
   baseURL: API_URL,
