@@ -12,15 +12,20 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 def bootstrap_admin(db: Session) -> None:
-    """Idempotently create the production admin user from settings."""
+    """Idempotently create or sync the production admin user from settings."""
     try:
         # Check if admin already exists
         admin = db.query(User).filter(User.email == settings.bootstrap_admin_email).first()
+        
         if admin:
-            logger.info(f"Admin user {settings.bootstrap_admin_email} already exists.")
+            # Sync password and name to ensure they match current settings
+            admin.password_hash = hash_password(settings.bootstrap_admin_password)
+            admin.full_name = settings.bootstrap_admin_name
+            db.commit()
+            logger.info(f"Admin user {settings.bootstrap_admin_email} synced with current settings.")
             return
 
-        # Create production admin
+        # Create production admin if not found
         new_admin = User(
             full_name=settings.bootstrap_admin_name,
             email=settings.bootstrap_admin_email,
