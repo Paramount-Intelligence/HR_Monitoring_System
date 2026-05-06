@@ -126,6 +126,11 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"message": "Welcome to Workforce Intelligence API"}
+
+
 @app.get("/health", tags=["health"])
 def healthcheck() -> dict[str, str]:
     return {"status": "ok"}
