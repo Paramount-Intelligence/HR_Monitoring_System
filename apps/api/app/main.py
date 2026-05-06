@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.api.router import api_router
 from app.db.session import SessionLocal
 from app.core.permission_seeder import seed_permissions
+from app.core.bootstrapper import bootstrap_admin
 
 import subprocess
 import os
@@ -21,10 +22,11 @@ logger = logging.getLogger("uvicorn.error")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Seed permissions and start Celery worker."""
+    """Seed permissions and bootstrap admin on startup."""
     db = SessionLocal()
     try:
         seed_permissions(db)
+        bootstrap_admin(db)
     finally:
         db.close()
     
