@@ -9,6 +9,7 @@
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
     "build:web": "npm --workspace apps/web run build",
+    "build": "npm run build:web",
     "start": "npm --workspace apps/web start"
   }
 }
