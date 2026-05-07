@@ -19,17 +19,20 @@ def bootstrap_admin(db: Session) -> None:
         
         if admin:
             # Sync password and name to ensure they match current settings
-            admin.password_hash = hash_password(settings.bootstrap_admin_password)
+            # We use strip() to ensure no accidental whitespace makes the password too long
+            pwd = settings.bootstrap_admin_password.strip()
+            admin.password_hash = hash_password(pwd)
             admin.full_name = settings.bootstrap_admin_name
             db.commit()
             logger.info(f"Admin user {settings.bootstrap_admin_email} synced with current settings.")
             return
 
         # Create production admin if not found
+        pwd = settings.bootstrap_admin_password.strip()
         new_admin = User(
             full_name=settings.bootstrap_admin_name,
             email=settings.bootstrap_admin_email,
-            password_hash=hash_password(settings.bootstrap_admin_password),
+            password_hash=hash_password(pwd),
             role=UserRole.ADMIN,
             status=UserStatus.ACTIVE,
             department="Operations",
