@@ -138,7 +138,6 @@ def manager_dashboard(db: Session = Depends(get_db), actor: User = Depends(requi
 
     from app.models.leave_request import LeaveRequest
     from app.models.attendance_correction import AttendanceCorrection
-    from app.models.attendance import AttendanceSession
     from app.models.enums import LeaveStatus, CorrectionStatus
     
     pending_leaves = db.query(LeaveRequest).filter(

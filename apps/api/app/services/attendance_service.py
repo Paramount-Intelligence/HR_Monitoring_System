@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.time_utils import ensure_pk_datetime, PK_TZ
 from app.models.attendance_session import AttendanceSession
 from app.models.attendance_correction import AttendanceCorrection
 from app.models.shift import Shift
@@ -14,7 +15,6 @@ from app.models.enums import AttendanceClassification, AttendanceSessionStatus, 
 from app.models.user import User
 from app.schemas.attendance import CheckInRequest, CorrectionRequest, CorrectionResolveRequest
 from app.services.shift_service import ShiftService
-from app.core.time_utils import ensure_pk_datetime
 
 
 class AttendanceService:
@@ -30,7 +30,6 @@ class AttendanceService:
             )
 
         now = datetime.now(timezone.utc)
-        from app.core.time_utils import ensure_pk_datetime
         now_pk = ensure_pk_datetime(now)
         
         is_late = False
@@ -45,14 +44,12 @@ class AttendanceService:
                 # it's likely the person is very late for "yesterday's" shift.
                 target_date = now_pk.date()
                 if shift.end_time < shift.start_time and now_pk.hour < 10:
-                    from datetime import timedelta
                     target_date = target_date - timedelta(days=1)
                 
                 # Calculate boundaries for the determined shift day
                 expected_start, expected_end = ShiftService.get_shift_boundaries(target_date, shift)
                 
                 # Calculate late minutes based on these specific boundaries
-                from app.core.time_utils import PK_TZ
                 limit = expected_start.astimezone(PK_TZ) + timedelta(minutes=shift.grace_period_minutes)
                 
                 if now_pk > limit:
@@ -88,7 +85,6 @@ class AttendanceService:
             )
 
         now = datetime.now(timezone.utc)
-        from app.core.time_utils import ensure_pk_datetime
         now_pk = ensure_pk_datetime(now)
         
         # Check if checkout is after shift end
