@@ -112,14 +112,9 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 # CORS configuration
-origins = [
-    settings.frontend_base_url,
-    "http://localhost:3000",  # Local development
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origin_regex=r"https?://(localhost|.*\.up\.railway\.app)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
