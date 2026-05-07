@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.attendance import AttendanceSessionRead, CheckInRequest, CorrectionRequest, CorrectionResolveRequest
+from app.schemas.attendance import AttendanceSessionRead, CheckInRequest, CheckOutRequest, CorrectionRequest, CorrectionResolveRequest
 from app.services.attendance_service import AttendanceService
 
 router = APIRouter()
@@ -21,8 +21,8 @@ def check_in(payload: CheckInRequest, db: Session = Depends(get_db), actor: User
 
 
 @router.post("/check-out", response_model=AttendanceSessionRead, summary="Check out of active session")
-def check_out(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> AttendanceSessionRead:
-    return AttendanceService(db).check_out(actor)
+def check_out(payload: CheckOutRequest | None = None, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> AttendanceSessionRead:
+    return AttendanceService(db).check_out(actor, payload)
 
 
 @router.get("/active", response_model=AttendanceSessionRead | None, summary="Get current active session")

@@ -13,6 +13,11 @@ class CheckInRequest(BaseModel):
     work_mode: WorkMode
 
 
+class CheckOutRequest(BaseModel):
+    reason: str | None = None  # 'overtime', 'forgot', etc.
+    note: str | None = None
+
+
 class CorrectionRequest(BaseModel):
     requested_check_in_at: datetime | None = None
     requested_check_out_at: datetime | None = None
@@ -40,8 +45,20 @@ class AttendanceSessionRead(BaseModel):
     correction_reason: str | None
     is_late_login: bool
     is_early_logout: bool
+    is_overtime: bool = False
     is_corrected: bool
     attendance_classification: AttendanceClassification
+    
+    worked_minutes: int | None = None
+    late_minutes: int | None = None
+    early_checkout_minutes: int | None = None
+    
+    checkout_after_shift_reason: str | None = None
+    checkout_after_shift_note: str | None = None
+    
+    expected_shift_start_at: datetime | None = None
+    expected_shift_end_at: datetime | None = None
+    
     created_at: datetime
     updated_at: datetime
     duration_minutes: int | None = None

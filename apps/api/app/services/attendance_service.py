@@ -30,11 +30,38 @@ class AttendanceService:
             )
 
         now = datetime.now(timezone.utc)
+        from app.core.time_utils import ensure_pk_datetime
+        now_pk = ensure_pk_datetime(now)
+        
         is_late = False
+        late_mins = 0
+        expected_start = None
+        expected_end = None
+        
         if actor.shift_id:
             shift = self.db.get(Shift, actor.shift_id)
             if shift:
-                is_late = ShiftService.is_late(now, shift)
+                # For overnight shifts (like 5 PM - 2 AM), if checking in between 12 AM and 10 AM PKT,
+                # it's likely the person is very late for "yesterday's" shift.
+                target_date = now_pk.date()
+                if shift.end_time < shift.start_time and now_pk.hour < 10:
+                    from datetime import timedelta
+                    target_date = target_date - timedelta(days=1)
+                
+                # Calculate boundaries for the determined shift day
+                expected_start, expected_end = ShiftService.get_shift_boundaries(target_date, shift)
+                
+                # Calculate late minutes based on these specific boundaries
+                from app.core.time_utils import PK_TZ
+                limit = expected_start.astimezone(PK_TZ) + timedelta(minutes=shift.grace_period_minutes)
+                
+                if now_pk > limit:
+                    is_late = True
+                    diff = now_pk - expected_start.astimezone(PK_TZ)
+                    late_mins = int(diff.total_seconds() // 60)
+                else:
+                    is_late = False
+                    late_mins = 0
 
         session = AttendanceSession(
             user_id=actor.id,
@@ -42,14 +69,17 @@ class AttendanceService:
             work_mode=payload.work_mode,
             session_status=AttendanceSessionStatus.ACTIVE,
             attendance_classification=AttendanceClassification.ACTIVE,
-            is_late_login=is_late
+            is_late_login=is_late,
+            late_minutes=late_mins,
+            expected_shift_start_at=expected_start.astimezone(timezone.utc).replace(tzinfo=None) if expected_start else None,
+            expected_shift_end_at=expected_end.astimezone(timezone.utc).replace(tzinfo=None) if expected_end else None
         )
         self.db.add(session)
         self.db.commit()
         self.db.refresh(session)
         return session
 
-    def check_out(self, actor: User) -> AttendanceSession:
+    def check_out(self, actor: User, payload: CheckOutRequest | None = None) -> AttendanceSession:
         session = self._get_active_session(actor.id)
         if not session:
             raise HTTPException(
@@ -58,28 +88,83 @@ class AttendanceService:
             )
 
         now = datetime.now(timezone.utc)
+        from app.core.time_utils import ensure_pk_datetime
+        now_pk = ensure_pk_datetime(now)
+        
+        # Check if checkout is after shift end
+        if session.expected_shift_end_at:
+            exp_end_pk = ensure_pk_datetime(session.expected_shift_end_at)
+            if now_pk > exp_end_pk:
+                # Justification required
+                if not payload or not payload.reason:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Justification required for checkout after shift end."
+                    )
+                session.is_overtime = (payload.reason.lower() == 'overtime')
+                session.checkout_after_shift_reason = payload.reason
+                session.checkout_after_shift_note = payload.note
+
         is_early = False
+        early_mins = 0
         if actor.shift_id:
             shift = self.db.get(Shift, actor.shift_id)
             if shift:
-                is_early = ShiftService.is_early_logout(now, shift)
+                is_early, early_mins = ShiftService.is_early_logout(now, shift, session.expected_shift_end_at)
 
         session.check_out_at = now
         session.is_early_logout = is_early
+        session.early_checkout_minutes = early_mins
         session.session_status = AttendanceSessionStatus.COMPLETED
         
-        # Calculate total hours
-        checkout_aware = ensure_pk_datetime(session.check_out_at)
-        checkin_aware = ensure_pk_datetime(session.check_in_at)
-        duration = checkout_aware - checkin_aware
-        session.total_hours = duration.total_seconds() / 3600.0
+        # Calculate minutes and hours
+        delta = session.check_out_at - session.check_in_at
+        total_seconds = max(0, int(delta.total_seconds()))
+        session.worked_minutes = total_seconds // 60
+        session.total_hours = total_seconds / 3600.0
         
         # Calculate classification
         session.attendance_classification = self._calculate_classification(session)
         
         self.db.commit()
         self.db.refresh(session)
+        
+        # Update DailyStats
+        self._update_daily_stats(session)
+        
         return session
+
+    def _update_daily_stats(self, session: AttendanceSession) -> None:
+        """Sync session data to DailyStats aggregation."""
+        from app.models.daily_stats import DailyStats
+        from app.core.time_utils import ensure_pk_datetime
+        
+        # We aggregate based on the check-in date in PKT
+        pk_checkin = ensure_pk_datetime(session.check_in_at)
+        target_date = pk_checkin.date()
+        
+        stats = self.db.query(DailyStats).filter(
+            DailyStats.user_id == session.user_id,
+            DailyStats.date == target_date
+        ).first()
+        
+        if not stats:
+            stats = DailyStats(
+                user_id=session.user_id,
+                date=target_date,
+                primary_session_id=session.id
+            )
+            self.db.add(stats)
+        
+        # Update aggregate metrics
+        # For simplicity, we assume one primary session per day for these flags
+        stats.total_hours = session.total_hours or 0.0
+        stats.is_late_login = session.is_late_login
+        stats.is_early_logout = session.is_early_logout
+        stats.is_overtime = session.is_overtime
+        stats.is_absent = False
+        
+        self.db.commit()
 
     def get_active(self, actor: User) -> AttendanceSession | None:
         return self._get_active_session(actor.id)
@@ -95,10 +180,10 @@ class AttendanceService:
             AttendanceSession.user_id == actor.id
         )
         if date_from:
-            q = q.filter(AttendanceSession.check_in_at >= datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc))
+            # Note: filter by calendar date of check_in_at
+            q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) >= date_from)
         if date_to:
-            end = datetime.combine(date_to, datetime.max.time(), tzinfo=timezone.utc)
-            q = q.filter(AttendanceSession.check_in_at <= end)
+            q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) <= date_to)
             
         return q.order_by(AttendanceSession.check_in_at.desc()).all()
 
@@ -123,10 +208,9 @@ class AttendanceService:
             AttendanceSession.user_id.in_(member_ids)
         )
         if date_from:
-            q = q.filter(AttendanceSession.check_in_at >= datetime.combine(date_from, datetime.min.time(), tzinfo=timezone.utc))
+             q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) >= date_from)
         if date_to:
-            end = datetime.combine(date_to, datetime.max.time(), tzinfo=timezone.utc)
-            q = q.filter(AttendanceSession.check_in_at <= end)
+             q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) <= date_to)
 
         return q.options(joinedload(AttendanceSession.user)).order_by(AttendanceSession.check_in_at.desc()).all()
 
@@ -230,24 +314,28 @@ class AttendanceService:
             
             # Recalculate duration and hours
             if session.check_out_at:
-                checkout_aware = ensure_pk_datetime(session.check_out_at)
-                checkin_aware = ensure_pk_datetime(session.check_in_at)
-                duration = checkout_aware - checkin_aware
-                session.total_hours = duration.total_seconds() / 3600.0
+                delta = session.check_out_at - session.check_in_at
+                total_seconds = max(0, int(delta.total_seconds()))
+                session.worked_minutes = total_seconds // 60
+                session.total_hours = total_seconds / 3600.0
 
             # Recalculate flags
             user = self.db.get(User, session.user_id)
             if user and user.shift_id:
                 shift = self.db.get(Shift, user.shift_id)
                 if shift:
-                    session.is_late_login = ShiftService.is_late(session.check_in_at, shift)
+                    session.is_late_login, session.late_minutes = ShiftService.is_late(session.check_in_at, shift)
                     if session.check_out_at:
-                        session.is_early_logout = ShiftService.is_early_logout(session.check_out_at, shift)
+                        session.is_early_logout, session.early_checkout_minutes = ShiftService.is_early_logout(session.check_out_at, shift, session.expected_shift_end_at)
 
             session.attendance_classification = self._calculate_classification(session)
             session.is_corrected = True
             correction.status = CorrectionStatus.APPROVED
             session.correction_requested = False
+            
+            # Update DailyStats
+            if session.check_out_at:
+                self._update_daily_stats(session)
 
         elif payload.action == 'reject':
             correction.status = CorrectionStatus.REJECTED
@@ -277,11 +365,18 @@ class AttendanceService:
         if session.session_status == AttendanceSessionStatus.ACTIVE:
             return AttendanceClassification.ACTIVE
         
-        # Rule: 9h for full, 4.5h for half
+        # Business Rules:
+        # Full Day: >= 9 hours
+        # Half Day: >= 4.5 hours and < 9 hours
+        # Short Leave: < 4.5 hours
+        # Insufficient: if near 0 or as per current policy
+        
         hours = session.total_hours or 0
         if hours >= 9.0:
             return AttendanceClassification.FULL_DAY
         elif hours >= 4.5:
             return AttendanceClassification.HALF_DAY
+        elif hours > 0.5: # More than 30 mins but less than 4.5h
+            return AttendanceClassification.SHORT_LEAVE
         else:
             return AttendanceClassification.INSUFFICIENT

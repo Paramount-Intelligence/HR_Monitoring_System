@@ -7,12 +7,25 @@ export interface AttendanceSession {
   check_out_at: string | null;
   work_mode: 'office' | 'wfh';
   session_status: 'active' | 'completed' | 'incomplete' | 'corrected';
-  attendance_classification: 'active' | 'full_day' | 'half_day' | 'insufficient' | 'leave';
+  attendance_classification: 'active' | 'full_day' | 'half_day' | 'short_leave' | 'insufficient' | 'leave';
   is_late_login: boolean;
   is_early_logout: boolean;
+  is_overtime: boolean;
   is_corrected: boolean;
   correction_requested: boolean;
   correction_reason: string | null;
+  
+  worked_minutes: number | null;
+  late_minutes: number | null;
+  early_checkout_minutes: number | null;
+  
+  checkout_after_shift_reason: string | null;
+  checkout_after_shift_note: string | null;
+  
+  expected_shift_start_at: string | null;
+  expected_shift_end_at: string | null;
+  
+  total_hours?: number;
   created_at: string;
   updated_at: string;
 }
@@ -25,10 +38,8 @@ export const attendanceApi = {
     return response.data;
   },
 
-  checkOut: async (notes?: string) => {
-    const response = await apiClient.post<AttendanceSession>('/attendance/check-out', {
-      notes
-    });
+  checkOut: async (justification?: { reason: string; note: string }) => {
+    const response = await apiClient.post<AttendanceSession>('/attendance/check-out', justification);
     return response.data;
   },
 

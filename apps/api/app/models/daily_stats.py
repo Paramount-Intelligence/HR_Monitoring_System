@@ -22,6 +22,7 @@ class DailyStats(Base, TimestampMixin):
     total_hours: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     is_late_login: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_early_logout: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_overtime: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_absent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
     # Leave / WFH Context

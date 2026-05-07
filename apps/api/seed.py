@@ -33,6 +33,20 @@ try:
         print("Database already has users — skipping seed.")
         sys.exit(0)
 
+    # Create Shift
+    from app.models.shift import Shift
+    from datetime import time
+    
+    night_shift = Shift(
+        name="Overnight Shift (PKT)",
+        start_time=time(17, 0), # 5 PM
+        end_time=time(2, 0),    # 2 AM
+        grace_period_minutes=15,
+        working_days="1,2,3,4,5"
+    )
+    db.add(night_shift)
+    db.flush()
+
     admin = User(
         full_name="System Admin",
         email="admin@company.com",
@@ -41,6 +55,7 @@ try:
         status=UserStatus.ACTIVE,
         department="IT",
         designation="Administrator",
+        shift_id=night_shift.id
     )
     db.add(admin)
     db.flush()
@@ -54,6 +69,7 @@ try:
         department="Engineering",
         designation="Engineering Manager",
         created_by=admin.id,
+        shift_id=night_shift.id
     )
     manager2 = User(
         full_name="James Manager",
@@ -64,6 +80,7 @@ try:
         department="Product",
         designation="Product Manager",
         created_by=admin.id,
+        shift_id=night_shift.id
     )
     db.add_all([manager1, manager2])
     db.flush()
@@ -89,6 +106,7 @@ try:
             department=dept,
             manager_id=mgr_id,
             created_by=admin.id,
+            shift_id=night_shift.id
         ))
 
     db.commit()

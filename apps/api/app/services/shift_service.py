@@ -62,33 +62,65 @@ class ShiftService:
         return user
 
     @staticmethod
-    def is_late(check_in: datetime, shift: Shift) -> bool:
-        """Detect if check-in is late, supporting overnight rollover."""
-        if not check_in or not shift:
-            return False
+    def get_shift_boundaries(target_date: date, shift: Shift) -> tuple[datetime, datetime]:
+        """Calculate start and end datetimes for a shift on a given date in PKT."""
+        from app.core.time_utils import PK_TZ
+        
+        # Start is on the target date
+        start = datetime.combine(target_date, shift.start_time).replace(tzinfo=PK_TZ)
+        
+        # End calculation
+        if shift.end_time < shift.start_time:
+            # Overnight shift
+            end = datetime.combine(target_date + timedelta(days=1), shift.end_time).replace(tzinfo=PK_TZ)
+        else:
+            # Same day shift
+            end = datetime.combine(target_date, shift.end_time).replace(tzinfo=PK_TZ)
             
-        # We only care about the time part
-        check_in_time = check_in.time()
-        
-        # Calculate expected start with grace
-        grace_delta = timedelta(minutes=shift.grace_period_minutes)
-        # Convert time to datetime on a dummy day to add delta
-        dummy_today = datetime.combine(datetime.min.date(), shift.start_time)
-        limit_time = (dummy_today + grace_delta).time()
-        
-        # For overnight shifts, if check_in is before shift.start_time but after midnight, 
-        # it's potentially very late or very early.
-        # But usually late login is checked against the start time of the session day.
-        
-        # Simple logic: if check_in_time > limit_time
-        # (Assuming the check-in is on the intended shift day)
-        return check_in_time > limit_time
+        return start, end
 
     @staticmethod
-    def is_early_logout(check_out: datetime, shift: Shift) -> bool:
-        """Detect if check-out is early, supporting overnight rollover."""
-        if not check_out or not shift:
-            return False
+    def is_late(check_in: datetime, shift: Shift) -> tuple[bool, int]:
+        """Detect if check-in is late, returns (is_late, minutes_late)."""
+        if not check_in or not shift:
+            return False, 0
             
-        check_out_time = check_out.time()
-        return check_out_time < shift.end_time
+        from app.core.time_utils import ensure_pk_datetime
+        check_in_pk = ensure_pk_datetime(check_in)
+        
+        # We need to determine which "shift day" this check-in belongs to.
+        # For a 5 PM shift, if checking in at 4 PM or 6 PM, it's today's shift.
+        # If checking in at 2 AM, it might be yesterday's shift if we are very late.
+        # But usually check_in starts a new session.
+        
+        shift_start, _ = ShiftService.get_shift_boundaries(check_in_pk.date(), shift)
+        
+        # Apply grace period
+        limit = shift_start + timedelta(minutes=shift.grace_period_minutes)
+        
+        if check_in_pk > limit:
+            diff = check_in_pk - shift_start
+            return True, int(diff.total_seconds() // 60)
+            
+        return False, 0
+
+    @staticmethod
+    def is_early_logout(check_out: datetime, shift: Shift, expected_end: datetime | None = None) -> tuple[bool, int]:
+        """Detect if check-out is early, returns (is_early, minutes_early)."""
+        if not check_out or not shift:
+            return False, 0
+            
+        from app.core.time_utils import ensure_pk_datetime
+        check_out_pk = ensure_pk_datetime(check_out)
+        
+        if not expected_end:
+            # If not provided, assume the shift ended on the same day (or next day if overnight)
+            # relative to the check_out date. This is tricky for overnight.
+            # Better to pass expected_end from the session.
+            return False, 0
+            
+        if check_out_pk < expected_end:
+            diff = expected_end - check_out_pk
+            return True, int(diff.total_seconds() // 60)
+            
+        return False, 0
