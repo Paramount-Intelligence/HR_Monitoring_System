@@ -45,7 +45,7 @@ export default function TasksPage() {
       // Assuming GET /tasks with no args returns scoped tasks for the user
       const tasksData = await tasksApi.getTasks();
       // Only approved/active projects should accept tasks, assuming API handles this or we filter
-      const projectsData = await projectsApi.getProjects({ projectStatus: 'active' }); 
+      const projectsData = await projectsApi.getProjects({ project_status: 'active' }); 
       setTasks(tasksData);
       setProjects(projectsData);
     } catch (error) {
@@ -233,7 +233,7 @@ export default function TasksPage() {
                         <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
                           <Briefcase className="h-3 w-3" />
                           <span className="truncate max-w-[200px]">
-                            {projects.find(p => p.id === task.project_id)?.title || 'Unknown Project'}
+                            {task.project_title || 'Unknown Project'}
                           </span>
                         </div>
                       </TableCell>

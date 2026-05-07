@@ -98,7 +98,7 @@ export default function AdminAuditLogsPage() {
                         {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
                       </TableCell>
                       <TableCell className="font-medium text-xs">
-                        User {log.actor_user_id?.substring(0, 8) || '-'}
+                        {log.actor_name || `User ${log.actor_user_id?.substring(0, 8)}`}
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={getActionColor(log.action_type)}>

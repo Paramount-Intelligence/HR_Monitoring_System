@@ -83,6 +83,7 @@ def employee_dashboard(db: Session = Depends(get_db), actor: User = Depends(get_
     timer = TimerState(
         active=active_log is not None,
         task_id=active_log.task_id if active_log else None,
+        task_title=active_log.task.title if active_log and active_log.task else None,
         started_at=ensure_pk_datetime(active_log.started_at) if active_log else None,
         elapsed_minutes=elapsed,
     )
@@ -102,6 +103,7 @@ def employee_dashboard(db: Session = Depends(get_db), actor: User = Depends(get_
         total_time_today=duration or 0,
         productive_time_today=total_logged,
         active_timer_task_id=active_log.task_id if active_log else None,
+        active_timer_task_title=active_log.task.title if active_log and active_log.task else None,
         tasks_in_progress=task_counts.in_progress,
         tasks_due_soon=due_soon,
     )

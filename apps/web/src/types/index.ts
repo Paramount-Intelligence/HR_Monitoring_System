@@ -6,9 +6,13 @@ export interface User {
   status: 'active' | 'inactive' | 'suspended';
   department?: string | null;
   department_id?: string | null;
+  department_name?: string | null;
   designation?: string | null;
   manager_id?: string | null;
+  manager_name?: string | null;
   shift_id?: string | null;
+  shift_name?: string | null;
+  shift_timing?: string | null;
   created_at: string;
   updated_at: string;
 }

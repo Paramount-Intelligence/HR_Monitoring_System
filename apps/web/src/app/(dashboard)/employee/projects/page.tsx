@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { projectsApi, Project } from '@/lib/api/projects';
+import { usersApi } from '@/lib/api/users';
+import { User } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,6 +38,7 @@ type ProjectFormValues = z.infer<typeof projectSchema>;
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
@@ -51,7 +54,21 @@ export default function ProjectsPage() {
   };
 
   useEffect(() => {
-    fetchProjects();
+    const init = async () => {
+      try {
+        const [projectsData, userData] = await Promise.all([
+          projectsApi.getProjects(),
+          usersApi.getMe()
+        ]);
+        setProjects(projectsData);
+        setUser(userData);
+      } catch (error) {
+        toast.error('Failed to initialize page');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
   }, []);
 
   const form = useForm<ProjectFormValues>({
@@ -68,7 +85,8 @@ export default function ProjectsPage() {
     try {
       await projectsApi.createProject({
         ...data,
-        due_date: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined
+        due_date: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined,
+        manager_id: user?.manager_id || undefined
       });
       toast.success('Project created and pending approval');
       setIsDialogOpen(false);
@@ -113,9 +131,11 @@ export default function ProjectsPage() {
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger render={<Button className="bg-blue-600 hover:bg-blue-700" />}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Project
+          <DialogTrigger asChild>
+            <Button className="bg-blue-600 hover:bg-blue-700">
+              <Plus className="mr-2 h-4 w-4" />
+              New Project
+            </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>

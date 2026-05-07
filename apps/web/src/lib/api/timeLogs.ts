@@ -3,6 +3,7 @@ import apiClient from './client';
 export interface TimeLog {
   id: string;
   task_id: string;
+  task_title?: string;
   user_id: string;
   started_at: string;
   ended_at: string | null;

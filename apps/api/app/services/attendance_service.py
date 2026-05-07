@@ -68,8 +68,8 @@ class AttendanceService:
             attendance_classification=AttendanceClassification.ACTIVE,
             is_late_login=is_late,
             late_minutes=late_mins,
-            expected_shift_start_at=expected_start.astimezone(timezone.utc).replace(tzinfo=None) if expected_start else None,
-            expected_shift_end_at=expected_end.astimezone(timezone.utc).replace(tzinfo=None) if expected_end else None
+            expected_shift_start_at=expected_start.astimezone(timezone.utc) if expected_start else None,
+            expected_shift_end_at=expected_end.astimezone(timezone.utc) if expected_end else None
         )
         self.db.add(session)
         self.db.commit()

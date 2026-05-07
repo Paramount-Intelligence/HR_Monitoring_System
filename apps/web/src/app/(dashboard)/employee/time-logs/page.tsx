@@ -207,7 +207,7 @@ export default function TimeLogsPage() {
                 <div className="p-3 bg-white border rounded-md">
                   <span className="text-sm text-slate-500 block mb-1">Currently Tracking:</span>
                   <span className="font-medium text-slate-900">
-                    {tasks.find(t => t.id === activeLog.task_id)?.title || 'Unknown Task'}
+                    {activeLog.task_title || 'Unknown Task'}
                   </span>
                   <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
                     <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
@@ -286,7 +286,7 @@ export default function TimeLogsPage() {
                     <TableRow key={log.id} className={log.status === 'active' ? 'bg-blue-50/50' : ''}>
                       <TableCell>
                         <div className="font-medium text-slate-900 truncate max-w-[280px]">
-                          {tasks.find(t => t.id === log.task_id)?.title || 'Unknown Task'}
+                          {log.task_title || 'Unknown Task'}
                         </div>
                       </TableCell>
                       <TableCell className="text-slate-500">{formatDateTime(log.started_at)}</TableCell>

@@ -3,7 +3,9 @@ import apiClient from './client';
 export interface Task {
   id: string;
   project_id: string;
+  project_title?: string;
   assigned_to: string;
+  assigned_to_name?: string;
   created_by: string;
   title: string;
   description: string;

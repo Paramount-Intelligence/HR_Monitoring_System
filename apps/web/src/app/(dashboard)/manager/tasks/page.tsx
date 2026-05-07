@@ -61,7 +61,7 @@ export default function ManagerTasksPage() {
       const [tasksData, teamData, projectsData] = await Promise.all([
         tasksApi.getTasks(),
         usersApi.getUsers(),
-        projectsApi.getProjects({ projectStatus: 'active' })
+        projectsApi.getProjects({ project_status: 'active' })
       ]);
       setTasks(tasksData);
       setTeam(teamData.filter(u => u.role !== 'admin')); // Exclude admins from assignees
@@ -107,9 +107,8 @@ export default function ManagerTasksPage() {
     }
   };
 
-  const getAssigneeName = (id: string) => {
-    const user = team.find(u => u.id === id);
-    return user ? user.full_name : 'Unknown';
+  const getAssigneeName = (task: Task) => {
+    return task.assigned_to_name || 'Unknown';
   };
 
   const getPriorityBadge = (priority: string) => {
@@ -275,7 +274,8 @@ export default function ManagerTasksPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-slate-50/50">
-                    <TableHead className="w-[300px]">Task</TableHead>
+                    <TableHead className="w-[200px]">Task</TableHead>
+                    <TableHead>Project</TableHead>
                     <TableHead>Assignee</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
@@ -294,7 +294,12 @@ export default function ManagerTasksPage() {
                           </div>
                         )}
                       </TableCell>
-                      <TableCell className="text-slate-600">{getAssigneeName(task.assigned_to)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-slate-50 text-slate-600 font-medium">
+                          {task.project_title || 'No Project'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-slate-600">{getAssigneeName(task)}</TableCell>
                       <TableCell>{getStatusBadge(task.status)}</TableCell>
                       <TableCell>{getPriorityBadge(task.priority)}</TableCell>
                       <TableCell>

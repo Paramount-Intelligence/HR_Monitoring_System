@@ -27,6 +27,7 @@ export interface LeaveRequest {
 export interface ApprovalTimelineEntry {
   id: string;
   actor_id: string;
+  actor_name?: string;
   action: ApprovalAction;
   comment: string | null;
   created_at: string;

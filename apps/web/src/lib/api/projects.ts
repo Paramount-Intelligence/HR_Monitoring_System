@@ -27,7 +27,7 @@ export const projectsApi = {
     return response.data;
   },
 
-  createProject: async (data: { title: string; description: string; priority: string; due_date?: string }) => {
+  createProject: async (data: { title: string; description: string; priority: string; due_date?: string; manager_id?: string }) => {
     const response = await apiClient.post<Project>('/projects', data);
     return response.data;
   },

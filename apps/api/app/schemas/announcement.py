@@ -8,6 +8,9 @@ from pydantic import BaseModel, Field
 class AnnouncementCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     content: str
+    audience: str = "ALL"
+    start_date: datetime | None = None
+    end_date: datetime | None = None
     is_active: bool = True
 
 class AnnouncementRead(BaseModel):
@@ -16,6 +19,9 @@ class AnnouncementRead(BaseModel):
     id: uuid.UUID
     title: str
     content: str
+    audience: str
+    start_date: datetime | None
+    end_date: datetime | None
     created_by: uuid.UUID
     is_active: bool
     created_at: datetime

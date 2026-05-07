@@ -36,9 +36,8 @@ export default function ResetPasswordContent() {
   useEffect(() => {
     if (!token) {
       toast.error('Invalid or missing reset token');
-      router.push('/login');
     }
-  }, [token, router]);
+  }, [token]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -105,15 +104,26 @@ export default function ResetPasswordContent() {
         <div className="bg-white p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/60">
           <div className="mb-6">
             <div className="h-12 w-12 rounded-xl bg-violet-50 flex items-center justify-center mb-4">
-              <ShieldCheck className="h-6 w-6 text-violet-600" />
+              <ShieldCheck className={`h-6 w-6 ${!token ? 'text-slate-400' : 'text-violet-600'}`} />
             </div>
-            <h1 className="text-2xl font-semibold text-slate-900">Set new password</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {!token ? 'Invalid Link' : 'Set new password'}
+            </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Please enter your new password below to regain access.
+              {!token 
+                ? 'This password reset link is missing a valid token. Please request a new one.' 
+                : 'Please enter your new password below to regain access.'}
             </p>
           </div>
 
-          <Form {...form}>
+          {!token ? (
+            <Link href="/forgot-password" className="block">
+              <Button className="w-full h-11 bg-[#0f172a] hover:bg-[#1e293b] text-white font-medium">
+                Request New Link
+              </Button>
+            </Link>
+          ) : (
+            <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
                 control={form.control}
@@ -174,6 +184,7 @@ export default function ResetPasswordContent() {
               </Button>
             </form>
           </Form>
+          )}
         </div>
       </div>
     </div>

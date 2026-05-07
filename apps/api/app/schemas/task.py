@@ -39,7 +39,9 @@ class TaskRead(BaseModel):
 
     id: uuid.UUID
     project_id: uuid.UUID
+    project_title: str | None = None
     assigned_to: uuid.UUID
+    assigned_to_name: str | None = None
     created_by: uuid.UUID
     title: str
     description: str | None

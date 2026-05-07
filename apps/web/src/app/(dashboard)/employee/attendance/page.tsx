@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { attendanceApi, AttendanceSession } from '@/lib/api/attendance';
 import { getErrorMessage } from '@/lib/api/client';
+import apiClient from '@/lib/api/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,12 +21,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 export default function AttendancePage() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [workMode, setWorkMode] = useState<'office' | 'wfh'>('office');
-  
+
   // Correction Dialog
-  const [correctionDialog, setCorrectionDialog] = useState<{isOpen: boolean, sessionId: string}>({isOpen: false, sessionId: ''});
+  const [correctionDialog, setCorrectionDialog] = useState<{ isOpen: boolean, sessionId: string }>({ isOpen: false, sessionId: '' });
   const [correctionReason, setCorrectionReason] = useState('');
 
   // Checkout Justification Dialog
@@ -33,10 +35,14 @@ export default function AttendancePage() {
   const [checkoutReason, setCheckoutReason] = useState<'overtime' | 'forgot'>('overtime');
   const [checkoutNote, setCheckoutNote] = useState('');
 
-  const fetchSessions = async () => {
+  const fetchData = async () => {
     try {
-      const data = await attendanceApi.getMySessions();
-      setSessions(data);
+      const [sessionsData, userData] = await Promise.all([
+        attendanceApi.getMySessions(),
+        apiClient.get('/users/me').then(res => res.data)
+      ]);
+      setSessions(sessionsData);
+      setCurrentUser(userData);
     } catch (error) {
       toast.error('Failed to load attendance history');
     } finally {
@@ -45,7 +51,7 @@ export default function AttendancePage() {
   };
 
   useEffect(() => {
-    fetchSessions();
+    fetchData();
   }, []);
 
   const activeSession = useMemo(() => sessions.find(s => s.session_status === 'active'), [sessions]);
@@ -55,7 +61,7 @@ export default function AttendancePage() {
     try {
       await attendanceApi.checkIn(workMode);
       toast.success('Checked in successfully');
-      await fetchSessions();
+      await fetchData();
     } catch (error: any) {
       toast.error(getErrorMessage(error) || 'Failed to check in');
     } finally {
@@ -75,7 +81,7 @@ export default function AttendancePage() {
         return;
       }
     }
-    
+
     // Normal checkout
     performCheckOut();
   };
@@ -88,7 +94,7 @@ export default function AttendancePage() {
       setCheckoutDialog({ isOpen: false });
       setCheckoutReason('overtime');
       setCheckoutNote('');
-      await fetchSessions();
+      await fetchData();
     } catch (error: any) {
       toast.error(getErrorMessage(error) || 'Failed to check out');
     } finally {
@@ -107,7 +113,7 @@ export default function AttendancePage() {
       toast.success('Correction request submitted');
       setCorrectionDialog({ isOpen: false, sessionId: '' });
       setCorrectionReason('');
-      await fetchSessions();
+      await fetchData();
     } catch (error: any) {
       toast.error(getErrorMessage(error) || 'Failed to submit correction request');
     } finally {
@@ -115,39 +121,50 @@ export default function AttendancePage() {
     }
   };
 
+  const normalizeDate = (dateString: string | null) => {
+    if (!dateString) return null;
+    return dateString.endsWith('Z') || dateString.includes('+')
+      ? dateString
+      : `${dateString}Z`;
+  };
+
   const formatDatePKT = (dateString: string | null) => {
-    if (!dateString) return '-';
+    const normalized = normalizeDate(dateString);
+    if (!normalized) return '-';
     try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-PK', {
+      const date = new Date(normalized);
+      return date.toLocaleTimeString('en-US', {
         timeZone: 'Asia/Karachi',
         hour: 'numeric',
         minute: 'numeric',
         hour12: true,
-      }).format(date);
+      });
     } catch (e) {
+      console.error('Error formatting time:', e);
       return '-';
     }
   };
 
   const formatFullDatePKT = (dateString: string | null) => {
-    if (!dateString) return '-';
+    const normalized = normalizeDate(dateString);
+    if (!normalized) return '-';
     try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('en-PK', {
+      const date = new Date(normalized);
+      return date.toLocaleDateString('en-US', {
         timeZone: 'Asia/Karachi',
         month: 'short',
         day: 'numeric',
         year: 'numeric',
-      }).format(date);
+      });
     } catch (e) {
+      console.error('Error formatting date:', e);
       return '-';
     }
   };
 
   const getStatusBadge = (session: AttendanceSession) => {
     const classification = session.attendance_classification || 'active';
-    
+
     switch (classification) {
       case 'active':
         return <Badge className="bg-emerald-500 text-white hover:bg-emerald-600 border-none shadow-sm">ACTIVE</Badge>;
@@ -171,7 +188,7 @@ export default function AttendancePage() {
     if (session.is_late_login) {
       flags.push(
         <Badge key="late" variant="outline" className="text-red-700 border-red-200 bg-red-50 gap-1 px-2 py-0.5">
-          <Clock className="h-3 w-3" /> Late {session.late_minutes ? `${Math.floor(session.late_minutes/60)}h ${session.late_minutes%60}m` : ''}
+          <Clock className="h-3 w-3" /> Late {session.late_minutes ? `${Math.floor(session.late_minutes / 60)}h ${session.late_minutes % 60}m` : ''}
         </Badge>
       );
     }
@@ -196,7 +213,7 @@ export default function AttendancePage() {
         </Badge>
       );
     }
-    
+
     if (flags.length === 0) return <span className="text-xs text-slate-400">None</span>;
     return <div className="flex flex-wrap gap-1.5">{flags}</div>;
   };
@@ -219,7 +236,9 @@ export default function AttendancePage() {
         </div>
         <div className="text-right">
           <div className="text-sm font-medium text-slate-500">Current Shift</div>
-          <div className="text-lg font-bold text-blue-600">5:00 PM - 2:00 AM (PKT)</div>
+          <div className="text-lg font-bold text-blue-600">
+            {currentUser?.shift_name || 'Standard Shift'} ({currentUser?.shift_timing || '5:00 PM - 2:00 AM'})
+          </div>
         </div>
       </div>
 
@@ -243,8 +262,8 @@ export default function AttendancePage() {
                     </span>
                   </div>
                   <p className="text-sm text-slate-500 font-medium">
-                    {activeSession 
-                      ? `Since ${formatDatePKT(activeSession.check_in_at)} • ${activeSession.work_mode.toUpperCase()} Mode` 
+                    {activeSession
+                      ? `Since ${formatDatePKT(activeSession.check_in_at)} • ${activeSession.work_mode.toUpperCase()} Mode`
                       : 'You are currently offline. Check in to start tracking.'}
                   </p>
                 </div>
@@ -258,11 +277,15 @@ export default function AttendancePage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                 <div className="space-y-1">
                   <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Expected Check-in</div>
-                  <div className="font-semibold text-slate-700">5:00 PM</div>
+                  <div className="font-semibold text-slate-700">
+                    {currentUser?.shift_timing?.split(' - ')[0] || '5:00 PM'}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Expected Check-out</div>
-                  <div className="font-semibold text-slate-700">2:00 AM</div>
+                  <div className="font-semibold text-slate-700">
+                    {currentUser?.shift_timing?.split(' - ')[1] || '2:00 AM'}
+                  </div>
                 </div>
                 {activeSession && (
                   <>
@@ -273,7 +296,7 @@ export default function AttendancePage() {
                     <div className="space-y-1">
                       <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Late by</div>
                       <div className={`font-semibold ${activeSession.is_late_login ? 'text-red-600' : 'text-emerald-600'}`}>
-                        {activeSession.is_late_login ? `${Math.floor((activeSession.late_minutes || 0)/60)}h ${(activeSession.late_minutes || 0)%60}m` : '0m'}
+                        {activeSession.is_late_login ? `${Math.floor((activeSession.late_minutes || 0) / 60)}h ${(activeSession.late_minutes || 0) % 60}m` : '0m'}
                       </div>
                     </div>
                   </>
@@ -284,7 +307,7 @@ export default function AttendancePage() {
                 {!activeSession ? (
                   <>
                     <div className="flex items-center gap-2 bg-white rounded-lg border border-slate-200 p-1 pr-3">
-                       <Select value={workMode} onValueChange={(val: 'office'|'wfh') => setWorkMode(val)}>
+                      <Select value={workMode} onValueChange={(val: 'office' | 'wfh') => setWorkMode(val)}>
                         <SelectTrigger className="w-[130px] border-none shadow-none focus:ring-0 h-9">
                           <SelectValue placeholder="Work Mode" />
                         </SelectTrigger>
@@ -304,8 +327,8 @@ export default function AttendancePage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button 
-                      onClick={handleCheckIn} 
+                    <Button
+                      onClick={handleCheckIn}
                       disabled={isActionLoading}
                       size="lg"
                       className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] shadow-lg shadow-blue-200"
@@ -317,12 +340,11 @@ export default function AttendancePage() {
                 ) : (
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full">
                     <LiveTimer checkInAt={activeSession.check_in_at} />
-                    <Button 
-                      onClick={handleCheckOutClick} 
+                    <Button
+                      onClick={handleCheckOutClick}
                       disabled={isActionLoading}
-                      variant="destructive"
                       size="lg"
-                      className="min-w-[140px] shadow-lg shadow-red-200"
+                      className="min-w-[140px] shadow-lg shadow-red-200 bg-red-600 text-white font-bold hover:bg-red-700"
                     >
                       {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
                       CHECK OUT
@@ -374,15 +396,15 @@ export default function AttendancePage() {
                       </TableCell>
                       <TableCell className="font-medium">
                         <div className="flex items-center gap-2">
-                           <LogIn className="h-3 w-3 text-emerald-500" />
-                           {formatDatePKT(session.check_in_at)}
+                          <LogIn className="h-3 w-3 text-emerald-500" />
+                          {formatDatePKT(session.check_in_at)}
                         </div>
                       </TableCell>
                       <TableCell className="font-medium text-slate-600">
                         {session.check_out_at ? (
                           <div className="flex items-center gap-2">
-                             <LogOut className="h-3 w-3 text-red-400" />
-                             {formatDatePKT(session.check_out_at)}
+                            <LogOut className="h-3 w-3 text-red-400" />
+                            {formatDatePKT(session.check_out_at)}
                           </div>
                         ) : (
                           <span className="text-xs italic text-slate-400">In Progress</span>
@@ -403,7 +425,7 @@ export default function AttendancePage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem 
+                            <DropdownMenuItem
                               className="text-blue-600 focus:text-blue-700 font-medium cursor-pointer"
                               onClick={() => setCorrectionDialog({ isOpen: true, sessionId: session.id })}
                               disabled={session.correction_requested}
@@ -428,7 +450,7 @@ export default function AttendancePage() {
       </Card>
 
       {/* Correction Dialog */}
-      <Dialog open={correctionDialog.isOpen} onOpenChange={(open) => setCorrectionDialog(prev => ({...prev, isOpen: open}))}>
+      <Dialog open={correctionDialog.isOpen} onOpenChange={(open) => setCorrectionDialog(prev => ({ ...prev, isOpen: open }))}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Request Attendance Correction</DialogTitle>
@@ -450,9 +472,9 @@ export default function AttendancePage() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" className="border-slate-200 text-slate-600" onClick={() => setCorrectionDialog({ isOpen: false, sessionId: '' })}>Cancel</Button>
-            <Button 
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6" 
-              onClick={handleCorrectionSubmit} 
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6"
+              onClick={handleCorrectionSubmit}
               disabled={isActionLoading}
             >
               {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -471,7 +493,7 @@ export default function AttendancePage() {
               Late Checkout Detected
             </DialogTitle>
             <DialogDescription className="text-slate-600">
-              Your shift ended at 2:00 AM. Please provide a reason for checking out after the scheduled time.
+              Your shift ended at {currentUser?.shift_timing?.split(' - ')[1] || '2:00 AM'}. Please provide a reason for checking out after the scheduled time.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4">
@@ -488,7 +510,7 @@ export default function AttendancePage() {
                 </div>
               </RadioGroup>
             </div>
-            
+
             <div className="space-y-3">
               <Label htmlFor="note" className="text-sm font-bold text-slate-900 uppercase tracking-tight">Justification Note</Label>
               <Textarea
@@ -501,8 +523,8 @@ export default function AttendancePage() {
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12" 
+            <Button
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-12"
               disabled={isActionLoading || !checkoutNote.trim()}
               onClick={() => performCheckOut({ reason: checkoutReason, note: checkoutNote })}
             >

@@ -1,7 +1,7 @@
 import uuid
 
 from sqlalchemy import Enum, ForeignKey, Index, String, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.models.enums import UserRole, UserStatus
@@ -38,3 +38,26 @@ class User(Base, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
     )
+
+    # Relationships
+    manager = relationship("User", remote_side=[id], foreign_keys=[manager_id])
+    shift = relationship("Shift", foreign_keys=[shift_id])
+    dept = relationship("Department", foreign_keys=[department_id])
+
+    @property
+    def manager_name(self) -> str | None:
+        return self.manager.full_name if self.manager else None
+
+    @property
+    def shift_name(self) -> str | None:
+        return self.shift.name if self.shift else None
+
+    @property
+    def shift_timing(self) -> str | None:
+        if not self.shift:
+            return None
+        return f"{self.shift.start_time.strftime('%I:%M %p')} - {self.shift.end_time.strftime('%I:%M %p')}"
+
+    @property
+    def department_name(self) -> str | None:
+        return self.dept.name if self.dept else self.department

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.models.base import Base
@@ -42,3 +42,10 @@ class ApprovalTimeline(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
     )
+
+    # Relationships
+    actor = relationship("User", foreign_keys=[actor_id])
+
+    @property
+    def actor_name(self) -> str:
+        return self.actor.full_name if self.actor else "Unknown"

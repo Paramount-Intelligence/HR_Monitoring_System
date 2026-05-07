@@ -43,8 +43,12 @@ class UserRead(BaseModel):
     status: UserStatus
     department: str | None
     department_id: uuid.UUID | None
+    department_name: str | None = None
     designation: str | None
     manager_id: uuid.UUID | None
+    manager_name: str | None = None
     shift_id: uuid.UUID | None
+    shift_name: str | None = None
+    shift_timing: str | None = None
     created_at: datetime
     updated_at: datetime

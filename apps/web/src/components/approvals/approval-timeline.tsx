@@ -83,7 +83,7 @@ export function ApprovalTimeline({ entries }: ApprovalTimelineProps) {
             )}
             
             <div className="text-[10px] text-slate-400 mt-1">
-              Actor ID: <span className="font-mono">{entry.actor_id.slice(0, 8)}...</span>
+              By: <span className="font-medium text-slate-500">{entry.actor_name || entry.actor_id.slice(0, 8)}</span>
             </div>
           </div>
         </div>

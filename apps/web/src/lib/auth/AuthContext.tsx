@@ -17,7 +17,7 @@ const ROLE_DASHBOARD_MAP: Record<string, string> = {
 };
 
 // Public routes that don't require auth
-const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password'];
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/activate'];
 
 interface AuthContextType {
   user: TokenUser | null;

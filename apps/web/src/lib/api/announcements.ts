@@ -4,8 +4,12 @@ export interface Announcement {
   id: string;
   title: string;
   content: string;
-  is_active?: boolean;
+  audience: string;
+  start_date?: string;
+  end_date?: string;
+  is_active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export const announcementsApi = {
@@ -13,8 +17,15 @@ export const announcementsApi = {
     const response = await apiClient.get<Announcement[]>('/announcements');
     return response.data;
   },
-  createAnnouncement: async (data: { title: string; content: string; priority?: string }) => {
-    const response = await apiClient.post<Announcement>('/announcements', { title: data.title, content: data.content, is_active: true });
+  createAnnouncement: async (data: { 
+    title: string; 
+    content: string; 
+    audience: string;
+    start_date?: string;
+    end_date?: string;
+    is_active?: boolean;
+  }) => {
+    const response = await apiClient.post<Announcement>('/announcements', data);
     return response.data;
   }
 };

@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from app.models.enums import AttendanceSessionStatus, TaskStatus, WorkMode
 
@@ -21,6 +21,13 @@ class AttendanceSummary(BaseModel):
     session_status: AttendanceSessionStatus | None
     duration_minutes: int | None
 
+    @field_serializer("check_in_at", "check_out_at", when_used="always")
+    def serialize_datetime(self, v: datetime | None) -> str | None:
+        if v is None: return None
+        if v.tzinfo is None: v = v.replace(tzinfo=timezone.utc)
+        else: v = v.astimezone(timezone.utc)
+        return v.isoformat().replace("+00:00", "Z")
+
 
 class TaskCounts(BaseModel):
     total: int
@@ -33,8 +40,16 @@ class TaskCounts(BaseModel):
 class TimerState(BaseModel):
     active: bool
     task_id: uuid.UUID | None
+    task_title: str | None = None
     started_at: datetime | None
     elapsed_minutes: int | None
+
+    @field_serializer("started_at", when_used="always")
+    def serialize_datetime(self, v: datetime | None) -> str | None:
+        if v is None: return None
+        if v.tzinfo is None: v = v.replace(tzinfo=timezone.utc)
+        else: v = v.astimezone(timezone.utc)
+        return v.isoformat().replace("+00:00", "Z")
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +64,7 @@ class EmployeeDashboard(BaseModel):
     total_time_today: int = 0
     productive_time_today: int = 0
     active_timer_task_id: uuid.UUID | None = None
+    active_timer_task_title: str | None = None
     tasks_in_progress: int = 0
     tasks_due_soon: int = 0
 
@@ -63,6 +79,13 @@ class TeamMemberAttendance(BaseModel):
     checked_in: bool
     work_mode: WorkMode | None
     check_in_at: datetime | None
+
+    @field_serializer("check_in_at", when_used="always")
+    def serialize_datetime(self, v: datetime | None) -> str | None:
+        if v is None: return None
+        if v.tzinfo is None: v = v.replace(tzinfo=timezone.utc)
+        else: v = v.astimezone(timezone.utc)
+        return v.isoformat().replace("+00:00", "Z")
 
 
 class ManagerDashboard(BaseModel):

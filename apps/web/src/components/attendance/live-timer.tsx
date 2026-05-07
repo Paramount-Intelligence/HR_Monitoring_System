@@ -14,8 +14,11 @@ export function LiveTimer({ checkInAt }: LiveTimerProps) {
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
-      const start = parseISO(checkInAt);
-      const totalSeconds = Math.max(0, differenceInSeconds(now, start));
+      const normalized = checkInAt.endsWith('Z') || checkInAt.includes('+') 
+        ? checkInAt 
+        : `${checkInAt}Z`;
+      const start = new Date(normalized);
+      const totalSeconds = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000));
 
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);

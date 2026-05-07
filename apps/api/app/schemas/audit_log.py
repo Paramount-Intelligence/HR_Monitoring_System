@@ -8,6 +8,7 @@ from app.models.enums import RelatedEntityType
 class AuditLogRead(BaseModel):
     id: UUID
     actor_user_id: UUID = Field(alias="actor_user_id")
+    actor_name: str | None = None
     action_type: str = Field(alias="action_type")
     entity_type: str 
     entity_id: UUID

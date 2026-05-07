@@ -45,6 +45,7 @@ class ApprovalTimelineRead(BaseModel):
     
     id: uuid.UUID
     actor_id: uuid.UUID
+    actor_name: str | None = None
     action: ApprovalAction
     comment: str | None
     created_at: datetime

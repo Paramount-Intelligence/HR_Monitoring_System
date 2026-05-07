@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Briefcase, Plus } from 'lucide-react';
+import { Loader2, Briefcase, Plus, CheckCircle, XCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +30,7 @@ const projectSchema = z.object({
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
 export default function ManagerProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -58,6 +60,16 @@ export default function ManagerProjectsPage() {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  const handleApproveQuick = async (id: string) => {
+    try {
+      await projectsApi.approveProject(id, 'approved');
+      toast.success('Project approved');
+      loadProjects();
+    } catch (error) {
+      toast.error('Failed to approve project');
+    }
+  };
 
   const onSubmit = async (data: ProjectFormValues) => {
     try {
@@ -195,9 +207,34 @@ export default function ManagerProjectsPage() {
                       {project.due_date ? format(parseISO(project.due_date), 'PP') : '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                       <Link href={`/manager/projects/${project.id}`}>
-                         <Button variant="ghost" size="sm">View</Button>
-                       </Link>
+                      <div className="flex justify-end gap-2">
+                        {(project.approval_status === 'pending' || project.approval_status === 'pending_approval') && (
+                          <>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8"
+                              onClick={() => handleApproveQuick(project.id)}
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" size="icon" 
+                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8"
+                              onClick={() => {
+                                // For quick rejection from list, we'll just redirect to detail page or use a simple confirm
+                                // Given the requirement for a reason, redirecting to detail is safer or we add a modal here too.
+                                // Let's just use a simple confirm for now or link to detail.
+                                router.push(`/manager/projects/${project.id}`);
+                              }}
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        <Link href={`/manager/projects/${project.id}`}>
+                          <Button variant="ghost" size="sm">View</Button>
+                        </Link>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

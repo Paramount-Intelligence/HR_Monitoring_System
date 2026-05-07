@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, Integer, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.models.enums import TimeLogSourceType, TimeLogStatus
@@ -34,3 +34,9 @@ class TimeLog(Base, TimestampMixin):
     status: Mapped[TimeLogStatus] = mapped_column(
         Enum(TimeLogStatus, name="time_log_status", native_enum=False, values_callable=lambda obj: [e.value for e in obj]), nullable=False, default=TimeLogStatus.ACTIVE
     )
+
+    task = relationship("Task", foreign_keys=[task_id], lazy="select")
+
+    @property
+    def task_title(self) -> str | None:
+        return self.task.title if self.task else None

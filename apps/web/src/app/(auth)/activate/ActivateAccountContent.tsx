@@ -36,9 +36,8 @@ export default function ActivateAccountContent() {
   useEffect(() => {
     if (!token) {
       toast.error('Invalid or missing activation token');
-      router.push('/login');
     }
-  }, [token, router]);
+  }, [token]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -105,15 +104,26 @@ export default function ActivateAccountContent() {
         <div className="bg-white p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/60">
           <div className="mb-6">
             <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center mb-4">
-              <Sparkles className="h-6 w-6 text-blue-600" />
+              <Sparkles className={`h-6 w-6 ${!token ? 'text-slate-400' : 'text-blue-600'}`} />
             </div>
-            <h1 className="text-2xl font-semibold text-slate-900">Activate your account</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">
+              {!token ? 'Invalid Link' : 'Activate your account'}
+            </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Please set a secure password to complete your account setup.
+              {!token 
+                ? 'This activation link is missing a valid token. Please check your email or contact support.' 
+                : 'Please set a secure password to complete your account setup.'}
             </p>
           </div>
 
-          <Form {...form}>
+          {!token ? (
+            <Link href="/login" className="block">
+              <Button className="w-full h-11 bg-[#0f172a] hover:bg-[#1e293b] text-white font-medium">
+                Back to Login
+              </Button>
+            </Link>
+          ) : (
+            <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
               <FormField
                 control={form.control}
@@ -177,6 +187,7 @@ export default function ActivateAccountContent() {
               </Button>
             </form>
           </Form>
+          )}
         </div>
 
         <p className="text-center text-xs text-slate-400">

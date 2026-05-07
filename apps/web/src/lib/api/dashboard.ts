@@ -5,6 +5,7 @@ export interface DashboardSummary {
   total_time_today: number; // minutes
   productive_time_today: number; // minutes
   active_timer_task_id: string | null;
+  active_timer_task_title: string | null;
   tasks_in_progress: number;
   tasks_due_soon: number;
 }
