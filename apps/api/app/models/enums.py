@@ -30,6 +30,18 @@ class AttendanceSessionStatus(str, enum.Enum):
     CORRECTED = "corrected"
 
 
+class TimerSessionStatus(str, enum.Enum):
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+
+
+class TimerPauseReason(str, enum.Enum):
+    MANUAL = "manual_pause"
+    ATTENDANCE_CHECKOUT = "attendance_checkout"
+    SYSTEM = "system"
+
+
 class ProjectPriority(str, enum.Enum):
     LOW = "low"
     MEDIUM = "medium"
@@ -207,3 +219,8 @@ class AttendanceClassification(str, enum.Enum):
     INSUFFICIENT = "insufficient"
     LEAVE = "leave"
 
+
+class AttendanceBreakType(str, enum.Enum):
+    DINNER = "dinner"
+    PRAYER = "prayer"
+    OTHER = "other"

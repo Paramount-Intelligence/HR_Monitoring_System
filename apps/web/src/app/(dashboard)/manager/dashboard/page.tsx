@@ -1,40 +1,41 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { eodApi, EODReport } from '@/lib/api/eod';
 import { projectsApi, Project } from '@/lib/api/projects';
-import { usersApi } from '@/lib/api/users';
-import { User } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Users, ClipboardCheck, AlertCircle, Loader2, ShieldCheck, Clock, Activity, CheckSquare, Megaphone, Briefcase } from 'lucide-react';
-import { buttonVariants } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
+import { usersApi, User } from '@/lib/api/users';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { 
+  Users, Activity, ClipboardCheck, ShieldCheck, AlertCircle, 
+  Megaphone, Clock, CheckSquare, TrendingUp, Zap
+} from 'lucide-react';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { AnnouncementList } from '@/components/dashboard/announcement-list';
+import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export default function ManagerDashboard() {
   const [data, setData] = useState<any>(null);
   const [eods, setEods] = useState<EODReport[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [myEod, setMyEod] = useState<EODReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [summary, teamEods, myEodData, projectsData, userData] = await Promise.all([
+        const [summary, teamEods, projectsData, userData] = await Promise.all([
           dashboardApi.getManagerSummary(),
           eodApi.getTeamEODs(),
-          eodApi.getMyEOD(),
           projectsApi.getProjects(),
           usersApi.getMe()
         ]);
         setData(summary);
         setEods(teamEods);
-        setMyEod(myEodData);
         setProjects(projectsData);
         setCurrentUser(userData);
       } catch (e) {
@@ -46,15 +47,6 @@ export default function ManagerDashboard() {
     loadData();
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-      </div>
-    );
-  }
-
-  // Provide safe defaults
   const summary = data || {
     team_members_active: 0,
     pending_approvals: 0,
@@ -67,220 +59,155 @@ export default function ManagerDashboard() {
     (p.approval_status === 'pending' || p.approval_status === 'pending_approval') && 
     p.manager_id === currentUser?.id
   );
-  const myEodStatus = myEod ? myEod.status : 'Not Started';
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Team Dashboard</h1>
-          <p className="text-sm text-slate-500">Overview of your team's activity, EOD approvals, and your personal work.</p>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Operational Overview</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Manager Dashboard</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Team Operational Status & Execution Metrics</p>
+        </div>
+        <div className="flex items-center gap-3">
+             <Link href="/manager/team" className={cn(buttonVariants({ variant: "outline" }), "h-12 rounded-2xl border-slate-200 font-black text-[10px] uppercase tracking-[0.2em] px-6 bg-white shadow-sm hover:bg-slate-50 transition-all")}>
+                <Users className="mr-2 h-4 w-4 text-indigo-600" />
+                Team Members
+            </Link>
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Content Area */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Active Team</CardTitle>
-                <Users className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summary.team_members_active}</div>
-                <p className="text-xs text-muted-foreground mt-1">Clocked in today</p>
-              </CardContent>
-            </Card>
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map(i => <KPICardSkeleton key={i} />)}
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <KPICard 
+                title="Active Team Members"
+                value={summary.team_members_active}
+                description="Currently clocked in"
+                icon={Activity}
+                trend={{ value: 12, isPositive: true }}
+            />
+            <KPICard 
+                title="Pending Approvals"
+                value={summary.pending_approvals}
+                description="Actions requiring review"
+                icon={ClipboardCheck}
+                variant={summary.pending_approvals > 0 ? "warning" : "default"}
+            />
+            <KPICard 
+                title="Daily Reports"
+                value={pendingEods.length}
+                description="Unprocessed EOD logs"
+                icon={ShieldCheck}
+                variant={pendingEods.length > 0 ? "indigo" : "default"}
+            />
+            <KPICard 
+                title="Task Bottlenecks"
+                value={summary.blocked_tasks}
+                description="Highlighting blocked or delayed tasks"
+                icon={AlertCircle}
+                variant={summary.blocked_tasks > 0 ? "danger" : "default"}
+            />
+        </div>
+      )}
 
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-                <ClipboardCheck className="h-4 w-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{summary.pending_approvals}</div>
-                <p className="text-xs text-amber-600/80 mt-1">Requires your attention</p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm border-blue-100 bg-blue-50/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending EOD Reviews</CardTitle>
-                <ShieldCheck className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-blue-700">{pendingEods.length}</div>
-                <p className="text-xs text-blue-600/80 mt-1">Team EODs to review</p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Blocked Tasks</CardTitle>
-                <AlertCircle className="h-4 w-4 text-rose-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-rose-600">{summary.blocked_tasks}</div>
-                <p className="text-xs text-rose-600/80 mt-1">Waiting on unblock</p>
-              </CardContent>
-            </Card>
-
-            {pendingProjects.length > 0 && (
-              <Card className="shadow-sm border-amber-100 bg-amber-50/20 sm:col-span-2">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-amber-900">Project Approvals</CardTitle>
-                  <Briefcase className="h-4 w-4 text-amber-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-amber-700">{pendingProjects.length} Pending</div>
-                  <p className="text-xs text-amber-600 mt-1">New projects awaiting your review</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
+      <div className="grid gap-8 lg:grid-cols-12">
+        <div className="lg:col-span-8 space-y-8">
           <div className="grid gap-6 md:grid-cols-2">
-            {/* Manager Personal Work Section */}
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>My Personal Work</CardTitle>
-                <CardDescription>Your daily tracking and duties</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-slate-50 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <div className="bg-emerald-100 p-2 rounded-full">
-                      <Clock className="h-4 w-4 text-emerald-600" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">My Attendance</p>
-                      <p className="text-xs text-slate-500">Manage your check-in/out</p>
-                    </div>
-                  </div>
-                  <Link href="/manager/my-attendance" className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                    Manage
-                  </Link>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <Link 
-                    href="/manager/my-tasks"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
-                  >
-                    <CheckSquare className="h-5 w-5 text-slate-500" />
-                    <span className="text-xs">My Tasks</span>
-                  </Link>
-                  <Link 
-                    href="/manager/my-eod"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
-                  >
-                    <ShieldCheck className="h-5 w-5 text-slate-500" />
-                    <span className="text-xs">My EOD</span>
-                  </Link>
-                  <Link 
-                    href="/manager/projects"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-16 flex flex-col items-center justify-center gap-1 hover:bg-blue-50 hover:text-blue-600")}
-                  >
-                    <Briefcase className="h-5 w-5 text-slate-500" />
-                    <span className="text-xs">Projects</span>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* EOD Review Queue Section */}
-            <Card className="shadow-sm border-blue-100">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            {/* Action Queues */}
+            <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden">
+              <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>EOD Review Queue</CardTitle>
-                  <CardDescription>Employee reports pending approval</CardDescription>
+                  <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Daily Reports</CardTitle>
                 </div>
                 {pendingEods.length > 0 && (
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                    {pendingEods.length} Pending
+                  <Badge className="bg-indigo-600 text-white font-black text-[8px] rounded-lg px-2 h-5">
+                    {pendingEods.length} PENDING
                   </Badge>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-8 pt-6">
                 <div className="space-y-3">
                   {pendingEods.length === 0 ? (
-                    <div className="text-sm text-slate-500 py-4 text-center border rounded-lg border-dashed">
-                      No EOD reports pending review.
+                    <div className="text-[10px] font-bold text-slate-400 py-8 text-center border-2 border-dashed rounded-2xl border-slate-100 uppercase tracking-widest">
+                      Queue fully processed
                     </div>
                   ) : (
-                    pendingEods.slice(0, 2).map((eod) => (
-                      <div key={eod.id} className="p-3 border rounded-lg bg-white shadow-sm flex flex-col gap-2">
-                        <div className="flex justify-between items-start">
-                          <p className="text-sm font-semibold text-slate-900">{eod.user_name}</p>
-                          <Badge variant="outline" className="text-[10px]">{eod.work_mode}</Badge>
+                    pendingEods.slice(0, 3).map((eod) => (
+                      <div key={eod.id} className="p-4 border border-slate-100 rounded-2xl bg-white hover:border-indigo-200 transition-all flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center font-bold text-slate-500 uppercase">
+                                {eod.user_name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-slate-900 leading-none mb-1">{eod.user_name}</p>
+                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{eod.work_mode}</div>
+                            </div>
                         </div>
-                        <div className="flex gap-2 justify-end mt-1">
-                          <Link 
+                        <Link 
                             href={`/manager/eod-reviews?id=${eod.id}`} 
-                            className={cn(buttonVariants({ variant: "default", size: "xs" }), "h-7 text-[10px] bg-blue-600 hover:bg-blue-700")}
-                          >
-                            Review
-                          </Link>
-                        </div>
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 rounded-xl font-bold text-[10px] uppercase tracking-wider text-indigo-600 border-indigo-100 hover:bg-indigo-50")}
+                        >
+                            REVIEW
+                        </Link>
                       </div>
                     ))
                   )}
                 </div>
-                {pendingEods.length > 2 && (
-                  <div className="mt-4 pt-2 border-t text-center">
-                    <Link href="/manager/eod-reviews" className="text-xs text-blue-600 hover:underline">
-                      View all {pendingEods.length} reports &rarr;
+                {pendingEods.length > 3 && (
+                  <div className="mt-6 pt-4 border-t border-slate-50 text-center">
+                    <Link href="/manager/eod-reviews" className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:underline">
+                      Process all {pendingEods.length} reports &rarr;
                     </Link>
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* Project Approval Queue Section */}
-            <Card className="shadow-sm border-amber-100">
-              <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden">
+              <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50 flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle>Project Approvals</CardTitle>
-                  <CardDescription>Review new project requests</CardDescription>
+                  <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Project Approvals</CardTitle>
                 </div>
                 {pendingProjects.length > 0 && (
-                  <Badge variant="secondary" className="bg-amber-100 text-amber-700">
-                    {pendingProjects.length} New
+                  <Badge className="bg-amber-500 text-white font-black text-[8px] rounded-lg px-2 h-5">
+                    {pendingProjects.length} NEW
                   </Badge>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-8 pt-6">
                 <div className="space-y-3">
                   {pendingProjects.length === 0 ? (
-                    <div className="text-sm text-slate-500 py-4 text-center border rounded-lg border-dashed">
-                      No projects pending approval.
+                    <div className="text-[10px] font-bold text-slate-400 py-8 text-center border-2 border-dashed rounded-2xl border-slate-100 uppercase tracking-widest">
+                      No proposals found
                     </div>
                   ) : (
                     pendingProjects.slice(0, 3).map((project) => (
-                      <div key={project.id} className="p-3 border rounded-lg bg-white shadow-sm flex flex-col gap-2 text-left">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{project.title}</p>
-                            <p className="text-xs text-slate-500 truncate max-w-[150px]">{project.description}</p>
-                          </div>
-                          <Badge variant="outline" className="text-[10px] capitalize">{project.priority}</Badge>
+                      <div key={project.id} className="p-4 border border-slate-100 rounded-2xl bg-white hover:border-amber-200 transition-all flex items-center justify-between group">
+                        <div className="flex-1 min-w-0 mr-4">
+                            <p className="text-sm font-bold text-slate-900 leading-none mb-1 truncate">{project.title}</p>
+                            <div className="flex items-center gap-2">
+                                <StatusBadge status={project.priority} />
+                            </div>
                         </div>
-                        <div className="flex gap-2 justify-end mt-1">
-                          <Link 
+                        <Link 
                             href={`/manager/projects/${project.id}`} 
-                            className={cn(buttonVariants({ variant: "default", size: "xs" }), "h-7 text-[10px] bg-amber-600 hover:bg-amber-700")}
-                          >
-                            Review
-                          </Link>
-                        </div>
+                            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-9 rounded-xl font-bold text-[10px] uppercase tracking-wider text-amber-600 border-amber-100 hover:bg-amber-50")}
+                        >
+                            REVIEW
+                        </Link>
                       </div>
                     ))
                   )}
                 </div>
                 {pendingProjects.length > 3 && (
-                  <div className="mt-4 pt-2 border-t text-center">
-                    <Link href="/manager/projects" className="text-xs text-amber-600 hover:underline">
+                  <div className="mt-6 pt-4 border-t border-slate-50 text-center">
+                    <Link href="/manager/projects" className="text-[10px] font-bold text-amber-600 uppercase tracking-widest hover:underline">
                       View all {pendingProjects.length} requests &rarr;
                     </Link>
                   </div>
@@ -288,20 +215,68 @@ export default function ManagerDashboard() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Personal Work Hub */}
+          <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden">
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+              <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">My Workspace</CardTitle>
+            </CardHeader>
+            <CardContent className="p-8 pt-8">
+              <div className="grid gap-6 md:grid-cols-3">
+                  <Link 
+                    href="/manager/my-attendance"
+                    className="group p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-premium transition-all flex flex-col items-center text-center gap-4"
+                  >
+                    <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Clock className="h-6 w-6 text-indigo-600" />
+                    </div>
+                    <div>
+                        <div className="text-sm font-black text-slate-900 uppercase tracking-tight">Attendance</div>
+                        <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Personal Records</div>
+                    </div>
+                  </Link>
+
+                  <Link 
+                    href="/manager/my-tasks"
+                    className="group p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-premium transition-all flex flex-col items-center text-center gap-4"
+                  >
+                    <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <CheckSquare className="h-6 w-6 text-emerald-600" />
+                    </div>
+                    <div>
+                        <div className="text-sm font-black text-slate-900 uppercase tracking-tight">My Tasks</div>
+                        <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Execution Queue</div>
+                    </div>
+                  </Link>
+
+                  <Link 
+                    href="/manager/my-eod"
+                    className="group p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:border-indigo-200 hover:shadow-premium transition-all flex flex-col items-center text-center gap-4"
+                  >
+                    <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ShieldCheck className="h-6 w-6 text-amber-600" />
+                    </div>
+                    <div>
+                        <div className="text-sm font-black text-slate-900 uppercase tracking-tight">End of Day</div>
+                        <div className="text-[10px] font-medium text-slate-400 mt-1 uppercase tracking-widest">Daily Reporting</div>
+                    </div>
+                  </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Sidebar Area */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="shadow-sm border-blue-100 bg-blue-50/10">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Megaphone className="h-5 w-5 text-blue-600" />
-                  Announcements
-                </CardTitle>
-              </div>
+        {/* Announcements Sidebar */}
+        <div className="lg:col-span-4 space-y-6">
+          <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden sticky top-6">
+            <CardHeader className="bg-indigo-600 text-white flex flex-row items-center justify-between p-8 py-6">
+                <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em]">Announcements</CardTitle>
+                <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-indigo-200" />
+                    <span className="text-[10px] uppercase tracking-widest">Trend Insights</span>
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-8 pt-6">
               <AnnouncementList />
             </CardContent>
           </Card>

@@ -114,3 +114,65 @@ class AdminDashboard(BaseModel):
     overdue_tasks_count: int
     active_projects: int = 0
     open_alerts: int = 0
+
+
+# ---------------------------------------------------------------------------
+# Admin Analytics Dashboard
+# ---------------------------------------------------------------------------
+
+class AdminAnalyticsKPIs(BaseModel):
+    total_employees: int
+    total_projects: int
+    pending_approvals: int
+    attendance_rate: float
+    checked_in_today: int
+    late_today: int
+    wfh_today: int
+
+class AdminAnalyticsAttendanceTrend(BaseModel):
+    date: str
+    checked_in: int
+    late: int
+    absent: int
+
+class AdminAnalyticsTaskStats(BaseModel):
+    total: int
+    completed: int
+    in_progress: int
+    on_hold: int
+    pending: int
+    rejected: int
+
+class AdminAnalyticsProjectStats(BaseModel):
+    total: int
+    approved: int
+    pending: int
+    rejected: int
+    active: int
+
+class AdminAnalyticsDeptComparison(BaseModel):
+    department_name: str
+    employee_count: int
+    attendance_rate: float
+    completed_tasks: int
+    pending_approvals: int
+
+class AdminAnalyticsPeopleException(BaseModel):
+    employee_name: str
+    department_name: str
+    status: str
+    details: str
+
+class AdminAnalyticsRecentActivity(BaseModel):
+    title: str
+    description: str
+    created_at: str
+
+class AdminAnalyticsDashboard(BaseModel):
+    kpis: AdminAnalyticsKPIs
+    attendance_trend: list[AdminAnalyticsAttendanceTrend]
+    task_statistics: AdminAnalyticsTaskStats
+    project_statistics: AdminAnalyticsProjectStats
+    department_comparison: list[AdminAnalyticsDeptComparison]
+    people_exceptions: list[AdminAnalyticsPeopleException]
+    recent_activity: list[AdminAnalyticsRecentActivity]

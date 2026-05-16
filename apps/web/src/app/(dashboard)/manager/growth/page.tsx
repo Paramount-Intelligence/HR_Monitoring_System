@@ -28,47 +28,70 @@ export default function ManagerGrowthPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Team Growth & Achievements</h1>
-        <p className="text-sm text-slate-500">Track milestones and professional development across your team.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <Target className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Talent Development</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Team Growth</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Milestones & Professional History</p>
+        </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-8 md:grid-cols-2">
         {isLoading ? (
-          <div className="col-span-2 flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+          <div className="col-span-2 flex flex-col items-center justify-center py-24 bg-white rounded-[2.5rem] shadow-premium border border-slate-50">
+            <Loader2 className="h-10 w-10 animate-spin text-indigo-600 mb-4" />
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Aggregating Team Achievements...</p>
           </div>
         ) : records.length === 0 ? (
-          <Card className="col-span-2 border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <TrendingUp className="h-12 w-12 mb-4 text-slate-200" />
-              <p>No growth records found for your team.</p>
+          <Card className="col-span-2 border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden text-center py-24">
+            <CardContent className="flex flex-col items-center">
+              <div className="bg-slate-50 p-6 rounded-[2rem] mb-6 ring-8 ring-slate-50/50 shadow-inner">
+                <TrendingUp className="h-12 w-12 text-slate-300" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">No Growth Records Found</h2>
+              <p className="text-slate-500 font-medium max-w-sm leading-relaxed">
+                Your team's professional development ledger is currently empty. Achievements will appear here as they are recorded.
+              </p>
             </CardContent>
           </Card>
         ) : (
           records.map((record) => (
-            <Card key={record.id} className="border-none shadow-sm">
-              <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Award className="h-4 w-4 text-amber-500" />
-                    <CardTitle className="text-base">{record.title}</CardTitle>
+            <Card key={record.id} className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-premium-lg transition-all duration-500">
+              <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50 flex flex-row items-start justify-between space-y-0">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                        <Award className="h-5 w-5 text-amber-500" />
+                    </div>
+                    <CardTitle className="text-lg font-black text-slate-900 tracking-tight">{record.title}</CardTitle>
                   </div>
-                  <CardDescription className="text-xs">
-                    {format(new Date(record.achievement_date), 'PPP')}
+                  <CardDescription className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-[3.25rem]">
+                    Recorded {format(new Date(record.achievement_date), 'PPP')}
                   </CardDescription>
                 </div>
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 capitalize">
+                <Badge className="bg-indigo-50 text-indigo-700 border-none font-black text-[9px] uppercase tracking-widest px-3 py-1.5 rounded-xl shadow-sm">
                   {record.category}
                 </Badge>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-600">{record.description}</p>
-                <div className="mt-4 flex items-center gap-4">
-                   <div className="flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Milestone Reached</span>
+              <CardContent className="p-8 pt-6">
+                <p className="text-sm text-slate-600 font-bold leading-relaxed italic border-l-2 border-amber-100 pl-4 mb-6">
+                  {record.description}
+                </p>
+                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                   <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.15em]">Strategic Milestone Reached</span>
+                   </div>
+                   <div className="flex -space-x-2">
+                      {[1,2,3].map(i => (
+                        <div key={i} className="h-6 w-6 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-400">
+                          {String.fromCharCode(64 + i)}
+                        </div>
+                      ))}
                    </div>
                 </div>
               </CardContent>

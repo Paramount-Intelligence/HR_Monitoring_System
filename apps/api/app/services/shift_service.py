@@ -17,8 +17,10 @@ class ShiftService:
     def create_shift(self, payload: ShiftCreate) -> Shift:
         shift = Shift(
             name=payload.name,
+            description=payload.description,
             start_time=payload.start_time,
             end_time=payload.end_time,
+            timezone=payload.timezone,
             grace_period_minutes=payload.grace_period_minutes,
             working_days=payload.working_days,
             is_active=payload.is_active if payload.is_active is not None else True
@@ -60,6 +62,15 @@ class ShiftService:
         self.db.commit()
         self.db.refresh(user)
         return user
+
+    def deactivate_shift(self, shift_id: uuid.UUID) -> bool:
+        shift = self.db.get(Shift, shift_id)
+        if not shift:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
+        
+        shift.is_active = False
+        self.db.commit()
+        return True
 
     @staticmethod
     def get_shift_boundaries(target_date: date, shift: Shift) -> tuple[datetime, datetime]:
@@ -119,8 +130,9 @@ class ShiftService:
             # Better to pass expected_end from the session.
             return False, 0
             
-        if check_out_pk < expected_end:
-            diff = expected_end - check_out_pk
+        expected_end_pk = ensure_pk_datetime(expected_end)
+        if check_out_pk < expected_end_pk:
+            diff = expected_end_pk - check_out_pk
             return True, int(diff.total_seconds() // 60)
             
         return False, 0

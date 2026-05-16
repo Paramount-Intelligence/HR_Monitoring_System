@@ -109,6 +109,8 @@ class UserService:
             password_hash=hash_password(payload.password) if payload.password else "!",
             role=payload.role,
             department=payload.department,
+            department_id=payload.department_id,
+            shift_id=payload.shift_id,
             designation=payload.designation,
             manager_id=payload.manager_id,
             status=status_val,

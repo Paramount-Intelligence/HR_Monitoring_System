@@ -9,6 +9,7 @@ from app.models.attendance_session import AttendanceSession  # noqa: F401
 from app.models.project import Project  # noqa: F401
 from app.models.task import Task  # noqa: F401
 from app.models.time_log import TimeLog  # noqa: F401
+from app.models.task_timer_session import TaskTimerSession  # noqa: F401
 from app.models.approval import Approval  # noqa: F401
 from app.models.alert import Alert  # noqa: F401
 from app.models.performance_metric import PerformanceMetricDaily  # noqa: F401
@@ -19,6 +20,7 @@ from app.models.holiday import Holiday  # noqa: F401
 from app.models.announcement import Announcement  # noqa: F401
 from app.models.leave_request import LeaveRequest  # noqa: F401
 from app.models.attendance_correction import AttendanceCorrection  # noqa: F401
+from app.models.attendance_break import AttendanceBreak  # noqa: F401
 from app.models.task_comment import TaskComment  # noqa: F401
 from app.models.goal import Goal  # noqa: F401
 from app.models.achievement import Achievement  # noqa: F401
@@ -32,6 +34,7 @@ from app.models.approval_step import ApprovalStep  # noqa: F401
 from app.models.account_invitation import AccountInvitation  # noqa: F401
 from app.models.permission import Permission, RolePermission, UserPermissionOverride  # noqa: F401
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
+from app.models.daily_stats import DailyStats  # noqa: F401
 
 __all__ = [
     "Base",
@@ -41,6 +44,7 @@ __all__ = [
     "Project",
     "Task",
     "TimeLog",
+    "TaskTimerSession",
     "Approval",
     "Alert",
     "PerformanceMetricDaily",
@@ -51,6 +55,7 @@ __all__ = [
     "Announcement",
     "LeaveRequest",
     "AttendanceCorrection",
+    "AttendanceBreak",
     "TaskComment",
     "Goal",
     "Achievement",
@@ -65,4 +70,5 @@ __all__ = [
     "RolePermission",
     "UserPermissionOverride",
     "PasswordResetToken",
+    "DailyStats",
 ]

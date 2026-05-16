@@ -1,23 +1,29 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { timeLogsApi, TimeLog } from '@/lib/api/timeLogs';
+import { timeLogsApi, TimeLog, TaskTimerSession } from '@/lib/api/timeLogs';
 import { tasksApi, Task } from '@/lib/api/tasks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO, formatDuration, intervalToDuration } from 'date-fns';
-import { toast } from 'sonner';
-import { Loader2, PlayCircle, StopCircle, Clock, Plus } from 'lucide-react';
+import { Loader2, PlayCircle, StopCircle, Clock, Plus, Zap, History, Briefcase, Calendar, CheckCircle, Play } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { TaskTimer } from '@/components/tasks/TaskTimer';
+import { toast } from 'sonner';
+import apiClient, { getErrorMessage } from '@/lib/api/client';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
+import { cn } from '@/lib/utils';
+import { AttendanceSession } from '@/lib/api/attendance';
 
 const manualLogSchema = z.object({
   task_id: z.string().min(1, 'Task is required'),
@@ -31,6 +37,8 @@ type ManualLogValues = z.infer<typeof manualLogSchema>;
 export default function TimeLogsPage() {
   const [logs, setLogs] = useState<TimeLog[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [activeTimer, setActiveTimer] = useState<TaskTimerSession | null>(null);
+  const [attendance, setAttendance] = useState<AttendanceSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isTimerActionLoading, setIsTimerActionLoading] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string>('');
@@ -38,14 +46,18 @@ export default function TimeLogsPage() {
 
   const fetchData = async () => {
     try {
-      const [logsData, tasksData] = await Promise.all([
+      const [logsData, tasksData, timerData, attendanceData] = await Promise.all([
         timeLogsApi.getMyLogs(),
-        tasksApi.getTasks()
+        tasksApi.getTasks(),
+        timeLogsApi.getActiveTimer(),
+        apiClient.get<AttendanceSession | null>('/attendance/active').then(res => res.data)
       ]);
       setLogs(logsData);
       setTasks(tasksData);
+      setActiveTimer(timerData);
+      setAttendance(attendanceData);
     } catch (error) {
-      toast.error('Failed to load time tracking data');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -55,35 +67,71 @@ export default function TimeLogsPage() {
     fetchData();
   }, []);
 
-  const activeLog = logs.find(l => l.status === 'active');
+  const isCheckedIn = !!attendance && attendance.session_status === 'active';
 
   const handleStartTimer = async () => {
     if (!selectedTaskId) {
       toast.error('Please select a task to track');
       return;
     }
+    if (!isCheckedIn) {
+        toast.error('You must check in before starting a task.');
+        return;
+    }
     setIsTimerActionLoading(true);
     try {
       await timeLogsApi.startTimer(selectedTaskId);
-      toast.success('Timer started');
+      toast.success('Execution session started');
       await fetchData();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to start timer');
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsTimerActionLoading(false);
+    }
+  };
+
+  const handlePauseTimer = async () => {
+    if (!activeTimer) return;
+    setIsTimerActionLoading(true);
+    try {
+      await timeLogsApi.pauseTimer(activeTimer.task_id);
+      toast.success('Execution session paused');
+      await fetchData();
+    } catch (error: any) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsTimerActionLoading(false);
+    }
+  };
+
+  const handleResumeTimer = async () => {
+    if (!activeTimer) return;
+    if (!isCheckedIn) {
+        toast.error('You must check in before resuming a task.');
+        return;
+    }
+    setIsTimerActionLoading(true);
+    try {
+      await timeLogsApi.resumeTimer(activeTimer.task_id);
+      toast.success('Execution session resumed');
+      await fetchData();
+    } catch (error: any) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsTimerActionLoading(false);
     }
   };
 
   const handleStopTimer = async () => {
-    if (!activeLog) return;
+    if (!activeTimer) return;
     setIsTimerActionLoading(true);
     try {
-      await timeLogsApi.stopTimer(activeLog.task_id);
-      toast.success('Timer stopped');
+      await timeLogsApi.stopTimer(activeTimer.task_id);
+      toast.success('Execution session finalized');
       setSelectedTaskId('');
       await fetchData();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to stop timer');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsTimerActionLoading(false);
     }
@@ -107,12 +155,12 @@ export default function TimeLogsPage() {
         ended_at: new Date(data.ended_at).toISOString(),
         notes: data.notes
       });
-      toast.success('Manual log created');
+      toast.success('Manual log entry created');
       setIsManualDialogOpen(false);
       manualForm.reset();
       await fetchData();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to create manual log');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -126,59 +174,92 @@ export default function TimeLogsPage() {
   };
 
   const formatDurationString = (minutes: number) => {
-    if (!minutes) return '-';
+    if (minutes === 0) return '0m';
     const duration = intervalToDuration({ start: 0, end: minutes * 60 * 1000 });
     return formatDuration(duration, { format: ['hours', 'minutes'] });
   };
 
+  const getPauseLabel = (reason: string | null) => {
+    if (!reason) return 'Paused';
+    if (reason === 'attendance_checkout') return 'Paused after checkout';
+    if (reason === 'manual_pause') return 'Paused manually';
+    return 'Paused';
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Time Tracking</h1>
-          <p className="text-sm text-slate-500">Record your time against specific tasks.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <History className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Time Logs</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Time Logs</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Historical Record of Execution Sessions</p>
         </div>
 
         <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
-          <DialogTrigger render={<Button variant="outline" className="bg-white" />}>
-            <Plus className="mr-2 h-4 w-4" />
-            Manual Entry
+          <DialogTrigger asChild>
+            <Button className="h-14 bg-white border border-slate-100 hover:bg-slate-50 text-slate-900 font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl transition-all active:scale-95">
+              <Plus className="mr-2 h-4 w-4" />
+              Manual Entry
+            </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Manual Time Log</DialogTitle>
-              <DialogDescription>
-                Fallback entry if you forgot to start your timer.
+          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">Manual Time Entry</DialogTitle>
+              <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">
+                Record missed execution sessions for audit compliance
               </DialogDescription>
             </DialogHeader>
             <Form {...manualForm}>
-              <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className="space-y-4 pt-4">
+              <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className="space-y-8 pt-6">
                 <FormField control={manualForm.control} name="task_id" render={({ field }) => (
-                  <FormItem><FormLabel>Task</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select a task" /></SelectTrigger></FormControl>
-                      <SelectContent>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Task Context</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all">
+                          <SelectValue placeholder="Select an active task">
+                            {tasks.find(t => t.id === field.value)?.title}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
                         {tasks.filter(t => t.status !== 'completed').map(t => (
-                          <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                          <SelectItem key={t.id} value={t.id} className="text-xs font-bold">{t.title}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <FormField control={manualForm.control} name="started_at" render={({ field }) => (
-                    <FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Session Start</FormLabel>
+                      <FormControl><Input type="datetime-local" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                    </FormItem>
                   )} />
                   <FormField control={manualForm.control} name="ended_at" render={({ field }) => (
-                    <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Session End</FormLabel>
+                      <FormControl><Input type="datetime-local" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                    </FormItem>
                   )} />
                 </div>
                 <FormField control={manualForm.control} name="notes" render={({ field }) => (
-                  <FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Textarea placeholder="What did you work on?" className="resize-none" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Audit Notes</FormLabel>
+                    <FormControl><Textarea placeholder="What strategic outcomes were achieved?" className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[100px] font-bold text-sm leading-relaxed p-6 focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                  </FormItem>
                 )} />
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={manualForm.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                <div className="flex justify-end pt-6 gap-4">
+                  <Button type="button" variant="ghost" onClick={() => setIsManualDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
+                  <Button type="submit" disabled={manualForm.formState.isSubmitting} className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95 flex-1">
                     {manualForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Save Log
                   </Button>
@@ -189,121 +270,203 @@ export default function TimeLogsPage() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm border-blue-100 overflow-hidden relative">
-        {activeLog && (
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 animate-pulse" />
+      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden relative">
+        {activeTimer && activeTimer.status === 'running' && (
+          <div className="absolute top-0 left-0 w-2 h-full bg-indigo-600 animate-pulse" />
         )}
-        <CardHeader className="bg-slate-50/50">
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
-            Active Timer
+        {activeTimer && activeTimer.status === 'paused' && (
+          <div className="absolute top-0 left-0 w-2 h-full bg-slate-400" />
+        )}
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
+          <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <Clock className="h-6 w-6 text-indigo-600" />
+            Active Session
           </CardTitle>
-          <CardDescription>Select a task and start tracking your time.</CardDescription>
         </CardHeader>
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+        <CardContent className="p-10">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
             <div className="flex-1 w-full">
-              {activeLog ? (
-                <div className="p-3 bg-white border rounded-md">
-                  <span className="text-sm text-slate-500 block mb-1">Currently Tracking:</span>
-                  <span className="font-medium text-slate-900">
-                    {activeLog.task_title || 'Unknown Task'}
-                  </span>
-                  <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
-                    Started at {formatDateTime(activeLog.started_at)}
-                  </div>
+              {activeTimer ? (
+                <div className="space-y-4">
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            {activeTimer.status === 'running' ? 'Currently Tracking Task' : getPauseLabel(activeTimer.pause_reason)}
+                        </span>
+                        <h3 className="text-2xl font-black text-slate-900 tracking-tight">{activeTimer.task_title || 'General Execution'}</h3>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                        {activeTimer.status === 'running' && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
+                        Started at {formatDateTime(activeTimer.started_at)}
+                    </div>
                 </div>
               ) : (
-                <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Select a task to track..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tasks.filter(t => t.status !== 'completed').map(t => (
-                      <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="space-y-4">
+                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Initiate New Session</div>
+                    <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
+                      <SelectTrigger className="h-14 rounded-2xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all text-sm px-6">
+                        <SelectValue placeholder="Select a task for strategic execution...">
+                          {tasks.find(t => t.id === selectedTaskId)?.title}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
+                        {tasks.filter(t => t.status !== 'completed').map(t => (
+                          <SelectItem key={t.id} value={t.id} className="text-xs font-bold">{t.title}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                </div>
               )}
             </div>
             
-            <div className="w-full md:w-auto flex justify-end">
-              {activeLog ? (
-                <Button 
-                  size="lg" 
-                  variant="destructive" 
-                  onClick={handleStopTimer}
-                  disabled={isTimerActionLoading}
-                  className="w-full md:w-auto shadow-md"
-                >
-                  {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <StopCircle className="mr-2 h-5 w-5" />}
-                  Stop Timer
-                </Button>
-              ) : (
-                <Button 
-                  size="lg" 
-                  className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 shadow-md"
-                  onClick={handleStartTimer}
-                  disabled={isTimerActionLoading || !selectedTaskId}
-                >
-                  {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
-                  Start Timer
-                </Button>
+            <div className="flex flex-col sm:flex-row items-center gap-10">
+              {activeTimer && (
+                <div className="text-center sm:text-right">
+                    <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2">Session Duration</span>
+                    <div className="text-5xl font-black text-indigo-600 tracking-tighter tabular-nums">
+                        <TaskTimer 
+                          startedAt={activeTimer.started_at} 
+                          lastResumedAt={activeTimer.last_resumed_at}
+                          accumulatedSeconds={activeTimer.accumulated_seconds}
+                          status={activeTimer.status}
+                        />
+                    </div>
+                </div>
               )}
+              <div className="flex items-center gap-3">
+                {activeTimer ? (
+                    <>
+                        {activeTimer.status === 'running' ? (
+                            <Button 
+                                size="lg" 
+                                variant="outline"
+                                onClick={handlePauseTimer}
+                                disabled={isTimerActionLoading}
+                                className="h-16 px-8 rounded-2xl border-slate-100 bg-white hover:bg-slate-50 text-slate-900 font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
+                            >
+                                {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Clock className="mr-2 h-5 w-5 text-indigo-600" />}
+                                Pause
+                            </Button>
+                        ) : (
+                            <Button 
+                                size="lg" 
+                                variant="outline"
+                                onClick={handleResumeTimer}
+                                disabled={isTimerActionLoading || !isCheckedIn}
+                                className="h-16 px-8 rounded-2xl border-none bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:bg-slate-300"
+                            >
+                                {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />}
+                                Resume
+                            </Button>
+                        )}
+                        <Button 
+                            size="lg" 
+                            variant="destructive"
+                            onClick={handleStopTimer}
+                            disabled={isTimerActionLoading}
+                            className="h-16 px-8 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-rose-100 transition-all active:scale-95"
+                        >
+                            {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <StopCircle className="mr-2 h-5 w-5" />}
+                            Stop
+                        </Button>
+                    </>
+                ) : (
+                    <Button 
+                        size="lg" 
+                        variant="default"
+                        onClick={handleStartTimer}
+                        disabled={isTimerActionLoading || !selectedTaskId || !isCheckedIn}
+                        className="h-16 px-10 rounded-2xl bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100 text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
+                    >
+                        {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
+                        Start Session
+                    </Button>
+                )}
+              </div>
             </div>
           </div>
+          {activeTimer && !isCheckedIn && activeTimer.status === 'paused' && (
+              <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center">
+                  <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Attendance Offline: Check in to resume task execution</p>
+              </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Recent Logs</CardTitle>
+      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
+          <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Time Logs</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
-            </div>
+            <div className="p-10"><TableSkeleton rows={8} cols={5} /></div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
-              No time logs found.
+            <div className="p-20">
+              <EmptyState 
+                  title="No execution logs"
+                  message="Your historical audit trail is empty. Start a session or log time manually."
+                  icon={History}
+              />
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead className="w-[300px]">Task</TableHead>
-                    <TableHead>Start Time</TableHead>
-                    <TableHead>End Time</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Source</TableHead>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
+                    <TableHead className="w-[40%] font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Task Identity</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Duration</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Source</TableHead>
+                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <TableRow key={log.id} className={log.status === 'active' ? 'bg-blue-50/50' : ''}>
-                      <TableCell>
-                        <div className="font-medium text-slate-900 truncate max-w-[280px]">
-                          {log.task_title || 'Unknown Task'}
+                    <TableRow key={log.id} className={cn(
+                        "hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28",
+                        log.status === 'active' && "bg-indigo-50/20"
+                    )}>
+                      <TableCell className="pl-10">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="font-black text-slate-900 text-sm tracking-tight">{log.task_title || 'General Execution'}</span>
+                          <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <Briefcase className="h-3.5 w-3.5 opacity-60" />
+                            Professional Work Unit
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-500">{formatDateTime(log.started_at)}</TableCell>
-                      <TableCell className="text-slate-500">
-                        {log.status === 'active' ? (
-                          <span className="text-blue-600 italic">Running...</span>
-                        ) : (
-                          formatDateTime(log.ended_at)
-                        )}
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {log.status === 'active' ? '-' : formatDurationString(log.duration_minutes)}
+                      <TableCell>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-2 text-[10px] font-black text-slate-900 uppercase tracking-tighter">
+                                <span className="text-slate-400">IN:</span> {formatDateTime(log.started_at)}
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] font-black text-slate-900 uppercase tracking-tighter">
+                                <span className="text-slate-400">OUT:</span> {log.status === 'active' ? 'SESSION ACTIVE' : formatDateTime(log.ended_at)}
+                            </div>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize text-slate-500">
+                        <div className="flex items-center gap-2 text-sm font-black text-slate-900 tracking-tighter">
+                            <Clock className="h-4 w-4 text-indigo-400" />
+                            {log.status === 'active' ? 'TRACKING' : formatDurationString(log.duration_minutes)}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="h-6 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] text-slate-500 border-slate-100 bg-slate-50">
                           {log.source_type}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right pr-10">
+                        {log.status === 'active' ? (
+                            <div className="flex items-center justify-end gap-2 text-indigo-600 font-black text-[10px] uppercase tracking-widest">
+                                <span className="h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />
+                                Processing
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-end gap-2 text-slate-400 font-black text-[10px] uppercase tracking-widest">
+                                <CheckCircle className="h-4 w-4 text-emerald-500" />
+                                Synchronized
+                            </div>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

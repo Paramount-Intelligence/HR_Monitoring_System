@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
-import { User } from '@/types';
+import { User, Shift } from '@/types';
+import { Department, departmentsApi } from '@/lib/api/departments';
+import { shiftsApi } from '@/lib/api/shifts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -47,7 +49,8 @@ const userSchema = z.object({
   email: z.string().email('Invalid email'),
   password: z.string().min(8, 'Password must be at least 8 characters').optional().or(z.literal('')),
   role: z.enum(['admin', 'hr_operations', 'manager', 'team_lead', 'employee', 'intern', 'junior_employee']),
-  department: z.string().optional(),
+  department_id: z.string().optional(),
+  shift_id: z.string().optional(),
   designation: z.string().optional(),
   manager_id: z.string().optional(),
 });
@@ -56,6 +59,8 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [lastCreatedToken, setLastCreatedToken] = useState<string | null>(null);
@@ -74,8 +79,14 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const data = await usersApi.getUsers();
+      const [data, depts, shiftsData] = await Promise.all([
+        usersApi.getUsers(),
+        departmentsApi.getActiveDepartments().catch(() => []),
+        shiftsApi.getShifts(true).catch(() => [])
+      ]);
       setUsers(data);
+      setDepartments(depts);
+      setShifts(shiftsData);
     } catch (error) {
       toast.error('Failed to load users');
     } finally {
@@ -96,7 +107,8 @@ export default function AdminUsersPage() {
       email: '',
       password: '',
       role: 'employee',
-      department: '',
+      department_id: 'none',
+      shift_id: 'none',
       designation: '',
       manager_id: 'none',
     },
@@ -109,7 +121,8 @@ export default function AdminUsersPage() {
         email: data.email,
         password: data.password || undefined,
         role: data.role,
-        department: data.department || undefined,
+        department_id: data.department_id === 'none' ? undefined : data.department_id,
+        shift_id: data.shift_id === 'none' ? undefined : data.shift_id,
         designation: data.designation || undefined,
         manager_id: data.manager_id === 'none' ? undefined : data.manager_id,
       } as any);
@@ -193,10 +206,10 @@ export default function AdminUsersPage() {
               New User
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[560px]">
-            <DialogHeader>
-              <DialogTitle>Create New User</DialogTitle>
-              <DialogDescription>Add a new member to the Paramount Intelligence platform.</DialogDescription>
+          <DialogContent className="sm:max-w-[560px] rounded-[2.5rem] border-none shadow-premium-lg p-10">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">Create New User</DialogTitle>
+              <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">Add a new member to the platform governance structure.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
@@ -219,45 +232,70 @@ export default function AdminUsersPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField control={form.control} name="role" render={({ field }) => (
-                    <FormItem><FormLabel>Role</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          {/* Show only roles the current user can create */}
-                          {currentUser?.role === 'admin' && <SelectItem value="admin">Admin</SelectItem>}
-                          {['admin', 'hr_operations'].includes(currentUser?.role || '') && <SelectItem value="hr_operations">HR & Operations</SelectItem>}
-                          {['admin', 'hr_operations'].includes(currentUser?.role || '') && <SelectItem value="manager">Manager</SelectItem>}
-                          {['admin', 'hr_operations'].includes(currentUser?.role || '') && <SelectItem value="team_lead">Team Lead</SelectItem>}
-                          <SelectItem value="employee">Employee</SelectItem>
-                          <SelectItem value="intern">Intern</SelectItem>
-                          <SelectItem value="junior_employee">Junior Employee</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="department" render={({ field }) => (
-                    <FormItem><FormLabel>Department</FormLabel><FormControl><Input placeholder="e.g. Engineering" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
+                <FormField control={form.control} name="role" render={({ field }) => (
+                  <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Role</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Select role" /></SelectTrigger></FormControl>
+                      <SelectContent className="rounded-2xl shadow-premium-lg">
+                        {/* Show only roles the current user can create */}
+                        {currentUser?.role === 'admin' && <SelectItem value="admin" className="text-xs font-bold">Admin</SelectItem>}
+                        {['admin', 'hr_operations'].includes(currentUser?.role || '') && <SelectItem value="hr_operations" className="text-xs font-bold">HR & Operations</SelectItem>}
+                        {['admin', 'hr_operations'].includes(currentUser?.role || '') && <SelectItem value="manager" className="text-xs font-bold">Manager</SelectItem>}
+                        {['admin', 'hr_operations'].includes(currentUser?.role || '') && <SelectItem value="team_lead" className="text-xs font-bold">Team Lead</SelectItem>}
+                        <SelectItem value="employee" className="text-xs font-bold">Employee</SelectItem>
+                        <SelectItem value="intern" className="text-xs font-bold">Intern</SelectItem>
+                        <SelectItem value="junior_employee" className="text-xs font-bold">Junior Employee</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="department_id" render={({ field }) => (
+                  <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Department</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Select department" /></SelectTrigger></FormControl>
+                      <SelectContent className="rounded-2xl shadow-premium-lg">
+                        <SelectItem value="none" className="text-xs font-bold">None</SelectItem>
+                        {departments.map(d => (
+                          <SelectItem key={d.id} value={d.id} className="text-xs font-bold">{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                  </FormItem>
+                )} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
+                <FormField control={form.control} name="shift_id" render={({ field }) => (
+                  <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Work Shift</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Select shift" /></SelectTrigger></FormControl>
+                      <SelectContent className="rounded-2xl shadow-premium-lg">
+                        <SelectItem value="none" className="text-xs font-bold">Default Shift</SelectItem>
+                        {shifts.map(s => (
+                          <SelectItem key={s.id} value={s.id} className="text-xs font-bold">{s.name} ({s.start_time}-{s.end_time})</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                  </FormItem>
+                )} />
                   <FormField control={form.control} name="designation" render={({ field }) => (
                     <FormItem><FormLabel>Designation</FormLabel><FormControl><Input placeholder="e.g. Software Engineer" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="manager_id" render={({ field }) => (
-                    <FormItem><FormLabel>Reporting Manager</FormLabel>
+                    <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Reporting Manager</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Select manager" /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl shadow-premium-lg">
+                          <SelectItem value="none" className="text-xs font-bold">None</SelectItem>
                           {managers.map(m => (
-                            <SelectItem key={m.id} value={m.id}>{m.full_name} ({ROLE_LABELS[m.role] || m.role})</SelectItem>
+                            <SelectItem key={m.id} value={m.id} className="text-xs font-bold">{m.full_name} ({ROLE_LABELS[m.role] || m.role})</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage />
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                     </FormItem>
                   )} />
                 </div>
@@ -299,6 +337,7 @@ export default function AdminUsersPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Department</TableHead>
+                    <TableHead>Work Shift</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Manager</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -319,10 +358,13 @@ export default function AdminUsersPage() {
                           {ROLE_LABELS[user.role] || user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-slate-500 text-sm">{user.department || '-'}</TableCell>
+                      <TableCell className="text-slate-500 text-sm">{user.department_name || user.department || '-'}</TableCell>
+                      <TableCell className="text-slate-500 text-sm">
+                        {user.shift_name ? `${user.shift_name} ${user.shift_timing ? `(${user.shift_timing})` : ''}` : '-'}
+                      </TableCell>
                       <TableCell>{getStatusBadge(user.status)}</TableCell>
                       <TableCell className="text-slate-500 text-sm truncate max-w-[130px]">
-                        {user.manager_id ? filteredUsers.find(u => u.id === user.manager_id)?.full_name || '...' : '-'}
+                        {user.manager_name || (user.manager_id ? filteredUsers.find(u => u.id === user.manager_id)?.full_name : '-')}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">

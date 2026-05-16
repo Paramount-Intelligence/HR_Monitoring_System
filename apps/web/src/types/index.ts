@@ -53,10 +53,13 @@ export interface AttendanceSession {
 export interface Shift {
   id: string;
   name: string;
+  description?: string | null;
   start_time: string;
   end_time: string;
+  timezone: string;
   grace_period_minutes: number;
   working_days: string;
+  is_active: boolean;
 }
 
 export interface LeaveRequest {

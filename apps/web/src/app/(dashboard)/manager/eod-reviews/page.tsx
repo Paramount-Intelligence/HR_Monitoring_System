@@ -2,22 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { eodApi, EODReport } from '@/lib/api/eod';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Clock, CheckSquare, Briefcase, FileText, XCircle, AlertCircle, Search } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+import { Card, CardContent } from '@/components/ui/card';
+import { 
+  AlertCircle, ShieldCheck, Clock, TrendingUp, CheckSquare, 
+  Loader2, XCircle 
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { 
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
+import { formatPKDate } from '@/lib/time';
 
 export default function EODReviewsPage() {
   const [eods, setEods] = useState<EODReport[]>([]);
@@ -72,196 +72,234 @@ export default function EODReviewsPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-      </div>
-    );
-  }
-
   const pendingEods = eods.filter(e => e.status === 'Pending Approval');
   const pastEods = eods.filter(e => e.status !== 'Pending Approval' && e.status !== 'Generated' && e.status !== 'Draft');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">EOD Reviews</h1>
-          <p className="text-sm text-slate-500">Review and approve team end-of-day reports.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">EOD Command Center</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Review and verify operational daily summaries from your team.</p>
         </div>
       </div>
 
-      {pendingEods.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">Action Required</h2>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {pendingEods.map((eod) => (
-              <Card key={eod.id} className="shadow-sm border-blue-200 hover:border-blue-300 transition-all cursor-pointer" onClick={() => openReview(eod)}>
-                <CardContent className="p-4 flex flex-col h-full">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-amber-100 text-amber-700 h-8 w-8 rounded-full flex items-center justify-center font-bold text-sm">
-                        {eod.user_name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-slate-900">{eod.user_name}</h3>
-                        <p className="text-xs text-slate-500">{eod.date}</p>
-                      </div>
-                    </div>
-                    {eod.blocked_tasks > 0 && <AlertCircle className="h-4 w-4 text-rose-500" />}
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 mb-4 bg-slate-50 p-2 rounded">
-                    <div><span className="font-medium text-slate-900">{eod.total_hours}h</span> logged</div>
-                    <div><span className="font-medium text-slate-900">{eod.completed_tasks}</span> tasks done</div>
-                    <div><span className="font-medium text-slate-900">{eod.duties_performed}</span> duties</div>
-                    <div className="uppercase">{eod.work_mode}</div>
-                  </div>
-                  
-                  <div className="mt-auto pt-3 border-t">
-                    <Button className="w-full bg-blue-600 hover:bg-blue-700" size="sm">
-                      Review &rarr;
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {pastEods.length > 0 && (
-        <div className="space-y-4 pt-6">
-          <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">Past Reviews</h2>
-          <Card className="shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-slate-500 uppercase text-xs">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Employee</th>
-                    <th className="px-4 py-3 font-medium">Date</th>
-                    <th className="px-4 py-3 font-medium">Hours</th>
-                    <th className="px-4 py-3 font-medium">Status</th>
-                    <th className="px-4 py-3 font-medium text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {pastEods.map((eod) => (
-                    <tr key={eod.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-slate-900">{eod.user_name}</td>
-                      <td className="px-4 py-3 text-slate-500">{eod.date}</td>
-                      <td className="px-4 py-3 text-slate-500">{eod.total_hours}h</td>
-                      <td className="px-4 py-3">
-                        <Badge variant={eod.status === 'Approved' ? 'default' : eod.status === 'Needs Revision' ? 'destructive' : 'secondary'} 
-                               className={eod.status === 'Approved' ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100' : ''}>
-                          {eod.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => openReview(eod)} className="text-blue-600 hover:text-blue-700">
-                          View
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+      {isLoading ? (
+        <div className="space-y-8">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map(i => <Card key={i} className="h-48 animate-pulse bg-slate-50 border-none" />)}
             </div>
-          </Card>
+            <TableSkeleton rows={8} cols={5} />
         </div>
-      )}
+      ) : (
+        <>
+          {pendingEods.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Verification Queue</h2>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {pendingEods.map((eod) => (
+                  <Card key={eod.id} className="group rounded-xl shadow-premium hover:shadow-premium-lg border-slate-100 transition-all cursor-pointer overflow-hidden" onClick={() => openReview(eod)}>
+                    <CardContent className="p-5 flex flex-col h-full">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="bg-indigo-50 text-indigo-700 h-10 w-10 rounded-xl flex items-center justify-center font-bold text-xs ring-1 ring-indigo-100 uppercase">
+                            {eod.user_name.split(' ').map(n => n[0]).join('')}
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-slate-900 text-sm leading-none mb-1">{eod.user_name}</h3>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{formatPKDate(eod.date)}</p>
+                          </div>
+                        </div>
+                        {eod.blocked_tasks > 0 && (
+                            <div className="bg-rose-50 p-1.5 rounded-lg border border-rose-100">
+                                <AlertCircle className="h-4 w-4 text-rose-500" />
+                            </div>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-3 mb-5">
+                        <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100/50">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter leading-none mb-1 text-center">UTILIZATION</p>
+                            <p className="text-sm font-bold text-slate-900 text-center">{eods.find(e => e.id === eod.id)?.total_hours}h</p>
+                        </div>
+                        <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100/50">
+                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter leading-none mb-1 text-center">COMPLETIONS</p>
+                            <p className="text-sm font-bold text-slate-900 text-center">{eod.completed_tasks} Tasks</p>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-auto">
+                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100" size="sm">
+                          OPEN INVESTIGATION
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {eods.length === 0 && (
-        <div className="text-center py-16 border rounded-xl border-dashed bg-slate-50">
-          <FileText className="mx-auto h-12 w-12 text-slate-300" />
-          <h3 className="mt-4 text-sm font-semibold text-slate-900">No EODs found</h3>
-          <p className="mt-2 text-sm text-slate-500">Your team hasn't generated any EOD reports yet.</p>
-        </div>
+          {pastEods.length > 0 && (
+            <div className="space-y-4 pt-4">
+              <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Verification History</h2>
+              <Card className="rounded-xl shadow-premium border-slate-100 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-slate-50/50 text-slate-500 uppercase text-[10px] tracking-widest font-bold">
+                      <tr className="border-b border-slate-100">
+                        <th className="px-6 py-4">Employee Identity</th>
+                        <th className="px-6 py-4">Filing Date</th>
+                        <th className="px-6 py-4">Time Log</th>
+                        <th className="px-6 py-4">Integrity Status</th>
+                        <th className="px-6 py-4 text-right">Audit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {pastEods.map((eod) => (
+                        <tr key={eod.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-slate-900">{eod.user_name}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-slate-600">{formatPKDate(eod.date)}</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold text-indigo-600">{eod.total_hours}h Tracked</span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <StatusBadge status={eod.status} />
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <Button variant="ghost" size="sm" onClick={() => openReview(eod)} className="text-indigo-600 hover:text-indigo-700 font-bold text-[10px] uppercase tracking-widest">
+                              VIEW REPORT
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+          )}
+
+          {eods.length === 0 && (
+            <EmptyState 
+                title="No reports to review"
+                description="Your team's EOD queue is empty. Reports appear once team members submit their daily summaries."
+                icon={ShieldCheck}
+            />
+          )}
+        </>
       )}
 
       {selectedEod && (
         <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl rounded-2xl border-none shadow-premium-lg">
             <DialogHeader>
-              <DialogTitle>EOD Review: {selectedEod.user_name}</DialogTitle>
-              <DialogDescription>
-                Detailed end-of-day report for {selectedEod.date}.
+              <DialogTitle className="text-xl font-bold text-slate-900">EOD Review: {selectedEod.user_name}</DialogTitle>
+              <DialogDescription className="text-sm font-medium text-slate-500">
+                Verifying operational filing for {formatPKDate(selectedEod.date)}.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-4 my-4 text-sm">
-              <div className="p-3 bg-slate-50 rounded-lg border">
-                <p className="text-xs text-slate-500 mb-1">Attendance ({selectedEod.work_mode.toUpperCase()})</p>
-                <p className="font-medium">{selectedEod.login_time} - {selectedEod.logout_time || 'N/A'}</p>
-                <p className="font-bold text-blue-600 mt-1">{selectedEod.total_hours}h total</p>
+            <div className="grid grid-cols-2 gap-4 my-6">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <Clock className="h-3.5 w-3.5" />
+                    Attendance Metrics
+                </div>
+                <p className="font-bold text-slate-900 mt-1">{selectedEod.login_time} - {selectedEod.logout_time || 'ACTIVE'}</p>
+                <div className="mt-2 inline-flex items-center gap-2">
+                    <span className="bg-indigo-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold">{selectedEod.total_hours}h LOGGED</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">{selectedEod.work_mode}</span>
+                </div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border">
-                <p className="text-xs text-slate-500 mb-1">Productivity</p>
-                <p className="font-medium">{selectedEod.productivity_score}/100 Score</p>
-                <p className="font-bold text-slate-700 mt-1">{selectedEod.duties_performed} duties done</p>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <TrendingUp className="h-3.5 w-3.5" />
+                    Productivity Audit
+                </div>
+                <p className="font-bold text-slate-900 mt-1">{selectedEod.productivity_score}% Efficiency Score</p>
+                <div className="mt-2 inline-flex items-center gap-2">
+                    <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold">{selectedEod.duties_performed} DUTIES</span>
+                </div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border col-span-2 flex justify-between items-center">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Tasks Summary</p>
-                  <div className="flex gap-4">
-                    <span className="font-medium text-emerald-600">{selectedEod.completed_tasks} Completed</span>
-                    <span className="font-medium text-amber-600">{selectedEod.pending_tasks} Pending</span>
-                    {selectedEod.blocked_tasks > 0 && <span className="font-medium text-rose-600">{selectedEod.blocked_tasks} Blocked</span>}
-                  </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 col-span-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                    <CheckSquare className="h-3.5 w-3.5" />
+                    Task Execution Breakdown
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="flex flex-col">
+                        <span className="text-xs font-bold text-emerald-600 uppercase tracking-tighter">Completed</span>
+                        <span className="text-lg font-bold text-slate-900">{selectedEod.completed_tasks}</span>
+                    </div>
+                    <div className="flex flex-col border-x border-slate-200 px-4">
+                        <span className="text-xs font-bold text-amber-600 uppercase tracking-tighter">Pending</span>
+                        <span className="text-lg font-bold text-slate-900">{selectedEod.pending_tasks}</span>
+                    </div>
+                    <div className="flex flex-col">
+                        <span className="text-xs font-bold text-rose-600 uppercase tracking-tighter">Blocked</span>
+                        <span className="text-lg font-bold text-slate-900">{selectedEod.blocked_tasks}</span>
+                    </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t">
+            <div className="space-y-4 pt-6 border-t border-slate-100">
               <div className="space-y-2">
-                <Label>Manager Feedback / Comments</Label>
+                <Label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Manager Verification Feedback</Label>
                 <Textarea 
-                  placeholder="Provide feedback or explain why revision is needed..." 
+                  placeholder="Annotate review with professional feedback or revision instructions..." 
                   value={comments}
                   onChange={e => setComments(e.target.value)}
-                  className="min-h-[100px]"
+                  className="min-h-[100px] rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
                 />
               </div>
 
               {selectedEod.status === 'Pending Approval' ? (
                 <div className="flex gap-3 pt-2">
                   <Button 
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700" 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold h-11 shadow-sm" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Approved'); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting && reviewAction === 'Approved' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                    Approve
+                    APPROVE REPORT
                   </Button>
                   <Button 
                     variant="outline"
-                    className="flex-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" 
+                    className="flex-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl font-bold h-11 shadow-sm" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Needs Revision'); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting && reviewAction === 'Needs Revision' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                    Request Revision
+                    REQUEST REVISION
                   </Button>
                   <Button 
                     variant="outline"
-                    className="flex-1 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100" 
+                    className="flex-1 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl font-bold h-11 shadow-sm" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Rejected'); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting && reviewAction === 'Rejected' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                    Reject
+                    REJECT REPORT
                   </Button>
                 </div>
               ) : (
                 <div className="flex gap-3 pt-2">
                   <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700" 
+                    className="w-full bg-slate-900 hover:bg-slate-800 rounded-xl font-bold h-11 shadow-sm uppercase tracking-widest text-xs" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction(selectedEod.status as any); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Update Comments
+                    UPDATE AUDIT COMMENTS
                   </Button>
                 </div>
               )}

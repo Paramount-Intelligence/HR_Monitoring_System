@@ -9,10 +9,12 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { ShieldCheck, Search, Filter, Eye } from 'lucide-react';
+import { ShieldCheck, Search, Filter, Eye, History, User as UserIcon, Activity } from 'lucide-react';
 import { auditLogsApi } from '@/lib/api/auditLogs';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { cn } from '@/lib/utils';
 
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -35,83 +37,128 @@ export default function AdminAuditLogsPage() {
   };
 
   const filteredLogs = logs.filter(log => 
-    log.action_type.toLowerCase().includes(search.toLowerCase()) ||
-    log.entity_type.toLowerCase().includes(search.toLowerCase())
+    (log.action_type || '').toLowerCase().includes(search.toLowerCase()) ||
+    (log.entity_type || '').toLowerCase().includes(search.toLowerCase()) ||
+    (log.actor_name || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const getActionColor = (action: string) => {
-    const a = action.toUpperCase();
-    if (a.includes('CREATED') || a.includes('ACTIVATED') || a === 'LOGIN') return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-    if (a.includes('DELETED') || a.includes('DEACTIVATED') || a.includes('SUSPENDED') || a === 'LOGIN_FAILED') return 'bg-rose-100 text-rose-700 border-rose-200';
-    if (a.includes('UPDATED') || a.includes('CHANGED')) return 'bg-blue-100 text-blue-700 border-blue-200';
-    if (a.includes('PASSWORD')) return 'bg-violet-100 text-violet-700 border-violet-200';
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    const a = (action || '').toUpperCase();
+    if (a.includes('CREATED') || a.includes('ACTIVATED') || a === 'LOGIN') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    if (a.includes('DELETED') || a.includes('DEACTIVATED') || a.includes('SUSPENDED') || a === 'LOGIN_FAILED') return 'bg-rose-50 text-rose-700 border-rose-100';
+    if (a.includes('UPDATED') || a.includes('CHANGED')) return 'bg-blue-50 text-blue-700 border-blue-100';
+    if (a.includes('PASSWORD')) return 'bg-violet-50 text-violet-700 border-violet-100';
+    return 'bg-slate-50 text-slate-500 border-slate-100';
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Audit Trail</h1>
-        <p className="text-slate-500">Full compliance logs of all significant actions in the system.</p>
-      </div>
-
-      <Card className="border-none shadow-sm">
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle>System Activity</CardTitle>
-              <CardDescription>Track who did what and when.</CardDescription>
-            </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input 
-                placeholder="Search actions or entities..." 
-                className="pl-10" 
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <History className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Compliance Hub</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Audit Logs</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Full compliance logs of all organizational actions</p>
+        </div>
+        
+        <div className="relative w-full md:w-96">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Input 
+                placeholder="Search actor, action, or entity..." 
+                className="h-12 pl-12 rounded-2xl border-slate-200 bg-white shadow-sm font-bold text-xs focus:ring-indigo-500" 
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
+            />
+        </div>
+      </div>
+
+      <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
+            <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <Activity className="h-6 w-6 text-indigo-600" />
+                System Activity
+            </CardTitle>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight mt-1">Real-time governance audit trail</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
             <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Actor</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Entity</TableHead>
-                  <TableHead>Entity ID</TableHead>
-                  <TableHead className="text-right">Details</TableHead>
+              <TableHeader className="bg-slate-50/50">
+                <TableRow className="h-16 border-b border-slate-100">
+                  <TableHead className="pl-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Timestamp</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Actor</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Action Type</TableHead>
+                  <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Entity Affected</TableHead>
+                  <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Metadata</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="h-24 text-center">Loading audit data...</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={5} className="p-10">
+                        <TableSkeleton rows={10} cols={5} />
+                    </TableCell>
+                  </TableRow>
                 ) : filteredLogs.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="h-24 text-center">No logs found matching your search.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-48 text-center">
+                        <div className="flex flex-col items-center gap-2 opacity-30">
+                            <ShieldCheck className="h-12 w-12" />
+                            <p className="text-[10px] font-black uppercase tracking-widest">No matching logs found</p>
+                        </div>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filteredLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="whitespace-nowrap text-xs text-slate-500">
-                        {format(new Date(log.created_at), 'MMM d, HH:mm:ss')}
-                      </TableCell>
-                      <TableCell className="font-medium text-xs">
-                        {log.actor_name || `User ${log.actor_user_id?.substring(0, 8)}`}
+                    <TableRow key={log.id} className="h-20 border-b border-slate-50 last:border-0 hover:bg-slate-50/30 transition-all">
+                      <TableCell className="pl-10 whitespace-nowrap">
+                        <div className="flex flex-col">
+                            <span className="font-black text-slate-900 text-xs tracking-tight">
+                                {log.created_at ? format(new Date(log.created_at), 'MMM d, yyyy') : 'Unknown'}
+                            </span>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">
+                                {log.created_at ? format(new Date(log.created_at), 'HH:mm:ss') : '--:--:--'}
+                            </span>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className={getActionColor(log.action_type)}>
-                          {log.action_type}
+                        <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                                <UserIcon className="h-4 w-4 text-indigo-400" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="font-black text-slate-900 text-xs tracking-tight">
+                                    {log.actor_name || 'System Process'}
+                                </span>
+                                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest truncate max-w-[150px]">
+                                    {log.actor_email || 'INTERNAL'}
+                                </span>
+                            </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={cn(
+                            "rounded-lg text-[8px] font-black uppercase tracking-widest px-2.5 h-6",
+                            getActionColor(log.action_type)
+                        )}>
+                          {log.action_type || 'UNDEFINED'}
                         </Badge>
                       </TableCell>
-                      <TableCell className="capitalize text-sm">{log.entity_type}</TableCell>
-                      <TableCell className="text-xs font-mono text-slate-400">
-                        {log.entity_id ? `${log.entity_id.substring(0, 8)}...` : '-'}
+                      <TableCell>
+                        <div className="flex flex-col">
+                            <span className="capitalize text-xs font-black text-slate-700 tracking-tight">
+                                {log.entity_type || 'System'}
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate max-w-[120px]">
+                                {log.entity_name || (log.entity_id ? `ID: ${log.entity_id.substring(0, 8)}` : 'N/A')}
+                            </span>
+                        </div>
                       </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Eye className="h-4 w-4 text-slate-400" />
+                      <TableCell className="text-right pr-10">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-indigo-50 transition-all">
+                          <Eye className="h-4 w-4 text-slate-400 hover:text-indigo-600" />
                         </Button>
                       </TableCell>
                     </TableRow>

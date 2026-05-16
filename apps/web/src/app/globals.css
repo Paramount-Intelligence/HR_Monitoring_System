@@ -14,28 +14,69 @@
     --font-sans: var(--font-sans);
   }
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Brand Core */
+    --color-primary: #1565C0;
+    --color-primary-light: #4FC3F7;
+    --color-primary-gradient: linear-gradient(135deg, #4FC3F7, #1565C0);
+
+    /* Backgrounds */
+    --color-bg-base: #BFE0F5;
+    --color-bg-card: rgba(30, 60, 120, 0.75);
+    --color-bg-input: rgba(20, 45, 95, 0.8);
+    --color-bg-surface: #EAF4FD;
+
+    /* Accent */
+    --color-accent: #E05A5A;
+    --color-accent-muted: rgba(224, 90, 90, 0.3);
+
+    /* Text */
+    --color-text-primary: #0D1B3E;
+    --color-text-secondary: #2E5090;
+    --color-text-muted: #90CAF9;
+    --color-text-on-dark: #FFFFFF;
+
+    /* Status */
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-danger: #E05A5A;
+    --color-info: #4FC3F7;
+
+    /* Borders & Shadows */
+    --color-border: rgba(30, 60, 120, 0.15);
+    --color-shadow: rgba(21, 101, 192, 0.12);
+
+    /* Original Shadcn variables (kept for compatibility) */
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 47% 11%;
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary-foreground: 222 47% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent-foreground: 222 47% 11.2%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --ring: 222.2 47.4% 11.2%;
+    --radius: 0.75rem;
   }
   .dark {
+    --color-bg-base: #0D1B3E;
+    --color-bg-card: rgba(20, 45, 95, 0.85);
+    --color-bg-surface: #162447;
+    --color-bg-input: rgba(10, 25, 60, 0.9);
+    --color-text-primary: #E8F4FD;
+    --color-text-secondary: #90CAF9;
+    --color-border: rgba(79, 195, 247, 0.15);
+    --color-shadow: rgba(79, 195, 247, 0.08);
+
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;

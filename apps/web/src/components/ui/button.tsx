@@ -8,15 +8,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-white hover:text-white [a]:text-white [a]:hover:bg-primary/80 [a]:hover:text-white",
+        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all",
         outline:
-          "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+          "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] transition-all",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+          "bg-slate-100 text-slate-900 hover:bg-slate-200/80 active:scale-[0.98] transition-all",
         ghost:
-          "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
+          "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
         destructive:
-          "bg-destructive text-white hover:bg-destructive/90 hover:text-white focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive dark:hover:bg-destructive/90 dark:focus-visible:ring-destructive/40",
+          "bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:scale-[0.98] transition-all",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

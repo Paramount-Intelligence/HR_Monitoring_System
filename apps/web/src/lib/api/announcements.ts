@@ -17,6 +17,10 @@ export const announcementsApi = {
     const response = await apiClient.get<Announcement[]>('/announcements');
     return response.data;
   },
+  getAllAnnouncements: async () => {
+    const response = await apiClient.get<Announcement[]>('/announcements/all');
+    return response.data;
+  },
   createAnnouncement: async (data: { 
     title: string; 
     content: string; 

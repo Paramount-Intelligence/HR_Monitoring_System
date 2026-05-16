@@ -39,6 +39,12 @@ class AttendanceSession(Base, TimestampMixin):
     late_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     early_checkout_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     
+    # Break Summaries
+    total_break_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    dinner_break_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    prayer_break_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    other_break_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    
     attendance_classification: Mapped[AttendanceClassification] = mapped_column(
         Enum(AttendanceClassification, name="attendance_classification", native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
@@ -62,6 +68,9 @@ class AttendanceSession(Base, TimestampMixin):
     
     # Relationships
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
+    breaks: Mapped[list["AttendanceBreak"]] = relationship(
+        "AttendanceBreak", back_populates="session", cascade="all, delete-orphan"
+    )
 
     @property
     def user_full_name(self) -> str:

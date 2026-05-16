@@ -102,6 +102,24 @@ class ProjectService:
         for p in projects:
             p.progress_percentage = self._calculate_progress(p.id)
         return projects
+        
+    def list_task_eligible_projects(self, actor: User) -> list[Project]:
+        """Return projects that are approved and active, scoped to the actor's visibility."""
+        # A project is task-eligible if it has been approved. 
+        # We accept both 'approved' and 'active' statuses for backward compatibility.
+        q = self.db.query(Project).filter(
+            Project.approval_status == ApprovalStatus.APPROVED,
+            Project.project_status.in_([ProjectStatus.APPROVED, ProjectStatus.ACTIVE])
+        )
+        
+        # Scope: By default, let employees see all approved projects 
+        # so they can contribute to any active team project.
+        if actor.role == UserRole.MANAGER:
+            q = q.filter(Project.manager_id == actor.id)
+        # Admins see all. Employees now also see all approved projects.
+            
+        projects = q.order_by(Project.created_at.desc()).all()
+        return projects
 
     # ------------------------------------------------------------------
     # Get by ID
@@ -141,7 +159,7 @@ class ProjectService:
 
         if payload.decision == ApprovalStatus.APPROVED:
             project.approval_status = ApprovalStatus.APPROVED
-            project.project_status = ProjectStatus.APPROVED
+            project.project_status = ProjectStatus.ACTIVE
             project.approved_at = now
         else:
             project.approval_status = ApprovalStatus.REJECTED

@@ -64,22 +64,23 @@ export default function ActivateAccountContent() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200/60 p-10 max-w-md w-full text-center space-y-6">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-[2rem] shadow-premium-lg border border-slate-100 p-10 max-w-md w-full text-center space-y-8 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500" />
           <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-full bg-emerald-100 flex items-center justify-center">
-              <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+            <div className="h-20 w-20 rounded-full bg-emerald-50 flex items-center justify-center ring-8 ring-emerald-50/50">
+              <CheckCircle2 className="h-10 w-10 text-emerald-600" />
             </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">Account Activated!</h2>
-            <p className="mt-2 text-slate-500">
-              Welcome to Paramount Intelligence. Your account is now active and your password has been set.
+          <div className="space-y-2">
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Profile Activated</h2>
+            <p className="text-sm text-slate-500 font-medium leading-relaxed">
+              Welcome to the team! Your account is now active and your credentials are ready for use.
             </p>
           </div>
-          <Link href="/login" className="block">
-            <Button className="w-full bg-[#0f172a] hover:bg-[#1e293b]">
-              Sign In to Dashboard
+          <Link href="/login" className="block pt-2">
+            <Button className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all">
+              Launch Workforce OS
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
@@ -89,48 +90,49 @@ export default function ActivateAccountContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="h-10 w-10 rounded-xl overflow-hidden bg-white border border-slate-200 p-1.5 shadow-sm">
+        <div className="flex flex-col items-center gap-3 mb-4">
+          <div className="h-12 w-12 rounded-2xl overflow-hidden bg-white border border-slate-200 p-2 shadow-premium">
             <img src="/logo.png" alt="Paramount Logo" className="h-full w-full object-contain" />
           </div>
-          <div>
-            <p className="font-bold text-slate-900">Paramount Intelligence</p>
-            <p className="text-xs text-slate-500">Workforce OS</p>
+          <div className="text-center">
+            <p className="font-extrabold text-slate-900 tracking-tight">Paramount Intelligence</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Workforce OS</p>
           </div>
         </div>
 
-        <div className="bg-white p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/60">
-          <div className="mb-6">
-            <div className="h-12 w-12 rounded-xl bg-blue-50 flex items-center justify-center mb-4">
-              <Sparkles className={`h-6 w-6 ${!token ? 'text-slate-400' : 'text-blue-600'}`} />
+        <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-premium-lg border border-slate-100/80 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500" />
+          <div className="mb-8">
+            <div className="h-14 w-14 rounded-2xl bg-indigo-50 flex items-center justify-center mb-6 ring-1 ring-indigo-100/50">
+              <Sparkles className={`h-7 w-7 ${!token ? 'text-slate-400' : 'text-indigo-600'}`} />
             </div>
-            <h1 className="text-2xl font-semibold text-slate-900">
-              {!token ? 'Invalid Link' : 'Activate your account'}
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              {!token ? 'Invalid Link' : 'Begin Onboarding'}
             </h1>
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-slate-500 font-medium mt-2 leading-relaxed">
               {!token 
-                ? 'This activation link is missing a valid token. Please check your email or contact support.' 
-                : 'Please set a secure password to complete your account setup.'}
+                ? 'This activation link is missing a valid token. Please contact your administrator.' 
+                : 'Set your secure password to complete your profile activation.'}
             </p>
           </div>
 
           {!token ? (
             <Link href="/login" className="block">
-              <Button className="w-full h-11 bg-[#0f172a] hover:bg-[#1e293b] text-white font-medium">
+              <Button className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all">
                 Back to Login
               </Button>
             </Link>
           ) : (
             <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-700">Choose Password</FormLabel>
+                    <FormLabel className="text-slate-900 font-bold text-[10px] uppercase tracking-[0.15em] ml-1">Set Password</FormLabel>
                     <FormControl>
                       <div className="relative">
                         <Input
@@ -138,21 +140,21 @@ export default function ActivateAccountContent() {
                           placeholder="••••••••"
                           {...field}
                           disabled={isLoading}
-                          className="h-11 bg-slate-50/50 border-slate-200 pr-10"
+                          className="h-12 bg-slate-50/50 border-slate-200 focus-visible:ring-indigo-600 rounded-2xl px-4 pr-12 font-medium"
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
                     </FormControl>
-                    <FormDescription className="text-[11px]">
-                      Use at least 8 characters with a mix of letters and numbers.
+                    <FormDescription className="text-[10px] font-bold text-slate-400 ml-1 mt-1 uppercase tracking-tight">
+                      Min 8 characters required
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-xs font-bold text-rose-500 ml-1" />
                   </FormItem>
                 )}
               />
@@ -162,36 +164,37 @@ export default function ActivateAccountContent() {
                 name="confirmPassword"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-slate-700">Confirm Password</FormLabel>
+                    <FormLabel className="text-slate-900 font-bold text-[10px] uppercase tracking-[0.15em] ml-1">Confirm Password</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
                         placeholder="••••••••"
                         {...field}
                         disabled={isLoading}
-                        className="h-11 bg-slate-50/50 border-slate-200"
+                        className="h-12 bg-slate-50/50 border-slate-200 focus-visible:ring-indigo-600 rounded-2xl px-4 font-medium"
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs font-bold text-rose-500 ml-1" />
                   </FormItem>
                 )}
               />
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-[#0f172a] hover:bg-[#1e293b] text-white font-medium"
+                className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest shadow-xl transition-all rounded-2xl active:scale-[0.98]"
                 disabled={isLoading || !token}
               >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Activate & Set Password
+                Complete Setup
               </Button>
             </form>
           </Form>
           )}
         </div>
 
-        <p className="text-center text-xs text-slate-400">
-          By activating, you agree to our Terms of Service and Privacy Policy.
+        <p className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest px-8 leading-relaxed">
+          By activating, you agree to our <br />
+          <span className="text-slate-500 underline cursor-pointer">Terms of Service</span> and <span className="text-slate-500 underline cursor-pointer">Privacy Policy</span>.
         </p>
       </div>
     </div>

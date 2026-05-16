@@ -32,6 +32,14 @@ from app.schemas.dashboard import (
     TaskCounts,
     TeamMemberAttendance,
     TimerState,
+    AdminAnalyticsDashboard,
+    AdminAnalyticsKPIs,
+    AdminAnalyticsAttendanceTrend,
+    AdminAnalyticsTaskStats,
+    AdminAnalyticsProjectStats,
+    AdminAnalyticsDeptComparison,
+    AdminAnalyticsPeopleException,
+    AdminAnalyticsRecentActivity,
 )
 
 router = APIRouter()
@@ -209,4 +217,176 @@ def admin_dashboard(db: Session = Depends(get_db), actor: User = Depends(require
         overdue_tasks_count=overdue,
         active_projects=active_projects,
         open_alerts=open_alerts,
+    )
+
+
+@router.get("/admin/analytics", response_model=AdminAnalyticsDashboard, summary="Admin analytics dashboard")
+def admin_analytics_dashboard(db: Session = Depends(get_db), actor: User = Depends(require_admin)) -> AdminAnalyticsDashboard:
+    from app.models.department import Department
+    from app.models.announcement import Announcement
+    from datetime import timedelta
+    from sqlalchemy.orm import joinedload
+
+    today_start = pk_day_start()
+    
+    # 1. KPIs
+    total_employees = db.query(User).filter(User.status != UserStatus.INACTIVE).count()
+    total_projects = db.query(Project).count()
+    pending_approvals = db.query(Approval).filter(Approval.decision == ApprovalStatus.PENDING).count()
+    
+    today_sessions = (
+        db.query(AttendanceSession)
+        .options(joinedload(AttendanceSession.user).joinedload("department"))
+        .filter(AttendanceSession.check_in_at >= today_start)
+        .all()
+    )
+    checked_in_today = len(today_sessions)
+    late_today = sum(1 for s in today_sessions if s.is_late_login)
+    wfh_today = sum(1 for s in today_sessions if s.work_mode == WorkMode.WFH)
+    attendance_rate = (checked_in_today / total_employees * 100) if total_employees > 0 else 0.0
+
+    kpis = AdminAnalyticsKPIs(
+        total_employees=total_employees,
+        total_projects=total_projects,
+        pending_approvals=pending_approvals,
+        attendance_rate=round(attendance_rate, 1),
+        checked_in_today=checked_in_today,
+        late_today=late_today,
+        wfh_today=wfh_today
+    )
+
+    # 2. Attendance Trend (Last 7 days)
+    attendance_trend = []
+    for i in range(6, -1, -1):
+        target_date = pk_today() - timedelta(days=i)
+        target_start = pk_day_start(target_date)
+        target_end = target_start + timedelta(days=1)
+        
+        sessions = db.query(AttendanceSession).filter(
+            AttendanceSession.check_in_at >= target_start,
+            AttendanceSession.check_in_at < target_end
+        ).all()
+        
+        checked = len(sessions)
+        late = sum(1 for s in sessions if s.is_late_login)
+        absent = total_employees - checked if total_employees > checked else 0
+        
+        attendance_trend.append(AdminAnalyticsAttendanceTrend(
+            date=target_date.strftime("%Y-%m-%d"),
+            checked_in=checked,
+            late=late,
+            absent=absent
+        ))
+
+    # 3. Task Statistics
+    all_tasks = db.query(Task).all()
+    task_stats = AdminAnalyticsTaskStats(
+        total=len(all_tasks),
+        completed=sum(1 for t in all_tasks if t.status == TaskStatus.COMPLETED),
+        in_progress=sum(1 for t in all_tasks if t.status == TaskStatus.IN_PROGRESS),
+        on_hold=0,  # Map to blocked or add if schema has it
+        pending=sum(1 for t in all_tasks if t.status == TaskStatus.CREATED),
+        rejected=sum(1 for t in all_tasks if t.status == TaskStatus.BLOCKED)
+    )
+
+    # 4. Project Statistics
+    all_projects = db.query(Project).all()
+    project_stats = AdminAnalyticsProjectStats(
+        total=len(all_projects),
+        approved=sum(1 for p in all_projects if p.project_status == ProjectStatus.APPROVED),
+        pending=sum(1 for p in all_projects if p.project_status == ProjectStatus.PENDING_APPROVAL),
+        rejected=sum(1 for p in all_projects if p.project_status == ProjectStatus.REJECTED),
+        active=sum(1 for p in all_projects if p.project_status == ProjectStatus.ACTIVE)
+    )
+
+    # 5. Department Comparison
+    departments = db.query(Department).filter(Department.is_active == True).all()
+    dept_comp = []
+    for dept in departments:
+        dept_users = db.query(User).filter(User.department_id == dept.id, User.status == UserStatus.ACTIVE).all()
+        user_ids = [u.id for u in dept_users]
+        if not user_ids:
+            continue
+            
+        dept_sessions = db.query(AttendanceSession).filter(
+            AttendanceSession.user_id.in_(user_ids),
+            AttendanceSession.check_in_at >= today_start
+        ).count()
+        
+        dept_att_rate = (dept_sessions / len(dept_users) * 100) if len(dept_users) > 0 else 0.0
+        dept_comp.append(AdminAnalyticsDeptComparison(
+            department_name=dept.name,
+            employee_count=len(dept_users),
+            attendance_rate=round(dept_att_rate, 1),
+            completed_tasks=sum(1 for t in all_tasks if t.assigned_to in user_ids and t.status == TaskStatus.COMPLETED),
+            pending_approvals=0  # Approximation
+        ))
+
+    # 6. People Exceptions (Late or Absent)
+    exceptions = []
+    checked_in_user_ids = {s.user_id for s in today_sessions}
+    late_sessions = [s for s in today_sessions if s.is_late_login]
+    
+    # Add late
+    for s in late_sessions:
+        if s.user:
+            try:
+                dept_name = s.user.department.name if s.user.department else "No Department"
+            except Exception:
+                dept_name = "No Department"
+            exceptions.append(AdminAnalyticsPeopleException(
+                employee_name=s.user.full_name,
+                department_name=dept_name,
+                status="Late",
+                details="Checked in late today"
+            ))
+            
+    # Add absent (active users not in today_sessions)
+    active_users_list = (
+        db.query(User)
+        .options(joinedload(User.department))
+        .filter(User.status == UserStatus.ACTIVE)
+        .all()
+    )
+    for u in active_users_list:
+        if u.id not in checked_in_user_ids:
+            try:
+                dept_name = u.department.name if u.department else "No Department"
+            except Exception:
+                dept_name = "No Department"
+            exceptions.append(AdminAnalyticsPeopleException(
+                employee_name=u.full_name,
+                department_name=dept_name,
+                status="Absent",
+                details="Has not checked in today"
+            ))
+
+    # 7. Recent Activity (Mix of Alerts and Announcements)
+    recent = []
+    alerts = db.query(Alert).order_by(Alert.created_at.desc()).limit(3).all()
+    announcements = db.query(Announcement).order_by(Announcement.created_at.desc()).limit(2).all()
+    
+    for a in alerts:
+        recent.append(AdminAnalyticsRecentActivity(
+            title=f"Alert: {a.title}",
+            description=a.message,
+            created_at=a.created_at.isoformat().replace("+00:00", "Z") if a.created_at else ""
+        ))
+    for ann in announcements:
+        recent.append(AdminAnalyticsRecentActivity(
+            title=f"Announcement: {ann.title}",
+            description=ann.content,
+            created_at=ann.created_at.isoformat().replace("+00:00", "Z") if ann.created_at else ""
+        ))
+        
+    recent.sort(key=lambda x: x.created_at, reverse=True)
+
+    return AdminAnalyticsDashboard(
+        kpis=kpis,
+        attendance_trend=attendance_trend,
+        task_statistics=task_stats,
+        project_statistics=project_stats,
+        department_comparison=dept_comp,
+        people_exceptions=exceptions[:15],  # Limit to top 15
+        recent_activity=recent[:5]
     )

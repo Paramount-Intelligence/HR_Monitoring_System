@@ -27,5 +27,10 @@ export const dashboardApi = {
   getAdminSummary: async () => {
     const response = await apiClient.get('/dashboard/admin');
     return response.data;
+  },
+  
+  getAdminAnalytics: async () => {
+    const response = await apiClient.get('/dashboard/admin/analytics');
+    return response.data;
   }
 };

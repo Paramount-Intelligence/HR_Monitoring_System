@@ -1,37 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Card, CardContent, CardDescription, CardHeader, CardTitle 
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area 
-} from 'recharts';
-import { 
-  TrendingUp, Users, AlertTriangle, CheckCircle2, ArrowUpRight, ArrowDownRight, Activity, BarChart3
-} from 'lucide-react';
-import { toast } from 'sonner';
 import { analyticsApi } from '@/lib/api/analytics';
-
-// Mock data for charts if API returns empty
-const productivityData = [
-  { name: 'Mon', score: 65 },
-  { name: 'Tue', score: 72 },
-  { name: 'Wed', score: 85 },
-  { name: 'Thu', score: 78 },
-  { name: 'Fri', score: 90 },
-  { name: 'Sat', score: 45 },
-  { name: 'Sun', score: 30 },
-];
-
-const workloadData = [
-  { name: 'Alice', tasks: 12 },
-  { name: 'Bob', tasks: 15 },
-  { name: 'Charlie', tasks: 8 },
-  { name: 'David', tasks: 22 },
-  { name: 'Eve', tasks: 10 },
-];
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { 
+  BarChart3, PieChart as PieChartIcon, AlertTriangle, Trophy, Users, Loader2 
+} from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
+  ResponsiveContainer, Cell, PieChart, Pie, Legend 
+} from 'recharts';
+import { KPICard } from '@/components/dashboard/KPICard';
+import { cn } from '@/lib/utils';
 
 export default function ManagerAnalyticsPage() {
   const [bestPerformers, setBestPerformers] = useState<any[]>([]);
@@ -55,162 +35,106 @@ export default function ManagerAnalyticsPage() {
       setBurnoutRisks(risks || []);
     } catch (error) {
       console.error('Failed to fetch analytics data');
-      // Keep loading as false but don't show toast for every fail in dev
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">Intelligence & Analytics</h1>
-        <p className="text-slate-500">Deep insights into team performance, workload balance, and productivity trends.</p>
+        <p className="text-sm font-medium text-slate-500 mt-1">Deep-tissue insights into team performance, workload balance, and productivity vectors.</p>
       </div>
 
-      {/* Top Insights Cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none shadow-sm overflow-hidden group">
-          <CardContent className="p-0">
-            <div className="p-6">
-              <div className="flex items-center justify-between space-y-0 pb-2">
-                <p className="text-sm font-medium text-slate-600">Avg. Productivity</p>
-                <div className="p-2 bg-blue-50 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <TrendingUp className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold">84%</div>
-                <div className="flex items-center text-xs font-medium text-emerald-600">
-                  <ArrowUpRight className="h-3 w-3 mr-1" /> +12%
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">vs last 7 days</p>
-            </div>
-            <div className="h-1.5 w-full bg-slate-100">
-              <div className="h-full bg-blue-600 transition-all duration-1000" style={{ width: '84%' }}></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm overflow-hidden group">
-          <CardContent className="p-0">
-            <div className="p-6">
-              <div className="flex items-center justify-between space-y-0 pb-2">
-                <p className="text-sm font-medium text-slate-600">Burnout Risk</p>
-                <div className="p-2 bg-rose-50 rounded-lg text-rose-600 group-hover:bg-rose-600 group-hover:text-white transition-colors">
-                  <AlertTriangle className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold">{burnoutRisks.length} Members</div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">Showing high risk signals</p>
-            </div>
-            <div className="h-1.5 w-full bg-slate-100">
-              <div className="h-full bg-rose-600 transition-all duration-1000" style={{ width: '15%' }}></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm overflow-hidden group">
-          <CardContent className="p-0">
-            <div className="p-6">
-              <div className="flex items-center justify-between space-y-0 pb-2">
-                <p className="text-sm font-medium text-slate-600">Tasks Completed</p>
-                <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
-                  <CheckCircle2 className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold">142</div>
-                <div className="flex items-center text-xs font-medium text-rose-600">
-                  <ArrowDownRight className="h-3 w-3 mr-1" /> -4%
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">This month so far</p>
-            </div>
-            <div className="h-1.5 w-full bg-slate-100">
-              <div className="h-full bg-emerald-600 transition-all duration-1000" style={{ width: '65%' }}></div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none shadow-sm overflow-hidden group">
-          <CardContent className="p-0">
-            <div className="p-6">
-              <div className="flex items-center justify-between space-y-0 pb-2">
-                <p className="text-sm font-medium text-slate-600">Active Members</p>
-                <div className="p-2 bg-violet-50 rounded-lg text-violet-600 group-hover:bg-violet-600 group-hover:text-white transition-colors">
-                  <Users className="h-4 w-4" />
-                </div>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <div className="text-2xl font-bold">18 / 20</div>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">Currently checked in</p>
-            </div>
-            <div className="h-1.5 w-full bg-slate-100">
-              <div className="h-full bg-violet-600 transition-all duration-1000" style={{ width: '90%' }}></div>
-            </div>
-          </CardContent>
-        </Card>
+        <KPICard 
+          title="Productivity Yield" 
+          value="84.2%" 
+          change={12.5} 
+          icon={TrendingUp} 
+          description="Aggregate team efficiency"
+        />
+        <KPICard 
+          title="Operational Friction" 
+          value={burnoutRisks.length.toString()} 
+          change={-2.4} 
+          icon={AlertTriangle} 
+          description="Active burnout risk signals"
+          variant={burnoutRisks.length > 0 ? "warning" : "default"}
+        />
+        <KPICard 
+          title="Execution Units" 
+          value="142" 
+          change={-4.1} 
+          icon={CheckCircle2} 
+          description="Tasks completed this cycle"
+        />
+        <KPICard 
+          title="Active Capacity" 
+          value="18/20" 
+          change={2.1} 
+          icon={Users} 
+          description="Members currently verified"
+        />
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        {/* Productivity Trend */}
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Activity className="h-5 w-5 text-blue-600" />
-              Team Productivity Trend
+        <Card className="rounded-2xl shadow-premium border-slate-100 overflow-hidden">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-600">
+              <Activity className="h-4 w-4 text-indigo-600" />
+              Efficiency Vectors
             </CardTitle>
-            <CardDescription>Daily performance aggregate across all team members.</CardDescription>
+            <CardDescription className="text-xs font-medium">Daily performance aggregate across all operational units.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
+          <CardContent className="pt-6">
+            <div className="h-[320px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={productivityData}>
                   <defs>
                     <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                      <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15}/>
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.01}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: '#fff', border: 'none', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#fff' }}
+                    itemStyle={{ color: '#818cf8', fontSize: '12px', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#fff', fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   />
-                  <Area type="monotone" dataKey="score" stroke="#2563eb" strokeWidth={2} fillOpacity={1} fill="url(#colorScore)" />
+                  <Area type="monotone" dataKey="score" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorScore)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
 
-        {/* Workload Distribution */}
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              Workload Distribution
+        <Card className="rounded-2xl shadow-premium border-slate-100 overflow-hidden">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-600">
+              <BarChart3 className="h-4 w-4 text-indigo-600" />
+              Load Distribution
             </CardTitle>
-            <CardDescription>Number of active tasks assigned per member.</CardDescription>
+            <CardDescription className="text-xs font-medium">Execution bandwidth allocation per team member.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
+          <CardContent className="pt-6">
+            <div className="h-[320px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={workload.length > 0 ? workload : workloadData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }} />
                   <Tooltip 
                     cursor={{ fill: '#f8fafc' }}
-                    contentStyle={{ backgroundColor: '#fff', border: 'none', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    contentStyle={{ backgroundColor: '#1e293b', border: 'none', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', color: '#fff' }}
+                    itemStyle={{ color: '#818cf8', fontSize: '12px', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#fff', fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}
                   />
-                  <Bar dataKey="tasks" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
+                  <Bar dataKey="tasks" fill="#6366f1" radius={[6, 6, 0, 0]} barSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -219,77 +143,74 @@ export default function ManagerAnalyticsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        {/* Top Performers */}
-        <Card className="md:col-span-2 border-none shadow-sm">
-          <CardHeader>
-            <CardTitle>Team Performance Leaderboard</CardTitle>
-            <CardDescription>Members with highest task completion and consistency.</CardDescription>
+        <Card className="md:col-span-2 rounded-2xl shadow-premium border-slate-100 overflow-hidden">
+          <CardHeader className="border-b border-slate-50 bg-slate-50/30">
+            <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-600">Performance Leaderboard</CardTitle>
+            <CardDescription className="text-xs font-medium">Top contributors based on completion velocity and consistency.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="pt-6">
+            <div className="space-y-3">
               {bestPerformers.slice(0, 5).map((performer, idx) => (
-                <div key={performer.user_id} className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-50 transition-colors">
-                  <div className="flex items-center gap-3">
+                <div key={performer.user_id} className="flex items-center justify-between p-4 rounded-xl border border-slate-50 hover:bg-slate-50/50 transition-all hover:translate-x-1 duration-200">
+                  <div className="flex items-center gap-4">
                     <div className={cn(
-                      "h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold",
-                      idx === 0 ? "bg-amber-100 text-amber-700" : 
-                      idx === 1 ? "bg-slate-200 text-slate-700" :
-                      idx === 2 ? "bg-orange-100 text-orange-700" : "bg-slate-100 text-slate-600"
+                      "h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black shadow-sm",
+                      idx === 0 ? "bg-indigo-600 text-white" : 
+                      idx === 1 ? "bg-slate-800 text-white" :
+                      idx === 2 ? "bg-slate-400 text-white" : "bg-slate-100 text-slate-400"
                     )}>
                       {idx + 1}
                     </div>
                     <div>
-                      <div className="font-medium text-slate-900">{performer.full_name}</div>
-                      <div className="text-xs text-slate-500">{performer.completed_tasks} tasks completed</div>
+                      <div className="font-bold text-slate-900 text-sm leading-none mb-1">{performer.full_name}</div>
+                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{performer.completed_tasks} Tasks Verified</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <div className="text-sm font-bold text-slate-900">{performer.score}</div>
-                      <div className="text-[10px] text-slate-500 uppercase tracking-wider">Score</div>
+                      <div className="text-sm font-black text-slate-900 leading-none mb-1">{performer.score}</div>
+                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Efficiency</div>
                     </div>
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100">
-                      {Math.round(performer.attendance_consistency * 100)}% Consistency
-                    </Badge>
+                    <div className="hidden sm:block">
+                        <StatusBadge status="active" text={`${Math.round(performer.attendance_consistency * 100)}% Match`} />
+                    </div>
                   </div>
                 </div>
               ))}
               {bestPerformers.length === 0 && (
-                <div className="text-center py-8 text-slate-500 italic">Calculating performance metrics...</div>
+                <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest animate-pulse">Synchronizing Intelligence Data...</div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Burnout Risks */}
-        <Card className="border-none shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-rose-600">Risk Signals</CardTitle>
-            <CardDescription>Members showing early signs of burnout.</CardDescription>
+        <Card className="rounded-2xl shadow-premium border-rose-100 bg-rose-50/10 overflow-hidden">
+          <CardHeader className="border-b border-rose-100/50 bg-rose-50/50">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-rose-600">
+                <AlertTriangle className="h-4 w-4" />
+                Risk Signals
+            </CardTitle>
+            <CardDescription className="text-xs font-medium text-rose-500">Early indicators of operational burnout.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="space-y-4">
               {burnoutRisks.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600 mb-2">
-                    <CheckCircle2 className="h-6 w-6" />
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-4 border border-emerald-100 shadow-sm">
+                    <CheckCircle2 className="h-8 w-8" />
                   </div>
-                  <p className="text-sm font-medium text-slate-900">All Good!</p>
-                  <p className="text-xs text-slate-500">No team members are currently at risk.</p>
+                  <p className="text-xs font-bold text-slate-900 uppercase tracking-widest">System Nominal</p>
+                  <p className="text-[10px] text-slate-500 font-medium mt-1">No burnout risks detected in current cycle.</p>
                 </div>
               ) : (
                 burnoutRisks.map((risk) => (
-                  <div key={risk.user_id} className="p-3 rounded-lg border border-rose-100 bg-rose-50/30">
-                    <div className="font-medium text-slate-900">{risk.full_name}</div>
-                    <div className="text-xs text-rose-600 mt-1 flex items-center gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      {risk.consecutive_high_hour_days} consecutive 10h+ days
+                  <div key={risk.user_id} className="p-4 rounded-xl border border-rose-100 bg-white shadow-sm transition-all hover:shadow-md">
+                    <div className="font-bold text-slate-900 text-sm leading-none mb-2">{risk.full_name}</div>
+                    <div className="text-[10px] text-rose-600 font-bold uppercase tracking-tight flex items-center gap-1.5 mb-3">
+                      <Activity className="h-3 w-3" />
+                      {risk.consecutive_high_hour_days} Consecutive Overages
                     </div>
-                    <div className="mt-2">
-                      <Badge variant="outline" className="bg-rose-100 text-rose-700 border-rose-200">
-                        {risk.risk_level} Risk
-                      </Badge>
-                    </div>
+                    <StatusBadge status="critical" text={`${risk.risk_level} RISK`} />
                   </div>
                 ))
               )}
@@ -299,9 +220,4 @@ export default function ManagerAnalyticsPage() {
       </div>
     </div>
   );
-}
-
-// Helper for dynamic classes
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
 }

@@ -1,131 +1,150 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Users, CalendarCheck, Palmtree, Megaphone, Building, 
-  TrendingUp, Clock, AlertTriangle, CheckCircle2
+  TrendingUp, Clock, AlertTriangle, CheckCircle2, ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
+import { dashboardApi } from '@/lib/api/dashboard';
+import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/api/client';
 
 export default function HRDashboardPage() {
   const { user } = useAuth();
+  const [summary, setSummary] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSummary() {
+      try {
+        const data = await dashboardApi.getAdminSummary(); // HR typically shares admin summary or has its own
+        setSummary(data);
+      } catch (e) {
+        toast.error(getErrorMessage(e));
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadSummary();
+  }, []);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">HR & Operations</h1>
-        <p className="text-slate-500">Welcome back, {user?.full_name}. Manage people, policies, and org operations.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">People Operations</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">HR Dashboard</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Global Workforce Overview & Policy Management</p>
+        </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none shadow-sm bg-blue-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-900">Total Employees</CardTitle>
-            <Users className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-900">—</div>
-            <p className="text-xs text-blue-700">Active workforce members</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-amber-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-amber-900">Pending Leaves</CardTitle>
-            <Palmtree className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-900">—</div>
-            <p className="text-xs text-amber-700">Awaiting approval</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-emerald-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-emerald-900">Active Today</CardTitle>
-            <CalendarCheck className="h-4 w-4 text-emerald-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-900">—</div>
-            <p className="text-xs text-emerald-700">Checked in today</p>
-          </CardContent>
-        </Card>
-        <Card className="border-none shadow-sm bg-rose-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-rose-900">Missing Checkout</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-rose-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-rose-900">—</div>
-            <p className="text-xs text-rose-700">Incomplete sessions</p>
-          </CardContent>
-        </Card>
-      </div>
+      {isLoading ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4].map(i => <KPICardSkeleton key={i} />)}
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <KPICard 
+                title="Workforce Size"
+                value={summary?.total_employees || 0}
+                description="Active employees"
+                icon={Users}
+            />
+            <KPICard 
+                title="Pending Approvals"
+                value={summary?.pending_leaves || 0}
+                description="Awaiting HR review"
+                icon={Palmtree}
+                variant={(summary?.pending_leaves || 0) > 0 ? "warning" : "default"}
+            />
+            <KPICard 
+                title="Active Today"
+                value={summary?.active_today || 0}
+                description="Successfully checked in"
+                icon={CalendarCheck}
+                variant="indigo"
+            />
+            <KPICard 
+                title="Attendance Exceptions"
+                value={summary?.missing_checkouts || 0}
+                description="Incomplete sessions"
+                icon={AlertTriangle}
+                variant={(summary?.missing_checkouts || 0) > 0 ? "danger" : "default"}
+            />
+        </div>
+      )}
 
-      {/* Quick Actions */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer">
-          <CardHeader>
-            <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center mb-2 group-hover:bg-blue-100 transition-colors">
-              <Users className="h-5 w-5 text-blue-600" />
+      <div className="grid gap-8 md:grid-cols-3">
+        <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden group cursor-pointer hover:shadow-premium-lg transition-all duration-500">
+          <CardHeader className="p-8 pb-4">
+            <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Users className="h-6 w-6 text-indigo-600" />
             </div>
-            <CardTitle className="text-base">User Management</CardTitle>
-            <CardDescription>Create and manage employee accounts</CardDescription>
+            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">User Management</CardTitle>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">Lifecycle & Account Governance</CardDescription>
           </CardHeader>
-          <CardContent>
-            <a href="/admin/users" className="text-sm text-blue-600 font-medium hover:text-blue-700">
-              Open User Management →
+          <CardContent className="px-8 pb-8">
+            <a href="/admin/users" className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] hover:underline">
+              Open Directory &rarr;
             </a>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer">
-          <CardHeader>
-            <div className="h-10 w-10 rounded-lg bg-amber-50 flex items-center justify-center mb-2 group-hover:bg-amber-100 transition-colors">
-              <Palmtree className="h-5 w-5 text-amber-600" />
+        <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden group cursor-pointer hover:shadow-premium-lg transition-all duration-500">
+          <CardHeader className="p-8 pb-4">
+            <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Palmtree className="h-6 w-6 text-amber-600" />
             </div>
-            <CardTitle className="text-base">Leave Approvals</CardTitle>
-            <CardDescription>Review pending leave requests org-wide</CardDescription>
+            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Leave Approvals</CardTitle>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">Global Mobility Review</CardDescription>
           </CardHeader>
-          <CardContent>
-            <a href="/manager/approvals" className="text-sm text-blue-600 font-medium hover:text-blue-700">
-              Review Leaves →
+          <CardContent className="px-8 pb-8">
+            <a href="/manager/approvals" className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] hover:underline">
+              Review Leaves &rarr;
             </a>
           </CardContent>
         </Card>
 
-        <Card className="border-none shadow-sm hover:shadow-md transition-shadow group cursor-pointer">
-          <CardHeader>
-            <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center mb-2 group-hover:bg-emerald-100 transition-colors">
-              <Building className="h-5 w-5 text-emerald-600" />
+        <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden group cursor-pointer hover:shadow-premium-lg transition-all duration-500">
+          <CardHeader className="p-8 pb-4">
+            <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <Building className="h-6 w-6 text-emerald-600" />
             </div>
-            <CardTitle className="text-base">Organization Setup</CardTitle>
-            <CardDescription>Configure departments, shifts, and holidays</CardDescription>
+            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Organization Setup</CardTitle>
+            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">Infrastructure & Policy</CardDescription>
           </CardHeader>
-          <CardContent>
-            <a href="/admin/organization" className="text-sm text-blue-600 font-medium hover:text-blue-700">
-              Open Organization →
+          <CardContent className="px-8 pb-8">
+            <a href="/admin/organization" className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] hover:underline">
+              Manage Setup &rarr;
             </a>
           </CardContent>
         </Card>
       </div>
 
-      {/* HR Info Panel */}
-      <Card className="border-none shadow-sm">
-        <CardHeader>
-          <CardTitle>HR Operations Role</CardTitle>
-          <CardDescription>Your access scope as HR & Operations</CardDescription>
+      <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden">
+        <CardHeader className="p-8 border-b border-slate-50/50">
+          <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Operations Summary</CardTitle>
+          <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">System Access & HR Capability Scope</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <CardContent className="p-8">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {[
-              'View All Users', 'Create Employees', 'Approve Leaves', 
-              'Manage Departments', 'Manage Holidays', 'Create Announcements',
-              'Manage Shifts', 'View Org Reports', 'Attendance Management'
+              'Full Personnel View', 'Employee Onboarding', 'Global Leave Resolution', 
+              'Infrastructure Config', 'Holiday Governance', 'Broadcasting Control',
+              'Shift Scheduling', 'Workforce Analytics', 'Attendance Audit'
             ].map((cap) => (
-              <div key={cap} className="flex items-center gap-2 text-sm">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span className="text-slate-700">{cap}</span>
+              <div key={cap} className="flex items-center gap-3">
+                <div className="h-6 w-6 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                </div>
+                <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{cap}</span>
               </div>
             ))}
           </div>

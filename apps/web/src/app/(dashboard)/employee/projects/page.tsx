@@ -1,35 +1,44 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Plus, Briefcase } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { getErrorMessage } from '@/lib/api/client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { cn } from '@/lib/utils';
+import { 
+  Plus, Loader2, Briefcase, CheckCircle, XCircle, Calendar, ShieldCheck, Zap
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Dialog, DialogContent, DialogDescription, DialogHeader, 
+  DialogTitle, DialogTrigger 
+} from '@/components/ui/dialog';
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
+} from '@/components/ui/form';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from '@/components/ui/table';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
+import { formatPKDate } from '@/lib/time';
 
 const projectSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
   priority: z.enum(['low', 'medium', 'high', 'critical']),
   due_date: z.string().optional(),
 });
@@ -47,7 +56,7 @@ export default function ProjectsPage() {
       const data = await projectsApi.getProjects();
       setProjects(data);
     } catch (error) {
-      toast.error('Failed to load projects');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -63,7 +72,7 @@ export default function ProjectsPage() {
         setProjects(projectsData);
         setUser(userData);
       } catch (error) {
-        toast.error('Failed to initialize page');
+        toast.error(getErrorMessage(error));
       } finally {
         setIsLoading(false);
       }
@@ -88,93 +97,86 @@ export default function ProjectsPage() {
         due_date: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined,
         manager_id: user?.manager_id || undefined
       });
-      toast.success('Project created and pending approval');
+      toast.success('Project proposed successfully');
       setIsDialogOpen(false);
       form.reset();
       await fetchProjects();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to create project');
-    }
-  };
-
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'critical': return <Badge variant="destructive">Critical</Badge>;
-      case 'high': return <Badge className="bg-orange-500 hover:bg-orange-600">High</Badge>;
-      case 'medium': return <Badge variant="secondary">Medium</Badge>;
-      case 'low': return <Badge variant="outline">Low</Badge>;
-      default: return <Badge>{priority}</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-      case 'active':
-        return <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">{status}</Badge>;
-      case 'pending':
-      case 'pending_approval':
-        return <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">Pending Approval</Badge>;
-      case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>;
-      default:
-        return <Badge variant="secondary" className="capitalize">{status.replace('_', ' ')}</Badge>;
+      toast.error(getErrorMessage(error));
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Projects</h1>
-          <p className="text-sm text-slate-500">Manage your projects and request approvals.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <Briefcase className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">New Project</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Projects</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Strategic Initiative Proposal Hub</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95">
               <Plus className="mr-2 h-4 w-4" />
-              New Project
+              Propose Project
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Request New Project</DialogTitle>
-              <DialogDescription>
-                Submit a new project for manager approval.
+          <DialogContent className="sm:max-w-[600px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">New Project</DialogTitle>
+              <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">
+                Submit a high-impact initiative for operational review
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
                 <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Internal Dashboard v2" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Project Identity</FormLabel>
+                    <FormControl><Input placeholder="e.g. Infrastructure Modernization" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Project scope and goals..." className="resize-none" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Project Details</FormLabel>
+                    <FormControl><Textarea placeholder="Define project goals and success criteria..." className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[120px] font-bold text-sm leading-relaxed p-6 focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                  </FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-6">
                   <FormField control={form.control} name="priority" render={({ field }) => (
-                    <FormItem><FormLabel>Priority</FormLabel>
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Priority Level</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="low">Low</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="critical">Critical</SelectItem>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
+                          <SelectItem value="low" className="text-[10px] font-black uppercase tracking-widest">Low</SelectItem>
+                          <SelectItem value="medium" className="text-[10px] font-black uppercase tracking-widest">Medium</SelectItem>
+                          <SelectItem value="high" className="text-[10px] font-black uppercase tracking-widest">High</SelectItem>
+                          <SelectItem value="critical" className="text-[10px] font-black uppercase tracking-widest text-rose-600">Critical</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="due_date" render={({ field }) => (
-                    <FormItem><FormLabel>Due Date (Optional)</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Target Deadline</FormLabel>
+                      <FormControl><Input type="date" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
+                    </FormItem>
                   )} />
                 </div>
-                <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={form.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700">
+                <div className="flex justify-end pt-6 gap-4">
+                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95 flex-1">
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Submit Request
+                    Submit Proposal
                   </Button>
                 </div>
               </form>
@@ -183,44 +185,67 @@ export default function ProjectsPage() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm">
+      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+              <Zap className="h-6 w-6 text-indigo-600" />
+              Active Projects
+            </CardTitle>
+          </div>
+        </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
-            </div>
+            <div className="p-10"><TableSkeleton rows={5} cols={5} /></div>
           ) : projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <Briefcase className="h-12 w-12 text-slate-200 mb-4" />
-              <p>No projects found.</p>
-              <Button variant="link" onClick={() => setIsDialogOpen(true)}>Create your first project</Button>
+            <div className="p-20">
+              <EmptyState 
+                  title="No projects initialized"
+                  message="Propose your first project container to begin organizing your professional work."
+                  icon={Briefcase}
+                  action={{
+                      label: "New Proposal",
+                      onClick: () => setIsDialogOpen(true)
+                  }}
+              />
             </div>
           ) : (
-            <div className="rounded-md border-0">
+            <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead className="w-[300px]">Project</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead className="text-right">Created</TableHead>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
+                    <TableHead className="w-[45%] font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Initiative Identity</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Criticality</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Timeline</TableHead>
+                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Created</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {projects.map((project) => (
-                    <TableRow key={project.id}>
+                    <TableRow key={project.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                      <TableCell className="pl-10">
+                        <div className="flex flex-col gap-1.5">
+                          <span className="font-black text-slate-900 text-sm tracking-tight">{project.title}</span>
+                          <span className="text-[10px] font-bold text-slate-400 leading-relaxed italic line-clamp-1 max-w-[400px]">
+                            {project.description}
+                          </span>
+                        </div>
+                      </TableCell>
                       <TableCell>
-                        <div className="font-medium text-slate-900">{project.title}</div>
-                        <div className="text-xs text-slate-500 truncate max-w-[250px]">{project.description}</div>
+                        <StatusBadge status={project.approval_status} />
                       </TableCell>
-                      <TableCell>{getPriorityBadge(project.priority)}</TableCell>
-                      <TableCell>{getStatusBadge(project.approval_status)}</TableCell>
-                      <TableCell className="text-slate-500">
-                        {project.due_date ? format(parseISO(project.due_date), 'PP') : '-'}
+                      <TableCell>
+                        <StatusBadge status={project.priority} />
                       </TableCell>
-                      <TableCell className="text-right text-slate-500">
-                        {format(parseISO(project.created_at), 'PP')}
+                      <TableCell>
+                        <div className="flex items-center gap-2 text-[10px] font-black text-slate-600 uppercase tracking-tighter">
+                          <Calendar className="h-3.5 w-3.5 text-indigo-400" />
+                          {project.due_date ? formatPKDate(project.due_date) : 'PERPETUAL'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right pr-10 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        {formatPKDate(project.created_at)}
                       </TableCell>
                     </TableRow>
                   ))}

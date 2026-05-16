@@ -22,6 +22,11 @@ export const projectsApi = {
     return response.data;
   },
 
+  getTaskEligibleProjects: async () => {
+    const response = await apiClient.get<Project[]>('/projects/task-eligible');
+    return response.data;
+  },
+
   getProject: async (id: string) => {
     const response = await apiClient.get<Project>(`/projects/${id}`);
     return response.data;

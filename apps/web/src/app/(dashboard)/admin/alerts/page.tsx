@@ -1,24 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { alertsApi, Alert } from '@/lib/api/alerts';
+import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { format, parseISO } from 'date-fns';
-import { toast } from 'sonner';
-import { Loader2, Bell, CheckCircle2 } from 'lucide-react';
+import { Clock, CheckCircle2, Bell, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
+import { formatPKDateTime } from '@/lib/time';
+import { getErrorMessage } from '@/lib/api/client';
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchAlerts = async () => {
+    setIsLoading(true);
     try {
       const data = await alertsApi.getAlerts();
       setAlerts(data);
     } catch (error) {
-      toast.error('Failed to load alerts');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
@@ -38,60 +43,86 @@ export default function AlertsPage() {
     }
   };
 
-  const getSeverityBadge = (severity: string) => {
-    switch (severity) {
-      case 'critical': return <Badge variant="destructive">Critical</Badge>;
-      case 'high': return <Badge className="bg-orange-500 hover:bg-orange-600 text-white">High</Badge>;
-      case 'medium': return <Badge className="bg-amber-100 text-amber-800">Medium</Badge>;
-      case 'low': return <Badge variant="outline">Low</Badge>;
-      default: return <Badge>{severity}</Badge>;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">System Alerts</h1>
-        <p className="text-sm text-slate-500">Manage and resolve exceptions across the organization.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <Bell className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Monitoring</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Alerts</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Real-time monitoring of operational exceptions</p>
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+        <div className="grid gap-6">
+            {[1, 2, 3].map(i => (
+                <Card key={i} className="rounded-[2.5rem] h-32 animate-pulse bg-slate-50 border-none shadow-premium" />
+            ))}
         </div>
       ) : alerts.length === 0 ? (
-        <Card className="shadow-sm border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-slate-500 text-center">
-            <Bell className="h-16 w-16 text-slate-200 mb-4" />
-            <h2 className="text-lg font-medium text-slate-900 mb-2">All clear</h2>
-            <p className="max-w-md text-sm">You have no active alerts in your inbox.</p>
-          </CardContent>
-        </Card>
+        <div className="py-20">
+          <EmptyState 
+              title="No active alerts"
+              message="All system signals are nominal. No active exceptions detected in the current cycle."
+              icon={ShieldCheck}
+          />
+        </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-6">
           {alerts.map(alert => (
-            <Card key={alert.id} className={`shadow-sm ${alert.status === 'RESOLVED' ? 'opacity-60 bg-slate-50' : ''}`}>
-              <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-900">{alert.title}</span>
-                    {getSeverityBadge(alert.severity)}
-                    {alert.status === 'RESOLVED' && <Badge variant="secondary">Resolved</Badge>}
+            <Card key={alert.id} className={cn(
+                "rounded-[2.5rem] shadow-premium border-none bg-white transition-all overflow-hidden",
+                alert.status === 'RESOLVED' ? 'opacity-50 grayscale-[0.5]' : 'hover:shadow-premium-lg'
+            )}>
+              <CardContent className="p-8 flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
+                <div className="flex gap-6 items-start flex-1">
+                  <div className={cn(
+                    "h-14 w-14 rounded-2xl flex items-center justify-center shrink-0",
+                    alert.severity === 'CRITICAL' ? 'bg-rose-50' : alert.severity === 'WARNING' ? 'bg-amber-50' : 'bg-indigo-50'
+                  )}>
+                    {alert.severity === 'CRITICAL' ? (
+                        <AlertTriangle className="h-7 w-7 text-rose-500" />
+                    ) : (
+                        <Zap className="h-7 w-7 text-indigo-500" />
+                    )}
                   </div>
-                  <p className="text-sm text-slate-600">{alert.message}</p>
-                  <div className="text-xs text-slate-400 pt-1">
-                    Received: {alert.created_at ? format(parseISO(alert.created_at), 'PPp') : '-'}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="font-black text-slate-900 text-xl tracking-tight leading-tight">{alert.title}</span>
+                      <StatusBadge status={alert.severity} />
+                      {alert.status === 'RESOLVED' && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 font-black text-[9px] uppercase tracking-widest px-3 h-6 rounded-lg">
+                            RESOLVED
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold text-slate-500 leading-relaxed max-w-3xl">{alert.message}</p>
+                    <div className="flex items-center gap-4 pt-2">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            <Clock className="h-3.5 w-3.5" />
+                            DETECTION: {alert.created_at ? formatPKDateTime(alert.created_at) : 'PENDING'}
+                        </div>
+                        {alert.category && (
+                            <div className="flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                {alert.category}
+                            </div>
+                        )}
+                    </div>
                   </div>
                 </div>
                 
                 {alert.status === 'OPEN' && (
                   <Button 
                     variant="outline" 
-                    className="shrink-0 w-full sm:w-auto"
+                    className="h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest px-8 border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-all shadow-sm"
                     onClick={() => handleResolve(alert.id)}
                   >
-                    <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-600" />
-                    Mark Resolved
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    RESOLVE
                   </Button>
                 )}
               </CardContent>

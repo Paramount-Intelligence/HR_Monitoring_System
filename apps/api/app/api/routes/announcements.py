@@ -25,7 +25,7 @@ def create_announcement(
     announcement = Announcement(
         title=payload.title,
         content=payload.content,
-        audience=payload.audience,
+        audience=payload.audience.lower(),
         start_date=payload.start_date,
         end_date=payload.end_date,
         created_by=actor.id,
@@ -52,21 +52,31 @@ def list_announcements(
     # Special: EMPLOYEE audience covers INTERN and JUNIOR_EMPLOYEE
     target_roles = [actor.role.value]
     if actor.role in (UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE, UserRole.EMPLOYEE):
-        target_roles.append("EMPLOYEE")
+        target_roles.append("employee")
     
     filters.append(or_(
-        Announcement.audience == "ALL",
+        Announcement.audience == "all",
         Announcement.audience.in_(target_roles)
     ))
     
-    # Date filters
+    # Date filters (SQLite/Postgres aware)
     filters.append(or_(
         Announcement.start_date == None,
-        Announcement.start_date <= now
+        Announcement.start_date <= datetime.now() # Naive for naive columns
     ))
     filters.append(or_(
         Announcement.end_date == None,
-        Announcement.end_date >= now
+        Announcement.end_date >= datetime.now() # Naive for naive columns
     ))
     
     return db.query(Announcement).filter(*filters).order_by(Announcement.created_at.desc()).all()
+
+@router.get("/all", response_model=list[AnnouncementRead], summary="List all announcements (Admin/HR only)")
+def list_all_announcements(
+    db: Session = Depends(get_db), 
+    actor: User = Depends(get_current_user)
+) -> list[AnnouncementRead]:
+    if actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+    
+    return db.query(Announcement).order_by(Announcement.created_at.desc()).all()

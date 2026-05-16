@@ -6,20 +6,37 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.schemas.time_log import ManualTimeLogRequest, StartTimerRequest, StopTimerRequest, TimeLogRead
+from app.schemas.time_log import ManualTimeLogRequest, TimeLogRead, StartTimerRequest, StopTimerRequest
+from app.schemas.task_timer import TaskTimerRead
 from app.services.time_log_service import TimeLogService
+from app.services.task_timer_service import TaskTimerService
 
 router = APIRouter()
 
 
-@router.post("/start", response_model=TimeLogRead, summary="Start a timer on a task")
-def start_timer(payload: StartTimerRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TimeLogRead:
-    return TimeLogService(db).start_timer(payload, actor)
+@router.post("/start", response_model=TaskTimerRead, summary="Start a timer session on a task")
+def start_timer(payload: StartTimerRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskTimerRead:
+    return TaskTimerService(db).start_timer(payload.task_id, actor)
 
 
-@router.post("/stop", response_model=TimeLogRead, summary="Stop the active timer")
+@router.post("/pause", response_model=TaskTimerRead, summary="Pause a running timer session")
+def pause_timer(payload: StartTimerRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskTimerRead:
+    return TaskTimerService(db).pause_timer(payload.task_id, actor)
+
+
+@router.post("/resume", response_model=TaskTimerRead, summary="Resume a paused timer session")
+def resume_timer(payload: StartTimerRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskTimerRead:
+    return TaskTimerService(db).resume_timer(payload.task_id, actor)
+
+
+@router.post("/stop", response_model=TimeLogRead, summary="Stop and finalize the timer session into a TimeLog")
 def stop_timer(payload: StopTimerRequest, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TimeLogRead:
-    return TimeLogService(db).stop_timer(payload, actor)
+    return TaskTimerService(db).stop_timer(payload.task_id, actor, payload.notes)
+
+
+@router.get("/active-timer", response_model=TaskTimerRead | None, summary="Get current active or paused timer session")
+def get_active_timer(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskTimerRead | None:
+    return TaskTimerService(db).get_active_session(actor.id)
 
 
 @router.post("/manual", response_model=TimeLogRead, summary="Add a manual time log")

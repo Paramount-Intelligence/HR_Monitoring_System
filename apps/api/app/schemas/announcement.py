@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class AnnouncementCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=255)
     content: str
-    audience: str = "ALL"
+    audience: str = "all"
     start_date: datetime | None = None
     end_date: datetime | None = None
     is_active: bool = True

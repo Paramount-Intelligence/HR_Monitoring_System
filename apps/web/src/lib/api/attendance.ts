@@ -28,6 +28,24 @@ export interface AttendanceSession {
   total_hours?: number;
   created_at: string;
   updated_at: string;
+
+  total_break_minutes?: number;
+  dinner_break_minutes?: number;
+  prayer_break_minutes?: number;
+  other_break_minutes?: number;
+  breaks?: AttendanceBreak[];
+  active_break?: AttendanceBreak | null;
+}
+
+export interface AttendanceBreak {
+  id: string;
+  attendance_session_id: string;
+  break_type: 'dinner' | 'prayer' | 'other';
+  started_at: string;
+  ended_at: string | null;
+  duration_minutes: number | null;
+  note: string | null;
+  is_paid: boolean;
 }
 
 export const attendanceApi = {
@@ -38,7 +56,7 @@ export const attendanceApi = {
     return response.data;
   },
 
-  checkOut: async (justification?: { reason: string; note: string }) => {
+  checkOut: async (justification?: { checkout_after_shift_reason: string; checkout_after_shift_note: string }) => {
     const response = await apiClient.post<AttendanceSession>('/attendance/check-out', justification);
     return response.data;
   },
@@ -73,6 +91,24 @@ export const attendanceApi = {
       `/attendance/${sessionId}/resolve-correction`,
       data
     );
+    return response.data;
+  },
+
+  startBreak: async (breakType: string, note?: string) => {
+    const response = await apiClient.post<AttendanceBreak>('/attendance/breaks/start', {
+      break_type: breakType,
+      note
+    });
+    return response.data;
+  },
+
+  endBreak: async () => {
+    const response = await apiClient.post<AttendanceBreak>('/attendance/breaks/end');
+    return response.data;
+  },
+
+  getCurrentBreak: async () => {
+    const response = await apiClient.get<AttendanceBreak | null>('/attendance/breaks/current');
     return response.data;
   },
 };

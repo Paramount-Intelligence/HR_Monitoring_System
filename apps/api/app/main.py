@@ -114,7 +114,14 @@ async def generic_exception_handler(request: Request, exc: Exception):
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|.*\.up\.railway\.app)(:\d+)?",
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "https://workforce-intelligence-os.up.railway.app",
+        "https://pims-os.up.railway.app",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

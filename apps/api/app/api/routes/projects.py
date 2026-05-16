@@ -38,6 +38,14 @@ def list_projects(
     )
 
 
+@router.get("/task-eligible", response_model=list[ProjectRead], summary="Get approved projects available for task creation")
+def list_task_eligible_projects(
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> list[ProjectRead]:
+    return ProjectService(db).list_task_eligible_projects(actor=actor)
+
+
 @router.get("/{project_id}", response_model=ProjectRead, summary="Get project by ID")
 def get_project(project_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> ProjectRead:
     return ProjectService(db).get_project(project_id, actor)

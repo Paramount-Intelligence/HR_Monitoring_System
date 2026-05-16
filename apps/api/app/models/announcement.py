@@ -15,7 +15,7 @@ class Announcement(Base, TimestampMixin):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     
     # Audience targeting: "ALL" or specific Role value
-    audience: Mapped[str] = mapped_column(String(50), default="ALL", nullable=False)
+    audience: Mapped[str] = mapped_column(String(50), default="all", nullable=False)
     
     # Optional scheduling
     start_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

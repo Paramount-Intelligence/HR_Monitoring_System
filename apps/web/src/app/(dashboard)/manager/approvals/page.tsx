@@ -1,28 +1,34 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { leavesApi, LeaveRequest } from '@/lib/api/leaves';
-import { attendanceApi, AttendanceSession } from '@/lib/api/attendance';
-import { getErrorMessage } from '@/lib/api/client';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { format, parseISO } from 'date-fns';
+import { useState, useEffect } from 'react';
+import { leavesApi } from '@/lib/api/leaves';
+import { attendanceApi } from '@/lib/api/attendance';
+import { LeaveRequest, AttendanceSession } from '@/types';
 import { toast } from 'sonner';
-import { Loader2, CheckCircle, XCircle, HelpCircle, User, Calendar, MessageSquare, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '@/lib/api/client';
+import { cn } from '@/lib/utils';
+import { 
+  CheckCircle, HelpCircle, XCircle, MessageSquare, Loader2, Clock, 
+  User, Calendar, Info, ShieldCheck, Zap, AlertCircle, Inbox,
+  CheckCircle2, RefreshCcw
+} from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from '@/components/ui/table';
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
+import { formatPKDate, formatPKDateTime } from '@/lib/time';
 
 export default function ManagerApprovalsPage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -73,8 +79,6 @@ export default function ManagerApprovalsPage() {
           let finalCheckOut = undefined;
           
           if (actionType === 'approved') {
-             // For simplicity, appending the times to the existing session date.
-             // We need the date from the session. 
              const session = corrections.find(c => c.id === selectedItem.id);
              if (session && checkInTime) {
                 const datePart = session.check_in_at.split('T')[0];
@@ -94,144 +98,131 @@ export default function ManagerApprovalsPage() {
           });
       }
       
-      toast.success(`Request ${actionType} successfully`);
+      toast.success(`Decision submitted`);
       setSelectedItem(null);
       setComment('');
       setCheckInTime('');
       setCheckOutTime('');
       fetchData();
     } catch (error: any) {
-      toast.error(getErrorMessage(error) || 'Failed to resolve request');
+      toast.error(getErrorMessage(error) || 'Resolution failed');
     } finally {
       setIsActionLoading(false);
     }
   };
 
-  const formatPKT = (dateString: string | null) => {
-    if (!dateString) return '-';
-    try {
-      const date = parseISO(dateString);
-      return new Intl.DateTimeFormat('en-PK', {
-        timeZone: 'Asia/Karachi',
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(date);
-    } catch (e) {
-      return dateString;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pending</Badge>;
-      case 'escalated':
-        return <Badge className="bg-purple-100 text-purple-800 border-purple-200">Escalated</Badge>;
-      case 'needs_clarification':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Clarification Sent</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Approvals Inbox</h1>
-        <p className="text-sm text-slate-500">Review and resolve team requests for leaves, WFH, and attendance corrections.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Approvals</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Pending Approvals</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Review & Approve Team Submissions</p>
+        </div>
       </div>
 
       <Tabs defaultValue="leaves" className="w-full">
-        <TabsList className="bg-slate-100 p-1 mb-4">
-          <TabsTrigger value="leaves" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            Leave & WFH ({leaveRequests.length})
+        <TabsList className="bg-slate-100 p-1.5 mb-10 rounded-2xl inline-flex h-16 border border-slate-200/50 shadow-inner">
+          <TabsTrigger value="leaves" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-premium transition-all h-full">
+            Leave & WFH Requests ({leaveRequests.length})
           </TabsTrigger>
-          <TabsTrigger value="corrections" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">
-            Attendance Corrections ({corrections.length})
+          <TabsTrigger value="corrections" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-premium transition-all h-full">
+            Session Corrections ({corrections.length})
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="leaves">
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="pb-0">
-                <CardTitle className="text-lg">Pending Leave Requests</CardTitle>
-                <CardDescription>Requests awaiting your approval or clarification.</CardDescription>
+        <TabsContent value="leaves" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
+              <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <Inbox className="h-6 w-6 text-indigo-600" />
+                Leave Requests
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 mt-4">
+            <CardContent className="p-0">
               {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-                </div>
+                <div className="p-10"><TableSkeleton rows={5} cols={5} /></div>
               ) : leaveRequests.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle className="h-12 w-12 text-emerald-100 mx-auto mb-4" />
-                  <p className="text-slate-500 font-medium">No pending leave requests!</p>
-                  <p className="text-xs text-slate-400 mt-1">Your inbox is clean.</p>
+                <div className="p-20">
+                  <EmptyState 
+                      title="Approvals Queue Clear"
+                      message="No pending leave or WFH requests found for your team."
+                      icon={CheckCircle2}
+                  />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="bg-slate-50/50">
-                      <TableRow>
-                        <TableHead className="w-[200px]">Employee</TableHead>
-                        <TableHead>Type & Dates</TableHead>
-                        <TableHead className="max-w-[250px]">Reason</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                      <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
+                        <TableHead className="w-[250px] font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Employee</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Request Details</TableHead>
+                        <TableHead className="max-w-[300px] font-black text-[10px] uppercase tracking-widest text-slate-400">Reason</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
+                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {leaveRequests.map((req) => (
-                        <TableRow key={req.id} className="hover:bg-slate-50/30 transition-colors">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200">
-                                <User className="h-4 w-4" />
+                        <TableRow key={req.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                          <TableCell className="pl-10">
+                            <div className="flex items-center gap-4">
+                              <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 font-black text-xs shadow-inner">
+                                {req.user_full_name ? req.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-medium text-slate-900 text-sm">{req.user_full_name || req.user_id.slice(0, 8)}</span>
-                                <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Requester</span>
+                                <span className="font-black text-slate-900 text-sm tracking-tight">{req.user_full_name || 'Team Member'}</span>
+                                <span className="text-[9px] text-indigo-600 uppercase font-black tracking-widest">Active Personnel</span>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col">
-                              <span className="capitalize font-semibold text-slate-700 text-sm">
+                            <div className="flex flex-col gap-1.5">
+                              <span className="capitalize font-black text-slate-700 text-[10px] uppercase tracking-widest flex items-center gap-2">
+                                <Zap className="h-3 w-3 text-indigo-500" />
                                 {req.leave_type.replace('_', ' ')}
+                                {req.is_half_day && <Badge className="bg-blue-600 text-white border-none text-[8px] h-4">HALF DAY</Badge>}
                               </span>
-                              <span className="text-xs text-slate-500">
-                                {format(parseISO(req.start_date), 'MMM d')} - {format(parseISO(req.end_date), 'MMM d, yyyy')}
+                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                {formatPKDate(req.start_date)} — {formatPKDate(req.end_date)}
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="max-w-[250px] truncate text-slate-500 text-sm">
-                            {req.reason}
+                          <TableCell className="max-w-[300px]">
+                            <p className="text-xs font-bold text-slate-500 leading-relaxed italic line-clamp-2 pr-6">
+                                "{req.reason}"
+                            </p>
                           </TableCell>
-                          <TableCell>{getStatusBadge(req.status)}</TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                          <TableCell>
+                            <StatusBadge status={req.status} />
+                          </TableCell>
+                          <TableCell className="text-right pr-10">
+                            <div className="flex justify-end gap-3">
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-8 w-8 p-0 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                className="h-11 w-11 p-0 rounded-xl text-indigo-600 border-slate-100 hover:border-indigo-100 hover:bg-indigo-50 transition-all"
                                 onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('clarified'); }}
                               >
-                                <HelpCircle className="h-4 w-4" />
+                                <MessageSquare className="h-5 w-5" />
                               </Button>
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-8 w-8 p-0 text-red-600 border-red-200 hover:bg-red-50"
+                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-slate-100 hover:border-rose-100 hover:bg-rose-50 transition-all"
                                 onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('rejected'); }}
                               >
-                                <XCircle className="h-4 w-4" />
+                                <XCircle className="h-5 w-5" />
                               </Button>
                               <Button 
                                 size="sm" 
-                                className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 shadow-sm"
+                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-95"
                                 onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('approved'); }}
                               >
-                                <CheckCircle className="h-4 w-4 text-white" />
+                                <CheckCircle className="h-5 w-5 text-white" />
                               </Button>
                             </div>
                           </TableCell>
@@ -245,64 +236,84 @@ export default function ManagerApprovalsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="corrections">
-          <Card className="shadow-sm border-slate-200">
-            <CardHeader className="pb-0">
-                <CardTitle className="text-lg">Attendance Corrections</CardTitle>
-                <CardDescription>Review requests for attendance log modifications.</CardDescription>
+        <TabsContent value="corrections" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
+              <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <RefreshCcw className="h-6 w-6 text-indigo-600" />
+                Attendance Corrections
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 mt-4">
+            <CardContent className="p-0">
               {isLoading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-                </div>
+                <div className="p-10"><TableSkeleton rows={5} cols={4} /></div>
               ) : corrections.length === 0 ? (
-                <div className="text-center py-12">
-                  <CheckCircle className="h-12 w-12 text-emerald-100 mx-auto mb-4" />
-                  <p className="text-slate-500 font-medium">No pending corrections!</p>
+                <div className="p-20">
+                  <EmptyState 
+                      title="Audits Complete"
+                      message="All session corrections have been finalized and committed to the ledger."
+                      icon={ShieldCheck}
+                  />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader className="bg-slate-50/50">
-                      <TableRow>
-                        <TableHead>Employee</TableHead>
-                        <TableHead>Original Session</TableHead>
-                        <TableHead>Correction Reason</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                      <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Employee</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Correction Details</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Reason</TableHead>
+                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {corrections.map((corr) => (
-                        <TableRow key={corr.id} className="hover:bg-slate-50/30 transition-colors">
-                          <TableCell className="font-medium text-sm">{corr.user_full_name || corr.user_id.slice(0, 8)}</TableCell>
+                        <TableRow key={corr.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                          <TableCell className="pl-10">
+                              <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 font-black text-xs shadow-inner">
+                                  {corr.user_full_name ? corr.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="font-black text-slate-900 text-sm tracking-tight">{corr.user_full_name || 'Team Member'}</span>
+                                  <span className="text-[9px] text-indigo-600 uppercase font-black tracking-widest">Active Personnel</span>
+                                </div>
+                              </div>
+                          </TableCell>
                           <TableCell>
-                            <div className="flex flex-col text-xs text-slate-500">
-                                <span>IN: {formatPKT(corr.check_in_at)}</span>
-                                <span>OUT: {corr.check_out_at ? formatPKT(corr.check_out_at) : 'Active'}</span>
+                            <div className="flex flex-col gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg w-fit border border-emerald-100/50">
+                                  <Clock className="h-3 w-3" />
+                                  IN: {formatPKDateTime(corr.check_in_at)}
+                                </div>
+                                <div className="flex items-center gap-2 bg-rose-50 text-rose-700 px-3 py-1 rounded-lg w-fit border border-rose-100/50">
+                                  <Clock className="h-3 w-3" />
+                                  OUT: {corr.check_out_at ? formatPKDateTime(corr.check_out_at) : 'OPEN SESSION'}
+                                </div>
                             </div>
                           </TableCell>
-                          <TableCell className="max-w-[300px] truncate text-slate-600 text-sm italic">
-                            "{corr.correction_reason}"
+                          <TableCell className="max-w-[350px]">
+                            <p className="text-xs font-bold text-slate-500 leading-relaxed italic line-clamp-2 pr-6">
+                                "{corr.correction_reason}"
+                            </p>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
+                          <TableCell className="text-right pr-10">
+                            <div className="flex justify-end gap-3">
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-8 w-8 p-0 text-red-600 border-red-200 hover:bg-red-50"
+                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-slate-100 hover:border-rose-100 hover:bg-rose-50 transition-all"
                                 onClick={() => { setSelectedItem({id: corr.id, type: 'correction'}); setActionType('rejected'); }}
                               >
-                                <XCircle className="h-4 w-4" />
+                                <XCircle className="h-5 w-5" />
                               </Button>
                               <Button 
                                 size="sm" 
-                                className="h-8 w-8 p-0 bg-emerald-600 hover:bg-emerald-700 shadow-sm"
+                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-95"
                                 onClick={() => { 
                                     setSelectedItem({id: corr.id, type: 'correction', check_in_at: corr.check_in_at}); 
                                     setActionType('approved'); 
                                     const dateObj = new Date(corr.check_in_at);
-                                    // Use Intl to get HH:mm in Asia/Karachi
                                     const pktTime = new Intl.DateTimeFormat('en-US', {
                                       timeZone: 'Asia/Karachi',
                                       hour: '2-digit',
@@ -312,7 +323,7 @@ export default function ManagerApprovalsPage() {
                                     setCheckInTime(pktTime);
                                 }}
                               >
-                                <CheckCircle className="h-4 w-4 text-white" />
+                                <CheckCircle className="h-5 w-5 text-white" />
                               </Button>
                             </div>
                           </TableCell>
@@ -329,65 +340,75 @@ export default function ManagerApprovalsPage() {
 
       {/* Resolution Dialog */}
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 capitalize">
-              {actionType === 'approved' && <CheckCircle className="h-5 w-5 text-emerald-500" />}
-              {actionType === 'rejected' && <XCircle className="h-5 w-5 text-red-500" />}
-              {actionType === 'clarified' && <MessageSquare className="h-5 w-5 text-blue-500" />}
-              {actionType} Request
-            </DialogTitle>
-            <DialogDescription>
-              Provide a comment or reason for your decision. This will be visible to the employee.
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[500px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+          <DialogHeader className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "h-16 w-16 rounded-3xl flex items-center justify-center shadow-inner",
+                actionType === 'approved' ? "bg-emerald-50 text-emerald-600" : 
+                actionType === 'rejected' ? "bg-rose-50 text-rose-600" : 
+                "bg-indigo-50 text-indigo-600"
+              )}>
+                {actionType === 'approved' && <CheckCircle className="h-8 w-8" />}
+                {actionType === 'rejected' && <XCircle className="h-8 w-8" />}
+                {actionType === 'clarified' && <MessageSquare className="h-8 w-8" />}
+              </div>
+              <div>
+                <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter capitalize">{actionType} Request</DialogTitle>
+                <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">Final Decision</DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-8 py-8">
             {selectedItem?.type === 'correction' && actionType === 'approved' && (
-              <div className="grid grid-cols-2 gap-4 border-b pb-4 mb-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="checkIn">Final Check In Time</Label>
+              <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 shadow-inner">
+                <div className="space-y-2">
+                  <Label htmlFor="checkIn" className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Adjusted Commencement</Label>
                   <Input 
                     id="checkIn" 
                     type="time" 
                     value={checkInTime} 
                     onChange={(e) => setCheckInTime(e.target.value)} 
+                    className="h-12 rounded-xl border-slate-100 font-bold bg-white"
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="checkOut">Final Check Out Time</Label>
+                <div className="space-y-2">
+                  <Label htmlFor="checkOut" className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Adjusted Termination</Label>
                   <Input 
                     id="checkOut" 
                     type="time" 
                     value={checkOutTime} 
                     onChange={(e) => setCheckOutTime(e.target.value)} 
+                    className="h-12 rounded-xl border-slate-100 font-bold bg-white"
                   />
                 </div>
               </div>
             )}
-            <div className="grid gap-2">
-              <Label htmlFor="comment">Manager Comment</Label>
+            <div className="space-y-2">
+              <Label htmlFor="comment" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Reason / Comments</Label>
               <Textarea
                 id="comment"
-                placeholder={actionType === 'clarified' ? "Specify what clarification is needed..." : "Optional reason for decision..."}
+                placeholder={actionType === 'clarified' ? "Specify required organizational clarification..." : "Provide objective context for this decision..."}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="bg-slate-50 min-h-[120px]"
+                className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[140px] font-bold text-sm leading-relaxed p-6"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSelectedItem(null)}>Cancel</Button>
+          <DialogFooter className="gap-4">
+            <Button variant="ghost" onClick={() => setSelectedItem(null)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
             <Button 
                 onClick={handleResolve} 
                 disabled={isActionLoading}
-                className={
-                    actionType === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 
-                    actionType === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 
-                    'bg-blue-600 hover:bg-blue-700'
-                }
+                className={cn(
+                    "h-14 rounded-2xl font-black text-xs uppercase tracking-widest px-10 shadow-xl transition-all active:scale-95 flex-1",
+                    actionType === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : 
+                    actionType === 'rejected' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-100' : 
+                    'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'
+                )}
             >
-              {isActionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Confirm {actionType}
+              {isActionLoading ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : null}
+              Submit Decision
             </Button>
           </DialogFooter>
         </DialogContent>

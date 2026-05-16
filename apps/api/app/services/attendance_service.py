@@ -5,15 +5,18 @@ import uuid
 from datetime import date, datetime, timezone, timedelta
 
 from fastapi import HTTPException, status
+from sqlalchemy import func
+import sqlalchemy as sa
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.time_utils import ensure_pk_datetime, PK_TZ
 from app.models.attendance_session import AttendanceSession
 from app.models.attendance_correction import AttendanceCorrection
+from app.models.attendance_break import AttendanceBreak
 from app.models.shift import Shift
-from app.models.enums import AttendanceClassification, AttendanceSessionStatus, UserRole, WorkMode, CorrectionStatus
+from app.models.enums import AttendanceClassification, AttendanceSessionStatus, UserRole, WorkMode, CorrectionStatus, AttendanceBreakType
 from app.models.user import User
-from app.schemas.attendance import CheckInRequest, CorrectionRequest, CorrectionResolveRequest
+from app.schemas.attendance import CheckInRequest, CheckOutRequest, CorrectionRequest, CorrectionResolveRequest
 from app.services.shift_service import ShiftService
 
 
@@ -74,6 +77,29 @@ class AttendanceService:
         self.db.add(session)
         self.db.commit()
         self.db.refresh(session)
+        
+        # Auto-resume task timer if applicable
+        from app.services.task_timer_service import TaskTimerService
+        from app.models.enums import TimerSessionStatus, TimerPauseReason
+        from app.models.task_timer_session import TaskTimerSession
+        try:
+            timer_service = TaskTimerService(self.db)
+            last_session = (
+                self.db.query(TaskTimerSession)
+                .filter(
+                    TaskTimerSession.user_id == actor.id,
+                    TaskTimerSession.status == TimerSessionStatus.PAUSED,
+                    TaskTimerSession.pause_reason == TimerPauseReason.ATTENDANCE_CHECKOUT
+                )
+                .order_by(TaskTimerSession.updated_at.desc())
+                .first()
+            )
+            if last_session:
+                timer_service.resume_timer(last_session.task_id, actor)
+        except Exception as e:
+            # Do not break attendance check-in
+            print(f"Failed to auto-resume task timer: {e}")
+
         return session
 
     def check_out(self, actor: User, payload: CheckOutRequest | None = None) -> AttendanceSession:
@@ -92,14 +118,16 @@ class AttendanceService:
             exp_end_pk = ensure_pk_datetime(session.expected_shift_end_at)
             if now_pk > exp_end_pk:
                 # Justification required
-                if not payload or not payload.reason:
+                if not payload or not payload.checkout_after_shift_reason or not payload.checkout_after_shift_note:
                     raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Justification required for checkout after shift end."
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Reason and note are required for checkout after shift end."
                     )
-                session.is_overtime = (payload.reason.lower() == 'overtime')
-                session.checkout_after_shift_reason = payload.reason
-                session.checkout_after_shift_note = payload.note
+                
+                reason = payload.checkout_after_shift_reason.lower()
+                session.is_overtime = (reason == 'overtime')
+                session.checkout_after_shift_reason = payload.checkout_after_shift_reason
+                session.checkout_after_shift_note = payload.checkout_after_shift_note
 
         is_early = False
         early_mins = 0
@@ -107,6 +135,12 @@ class AttendanceService:
             shift = self.db.get(Shift, actor.shift_id)
             if shift:
                 is_early, early_mins = ShiftService.is_early_logout(now, shift, session.expected_shift_end_at)
+        
+        # Auto-end active break if any
+        active_break = self.get_active_break(actor.id)
+        if active_break:
+            self.end_break(actor, active_break.id)
+            self.db.refresh(session)
 
         session.check_out_at = now
         session.is_early_logout = is_early
@@ -114,7 +148,11 @@ class AttendanceService:
         session.session_status = AttendanceSessionStatus.COMPLETED
         
         # Calculate minutes and hours
-        delta = session.check_out_at - session.check_in_at
+        # Normalize both to PK_TZ to ensure consistent subtraction
+        check_in_pk = ensure_pk_datetime(session.check_in_at)
+        check_out_pk = ensure_pk_datetime(session.check_out_at)
+        
+        delta = check_out_pk - check_in_pk
         total_seconds = max(0, int(delta.total_seconds()))
         session.worked_minutes = total_seconds // 60
         session.total_hours = total_seconds / 3600.0
@@ -125,6 +163,18 @@ class AttendanceService:
         self.db.commit()
         self.db.refresh(session)
         
+        # Auto-pause task timer if applicable
+        from app.services.task_timer_service import TaskTimerService
+        from app.models.enums import TimerSessionStatus, TimerPauseReason
+        try:
+            timer_service = TaskTimerService(self.db)
+            active_timer = timer_service.get_active_session(actor.id)
+            if active_timer and active_timer.status == TimerSessionStatus.RUNNING:
+                timer_service.pause_timer(active_timer.task_id, actor, reason=TimerPauseReason.ATTENDANCE_CHECKOUT)
+        except Exception as e:
+            # Do not break attendance check-out
+            print(f"Failed to auto-pause task timer: {e}")
+
         # Update DailyStats
         self._update_daily_stats(session)
         
@@ -176,10 +226,10 @@ class AttendanceService:
             AttendanceSession.user_id == actor.id
         )
         if date_from:
-            # Note: filter by calendar date of check_in_at
-            q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) >= date_from)
+            # Portable date comparison (works for both SQLite and Postgres)
+            q = q.filter(sa.func.date(AttendanceSession.check_in_at) >= date_from)
         if date_to:
-            q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) <= date_to)
+            q = q.filter(sa.func.date(AttendanceSession.check_in_at) <= date_to)
             
         return q.order_by(AttendanceSession.check_in_at.desc()).all()
 
@@ -204,9 +254,9 @@ class AttendanceService:
             AttendanceSession.user_id.in_(member_ids)
         )
         if date_from:
-             q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) >= date_from)
+             q = q.filter(sa.func.date(AttendanceSession.check_in_at) >= date_from)
         if date_to:
-             q = q.filter(sa.func.date(sa.func.timezone('Asia/Karachi', AttendanceSession.check_in_at)) <= date_to)
+             q = q.filter(sa.func.date(AttendanceSession.check_in_at) <= date_to)
 
         return q.options(joinedload(AttendanceSession.user)).order_by(AttendanceSession.check_in_at.desc()).all()
 
@@ -376,3 +426,87 @@ class AttendanceService:
             return AttendanceClassification.SHORT_LEAVE
         else:
             return AttendanceClassification.INSUFFICIENT
+
+    # --- Break Management ---
+
+    def start_break(self, actor: User, break_type: AttendanceBreakType, note: str | None = None) -> AttendanceBreak:
+        session = self._get_active_session(actor.id)
+        if not session:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot start break without an active attendance session.")
+
+        if self.get_active_break(actor.id):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You already have an active break.")
+
+        if break_type == AttendanceBreakType.OTHER and not note:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Note is required for 'other' break type.")
+
+        now = datetime.now(timezone.utc)
+        new_break = AttendanceBreak(
+            attendance_session_id=session.id,
+            user_id=actor.id,
+            break_type=break_type,
+            started_at=now,
+            note=note,
+            is_paid=True
+        )
+        self.db.add(new_break)
+        self.db.commit()
+        self.db.refresh(new_break)
+        return new_break
+
+    def end_break(self, actor: User, break_id: uuid.UUID | None = None) -> AttendanceBreak:
+        session = self._get_active_session(actor.id)
+        if not session:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No active attendance session.")
+
+        if break_id:
+            active_break = self.db.get(AttendanceBreak, break_id)
+        else:
+            active_break = self.get_active_break(actor.id)
+
+        if not active_break or active_break.ended_at:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No active break found.")
+
+        now = datetime.now(timezone.utc)
+        active_break.ended_at = now
+        
+        # Calculate duration
+        # Ensure started_at is aware for subtraction
+        start_at = active_break.started_at
+        if start_at.tzinfo is None:
+            start_at = start_at.replace(tzinfo=timezone.utc)
+            
+        diff = now - start_at
+        duration = max(0, int(diff.total_seconds() // 60))
+        active_break.duration_minutes = duration
+
+        # Update session summary
+        session.total_break_minutes += duration
+        if active_break.break_type == AttendanceBreakType.DINNER:
+            session.dinner_break_minutes += duration
+        elif active_break.break_type == AttendanceBreakType.PRAYER:
+            session.prayer_break_minutes += duration
+        elif active_break.break_type == AttendanceBreakType.OTHER:
+            session.other_break_minutes += duration
+
+        self.db.commit()
+        self.db.refresh(active_break)
+        return active_break
+
+    def get_active_break(self, user_id: uuid.UUID) -> AttendanceBreak | None:
+        return (
+            self.db.query(AttendanceBreak)
+            .filter(
+                AttendanceBreak.user_id == user_id,
+                AttendanceBreak.ended_at == None
+            )
+            .first()
+        )
+
+    def get_session_breaks(self, session_id: uuid.UUID) -> list[AttendanceBreak]:
+        return (
+            self.db.query(AttendanceBreak)
+            .filter(AttendanceBreak.attendance_session_id == session_id)
+            .order_by(AttendanceBreak.started_at.asc())
+            .all()
+        )

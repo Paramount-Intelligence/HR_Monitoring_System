@@ -1,17 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { usersApi } from '@/lib/api/users';
-import { User } from '@/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { toast } from 'sonner';
-import { Loader2, Users } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useRouter } from 'next/navigation';
+import { usersApi } from '@/lib/api/users';
+import { User } from '@/types';
+import { toast } from 'sonner';
+import { Card, CardContent } from '@/components/ui/card';
+import { 
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
+} from '@/components/ui/table';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Users } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
+import { TableSkeleton } from '@/components/ui/skeletons';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default function ManagerTeamPage() {
   const { user } = useAuth();
@@ -22,13 +25,13 @@ export default function ManagerTeamPage() {
       router.push('/unauthorized');
     }
   }, [user, router]);
+  
   const [team, setTeam] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadTeam() {
       try {
-        // Backend /users automatically scopes to team for managers
         const data = await usersApi.getUsers();
         setTeam(data);
       } catch (error) {
@@ -43,59 +46,68 @@ export default function ManagerTeamPage() {
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Team Members</h1>
-        <p className="text-sm text-slate-500">View your direct reports.</p>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <Users className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Personnel Directory</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Team Members</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Operational directory of your direct reports</p>
+        </div>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Direct Reports</CardTitle>
-        </CardHeader>
+      <Card className="rounded-xl shadow-premium border-slate-100 overflow-hidden">
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
-            </div>
+            <TableSkeleton rows={10} cols={4} />
           ) : team.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-              <Users className="h-12 w-12 text-slate-200 mb-4" />
-              <p>No team members found.</p>
-            </div>
+            <EmptyState 
+                title="No team members found"
+                description="Your roster is currently empty. Contact HR if this is an error."
+                icon={Users}
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead>Employee</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
+                <TableHeader className="bg-slate-50/50">
+                  <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
+                    <TableHead className="pl-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Employee</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Email Address</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Department / Shift</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Role</TableHead>
+                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {team.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 border">
-                            <AvatarFallback className="bg-blue-50 text-blue-700 text-xs">
+                    <TableRow key={member.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-20">
+                      <TableCell className="pl-10">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-10 w-10 rounded-xl border border-slate-100 shadow-sm ring-4 ring-slate-50/50">
+                            <AvatarFallback className="bg-indigo-50 text-indigo-700 font-black text-[10px]">
                               {getInitials(member.full_name)}
                             </AvatarFallback>
                           </Avatar>
-                          <div className="font-medium text-slate-900">{member.full_name}</div>
+                          <div className="flex flex-col">
+                            <span className="font-black text-slate-900 text-sm tracking-tight">{member.full_name}</span>
+                            <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest">{member.designation || 'Team Member'}</span>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-500">{member.email}</TableCell>
+                      <TableCell className="text-slate-500 font-bold text-xs">{member.email}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="capitalize text-slate-500">{member.role}</Badge>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{member.department_name || 'General'}</span>
+                            <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">{member.shift_name || 'Standard Shift'}</span>
+                        </div>
                       </TableCell>
                       <TableCell>
-                        {member.status === 'active' 
-                          ? <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">Active</Badge> 
-                          : <Badge variant="secondary">Inactive</Badge>
-                        }
+                        <StatusBadge status={member.role} />
+                      </TableCell>
+                      <TableCell className="text-right pr-10">
+                        <StatusBadge status={member.status} />
                       </TableCell>
                     </TableRow>
                   ))}

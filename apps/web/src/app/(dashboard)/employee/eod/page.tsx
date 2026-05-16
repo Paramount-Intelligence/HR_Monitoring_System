@@ -65,168 +65,179 @@ export default function MyEODPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">End of Day Report</h1>
-          <p className="text-sm text-slate-500">Review your automated daily summary before submitting to your manager.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Daily Summary</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">End of Day Report</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Daily Intelligence & Performance Summary</p>
         </div>
       </div>
 
       {!eod ? (
-        <Card className="shadow-sm border-blue-100 bg-blue-50/50 text-center py-16">
+        <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden text-center py-24">
           <CardContent className="flex flex-col items-center">
-            <div className="bg-blue-100 p-4 rounded-full mb-4">
-              <ShieldCheck className="h-10 w-10 text-blue-600" />
+            <div className="bg-indigo-50 p-6 rounded-[2rem] mb-6 ring-8 ring-indigo-50/50 shadow-inner">
+              <ShieldCheck className="h-12 w-12 text-indigo-600" />
             </div>
-            <h2 className="text-xl font-semibold text-slate-900 mb-2">Ready to wrap up?</h2>
-            <p className="text-slate-500 mb-8 max-w-md">
-              Generate your EOD report. The system will compile your attendance, tasks, duties, and productivity automatically.
+            <h2 className="text-2xl font-black text-slate-900 mb-2 tracking-tight">Initialize Final Review</h2>
+            <p className="text-slate-500 font-medium mb-10 max-w-md leading-relaxed">
+              Compile your daily operational data. The system will aggregate attendance, task execution, and productivity metrics automatically.
             </p>
             <Button 
               size="lg" 
               onClick={handleGenerate} 
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl px-12 shadow-xl shadow-indigo-100 transition-all active:scale-95"
             >
-              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
-              Generate EOD Report
+              {isSubmitting ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <FileText className="mr-3 h-5 w-5" />}
+              Generate EOD Intelligence
             </Button>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between p-4 bg-white border shadow-sm rounded-xl">
-            <div className="flex items-center gap-4">
+        <div className="space-y-8">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-8 bg-white border border-slate-100 shadow-premium rounded-[2.5rem] gap-6">
+            <div className="flex items-center gap-6">
               <div className={cn(
-                "p-3 rounded-full",
-                eod.status === 'Approved' ? "bg-emerald-100" :
-                eod.status === 'Needs Revision' ? "bg-rose-100" :
-                eod.status === 'Pending Approval' ? "bg-amber-100" : "bg-blue-100"
+                "p-5 rounded-[1.5rem] shadow-inner",
+                eod.status === 'Approved' ? "bg-emerald-50" :
+                eod.status === 'Needs Revision' ? "bg-rose-50" :
+                eod.status === 'Pending Approval' ? "bg-amber-50" : "bg-indigo-50"
               )}>
                 <ShieldCheck className={cn(
-                  "h-6 w-6",
+                  "h-8 w-8",
                   eod.status === 'Approved' ? "text-emerald-600" :
                   eod.status === 'Needs Revision' ? "text-rose-600" :
-                  eod.status === 'Pending Approval' ? "text-amber-600" : "text-blue-600"
+                  eod.status === 'Pending Approval' ? "text-amber-600" : "text-indigo-600"
                 )} />
               </div>
               <div>
-                <p className="text-sm text-slate-500 font-medium">Current Status</p>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-bold text-slate-900">{eod.status}</h2>
-                  {eod.status === 'Needs Revision' && <Badge variant="destructive">Action Required</Badge>}
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Operational Status</p>
+                <div className="flex items-center gap-3">
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tighter">{eod.status}</h2>
+                  {eod.status === 'Needs Revision' && <Badge className="bg-rose-500 text-white border-none font-black text-[9px] uppercase tracking-widest px-2.5 py-1 rounded-lg">Action Required</Badge>}
                 </div>
               </div>
             </div>
             
             {(eod.status === 'Generated' || eod.status === 'Needs Revision') && (
-              <Button onClick={handleSubmit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Submit to Manager
+              <Button 
+                onClick={handleSubmit} 
+                disabled={isSubmitting} 
+                className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl px-10 shadow-xl shadow-indigo-100 transition-all active:scale-95"
+              >
+                {isSubmitting ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Send className="mr-3 h-4 w-4" />}
+                Commit to Ledger
               </Button>
             )}
           </div>
 
           {eod.manager_comments && (
-            <Card className="shadow-sm border-rose-200 bg-rose-50/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-rose-800 flex items-center gap-2">
-                  <FileText className="h-4 w-4" /> Manager Feedback
+            <Card className="border-none shadow-premium bg-rose-50 rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="px-10 pt-10 pb-4">
+                <CardTitle className="text-xs font-black text-rose-800 flex items-center gap-2 uppercase tracking-widest">
+                  <AlertCircle className="h-4 w-4" /> Manager Feedback Protocol
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-rose-900 leading-relaxed">{eod.manager_comments}</p>
+              <CardContent className="px-10 pb-10">
+                <p className="text-sm text-rose-900 font-bold leading-relaxed italic">"{eod.manager_comments}"</p>
                 {eod.status === 'Needs Revision' && (
-                  <Button variant="outline" size="sm" onClick={handleGenerate} className="mt-4 bg-white">
-                    Refresh Report Data
+                  <Button variant="outline" size="sm" onClick={handleGenerate} className="mt-6 h-10 bg-white border-rose-200 text-rose-700 font-black text-[10px] uppercase tracking-widest rounded-xl px-6 hover:bg-rose-50 hover:text-rose-800 transition-all">
+                    Initialize Refresh
                   </Button>
                 )}
               </CardContent>
             </Card>
           )}
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-slate-500" /> Attendance & Time
+          <div className="grid gap-8 md:grid-cols-2">
+            <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="px-10 pt-10 pb-4 border-b border-slate-50/50">
+                <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                  <Clock className="h-5 w-5 text-indigo-500" /> Attendance Summary
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Date</span>
-                    <span className="text-sm font-medium">{eod.date}</span>
+              <CardContent className="p-10">
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Report Date</span>
+                    <span className="text-sm font-black text-slate-900 uppercase">{eod.date}</span>
                   </div>
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Work Mode</span>
-                    <span className="text-sm font-medium uppercase">{eod.work_mode}</span>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Work Environment</span>
+                    <span className="text-sm font-black text-indigo-600 uppercase tracking-tighter">{eod.work_mode} Base</span>
                   </div>
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Login Time</span>
-                    <span className="text-sm font-medium">{eod.login_time}</span>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Shift Commencement</span>
+                    <span className="text-sm font-black text-slate-900">{eod.login_time}</span>
                   </div>
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Logout Time</span>
-                    <span className="text-sm font-medium">{eod.logout_time || 'Pending'}</span>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Shift Termination</span>
+                    <span className="text-sm font-black text-slate-900">{eod.logout_time || 'In Session'}</span>
                   </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-sm font-semibold text-slate-900">Total Hours Logged</span>
-                    <span className="text-sm font-bold text-blue-600">{eod.total_hours}h</span>
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-sm font-black text-slate-900 uppercase tracking-tighter">Aggregate Session Time</span>
+                    <span className="text-2xl font-black text-indigo-600 tracking-tighter font-mono">{eod.total_hours}h</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4 text-slate-500" /> Tasks & Duties
+            <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+              <CardHeader className="px-10 pt-10 pb-4 border-b border-slate-50/50">
+                <CardTitle className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-3">
+                  <CheckSquare className="h-5 w-5 text-indigo-500" /> Execution Metrics
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Total Tasks Worked On</span>
-                    <span className="text-sm font-medium">{eod.tasks_worked_on}</span>
+              <CardContent className="p-10">
+                <div className="space-y-5">
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Units Processed</span>
+                    <span className="text-sm font-black text-slate-900">{eod.tasks_worked_on}</span>
                   </div>
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Tasks Completed</span>
-                    <span className="text-sm font-medium text-emerald-600">{eod.completed_tasks}</span>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Units Finalized</span>
+                    <span className="text-sm font-black text-emerald-600">{eod.completed_tasks}</span>
                   </div>
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Tasks Pending</span>
-                    <span className="text-sm font-medium text-amber-600">{eod.pending_tasks}</span>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Units</span>
+                    <span className="text-sm font-black text-amber-600">{eod.pending_tasks}</span>
                   </div>
-                  <div className="flex justify-between border-b pb-2">
-                    <span className="text-sm text-slate-500">Blocked Items</span>
-                    <span className="text-sm font-medium text-rose-600">{eod.blocked_tasks}</span>
+                  <div className="flex justify-between items-center border-b border-slate-50 pb-4">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Blocked Protocol</span>
+                    <span className="text-sm font-black text-rose-600">{eod.blocked_tasks}</span>
                   </div>
-                  <div className="flex justify-between pt-2">
-                    <span className="text-sm font-semibold text-slate-900">Duties Performed</span>
-                    <span className="text-sm font-bold text-blue-600">{eod.duties_performed}</span>
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-sm font-black text-slate-900 uppercase tracking-tighter">Duties Executed</span>
+                    <span className="text-2xl font-black text-indigo-600 tracking-tighter font-mono">{eod.duties_performed}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          <Card className="shadow-sm bg-slate-900 text-white">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="bg-blue-500 p-3 rounded-xl border border-blue-400">
-                    <Briefcase className="h-6 w-6 text-white" />
+          <Card className="border-none shadow-premium bg-slate-900 text-white rounded-[3rem] overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-12 opacity-10 transition-transform group-hover:scale-110 duration-700">
+                <ShieldCheck className="h-48 w-48 rotate-12" />
+            </div>
+            <CardContent className="p-12 relative z-10">
+              <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+                <div className="flex items-center gap-6">
+                  <div className="bg-indigo-600 p-5 rounded-[1.5rem] border border-indigo-500 shadow-xl ring-4 ring-indigo-500/20">
+                    <Briefcase className="h-8 w-8 text-white" />
                   </div>
                   <div>
-                    <p className="text-sm text-slate-400 font-medium">Daily Productivity Score</p>
-                    <p className="text-2xl font-bold">{eod.productivity_score}/100</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Performance Index</p>
+                    <p className="text-5xl font-black tracking-tighter text-white">{eod.productivity_score}<span className="text-lg text-slate-500 font-black ml-1 uppercase">/100</span></p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-slate-400">Status</p>
-                  <p className="font-medium text-blue-400">{eod.status}</p>
+                <div className="text-center md:text-right">
+                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Operational Integrity</p>
+                  <p className="text-lg font-black text-indigo-400 uppercase tracking-widest">{eod.status}</p>
                 </div>
               </div>
             </CardContent>

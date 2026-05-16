@@ -12,8 +12,10 @@ class Shift(Base, TimestampMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    timezone: Mapped[str] = mapped_column(String(50), default="Asia/Karachi", nullable=False)
     grace_period_minutes: Mapped[int] = mapped_column(Integer, default=15, nullable=False)
     working_days: Mapped[str] = mapped_column(String(50), default="1,2,3,4,5", nullable=False) # e.g. "1,2,3,4,5" for Mon-Fri
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

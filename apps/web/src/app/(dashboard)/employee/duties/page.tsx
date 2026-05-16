@@ -2,37 +2,35 @@
 
 import { useState, useEffect } from 'react';
 import { dutiesApi, Duty } from '@/lib/api/duties';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { 
+  Plus, Loader2, ClipboardCheck, Trash2, CheckSquare 
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle, DialogTrigger 
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { CheckSquare, Plus, Loader2, ClipboardCheck, Trash2 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { KPICardSkeleton } from '@/components/dashboard/KPICard';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export default function DutiesPage() {
   const [duties, setDuties] = useState<Duty[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [dutyToDelete, setDutyToDelete] = useState<string | null>(null);
   
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
 
-  useEffect(() => {
-    loadDuties();
-  }, []);
+  useEffect(() => { loadDuties(); }, []);
 
   async function loadDuties() {
     try {
@@ -76,71 +74,74 @@ export default function DutiesPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to remove this duty?')) return;
+  async function handleDelete() {
+    if (!dutyToDelete) return;
     try {
-      await dutiesApi.deleteDuty(id);
-      setDuties(duties.filter(d => d.id !== id));
+      await dutiesApi.deleteDuty(dutyToDelete);
+      setDuties(duties.filter(d => d.id !== dutyToDelete));
       toast.success('Duty removed');
+      setDutyToDelete(null);
     } catch (error) {
       toast.error('Failed to remove duty');
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-      </div>
-    );
-  }
-
   const completed = duties.filter(d => d.status === 'completed');
   const pending = duties.filter(d => d.status === 'pending');
+  const progress = duties.length ? Math.round((completed.length / duties.length) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">My Duties</h1>
-          <p className="text-sm text-slate-500">Track and manage your daily recurring responsibilities.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <ClipboardCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Daily Objectives</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Daily Duties</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Recurring Responsibilities & Execution Checklist</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger render={<Button className="bg-blue-600 hover:bg-blue-700" />} >
-            <Plus className="mr-2 h-4 w-4" /> Add Duty
+          <DialogTrigger asChild>
+            <Button className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95">
+              <Plus className="mr-2 h-4 w-4" /> ADD OBJECTIVE
+            </Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Duty</DialogTitle>
-              <DialogDescription>
-                Record a responsibility or task for today's EOD summary.
+          <DialogContent className="sm:max-w-[500px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+            <DialogHeader className="space-y-3">
+              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">Define Objective</DialogTitle>
+              <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">
+                Record a responsibility for today's operational layer
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleAddDuty} className="space-y-4">
+            <form onSubmit={handleAddDuty} className="space-y-8 pt-6">
               <div className="space-y-2">
-                <Label htmlFor="title">Duty Title</Label>
+                <Label htmlFor="title" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Objective Identifier</Label>
                 <Input 
                   id="title" 
                   value={newTitle} 
                   onChange={e => setNewTitle(e.target.value)} 
                   placeholder="e.g. Server maintenance check"
+                  className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="desc">Quick Notes (Optional)</Label>
+                <Label htmlFor="desc" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Operational Context</Label>
                 <Textarea 
                   id="desc" 
                   value={newDesc} 
                   onChange={e => setNewDesc(e.target.value)} 
-                  placeholder="Any details to remember..."
+                  placeholder="Technical details or scope..."
+                  className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[120px] font-bold text-sm leading-relaxed p-6 focus:bg-white transition-all"
                 />
               </div>
-              <DialogFooter>
-                <Button type="submit" disabled={isSubmitting || !newTitle.trim()} className="bg-blue-600 hover:bg-blue-700">
+              <DialogFooter className="pt-6 gap-4">
+                <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
+                <Button type="submit" disabled={isSubmitting || !newTitle.trim()} className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95 flex-1">
                   {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Save Duty
+                  SAVE OBJECTIVE
                 </Button>
               </DialogFooter>
             </form>
@@ -148,87 +149,103 @@ export default function DutiesPage() {
         </Dialog>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="shadow-sm md:col-span-2">
-          <CardHeader>
-            <CardTitle>Today's Duties</CardTitle>
-            <CardDescription>Check off items as you complete them</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {duties.length === 0 ? (
-              <div className="text-center py-12 bg-slate-50 border border-dashed rounded-lg">
-                <ClipboardCheck className="mx-auto h-12 w-12 text-slate-300" />
-                <h3 className="mt-4 text-sm font-semibold text-slate-900">No duties recorded</h3>
-                <p className="mt-2 text-sm text-slate-500">Add a duty to track your regular work.</p>
-                <Button variant="outline" className="mt-4" onClick={() => setIsDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" /> Add Duty
-                </Button>
-              </div>
+      <div className="grid gap-6 lg:grid-cols-12 items-start">
+        <div className="lg:col-span-8 space-y-4">
+            {isLoading ? (
+                <div className="space-y-4">
+                    {[1, 2, 3].map(i => <div key={i} className="h-24 bg-slate-100 rounded-2xl animate-pulse" />)}
+                </div>
+            ) : duties.length === 0 ? (
+                <EmptyState 
+                    title="No duties recorded for today"
+                    description="Populate your duty list to maintain operational visibility."
+                    icon={ClipboardCheck}
+                    action={{ label: "Add First Duty", onClick: () => setIsDialogOpen(true) }}
+                />
             ) : (
-              <div className="space-y-4">
-                {pending.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wider">Pending</h3>
-                    <div className="space-y-2">
-                      {pending.map(duty => (
-                        <DutyCard key={duty.id} duty={duty} onToggle={() => handleToggleStatus(duty.id, duty.status)} onDelete={() => handleDelete(duty.id)} />
-                      ))}
+                <div className="space-y-6">
+                    {pending.length > 0 && (
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Active Priorities</h3>
+                            <div className="h-px w-full bg-slate-100" />
+                        </div>
+                        <div className="space-y-3">
+                        {pending.map(duty => (
+                            <DutyCard key={duty.id} duty={duty} onToggle={() => handleToggleStatus(duty.id, duty.status)} onDelete={() => setDutyToDelete(duty.id)} />
+                        ))}
+                        </div>
                     </div>
-                  </div>
-                )}
-                
-                {completed.length > 0 && (
-                  <div className="pt-4 mt-4 border-t">
-                    <h3 className="text-sm font-medium text-slate-500 mb-3 uppercase tracking-wider">Completed</h3>
-                    <div className="space-y-2">
-                      {completed.map(duty => (
-                        <DutyCard key={duty.id} duty={duty} onToggle={() => handleToggleStatus(duty.id, duty.status)} onDelete={() => handleDelete(duty.id)} />
-                      ))}
+                    )}
+                    
+                    {completed.length > 0 && (
+                    <div className="space-y-4 opacity-75 grayscale-[0.5]">
+                        <div className="flex items-center gap-3">
+                            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap">Execution Complete</h3>
+                            <div className="h-px w-full bg-slate-100" />
+                        </div>
+                        <div className="space-y-3">
+                        {completed.map(duty => (
+                            <DutyCard key={duty.id} duty={duty} onToggle={() => handleToggleStatus(duty.id, duty.status)} onDelete={() => setDutyToDelete(duty.id)} />
+                        ))}
+                        </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                    )}
+                </div>
             )}
-          </CardContent>
-        </Card>
+        </div>
 
-        <div className="space-y-6">
-          <Card className="shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Summary</CardTitle>
+        <div className="lg:col-span-4 space-y-8">
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden sticky top-6">
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+              <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Daily Analytics</CardTitle>
+              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aggregate Efficiency Metrics</CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between py-2 border-b">
-                <span className="text-sm text-slate-500">Total Duties</span>
-                <span className="font-bold text-slate-900">{duties.length}</span>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b">
-                <span className="text-sm text-slate-500">Completed</span>
-                <span className="font-bold text-emerald-600">{completed.length}</span>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-sm text-slate-500">Pending</span>
-                <span className="font-bold text-amber-600">{pending.length}</span>
+            <CardContent className="p-8 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-slate-50 p-5 rounded-[1.5rem] border border-slate-100 shadow-inner">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total</div>
+                    <div className="text-3xl font-black text-slate-900 tracking-tighter">{duties.length}</div>
+                  </div>
+                  <div className="bg-emerald-50 p-5 rounded-[1.5rem] border border-emerald-100 shadow-inner">
+                    <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Finalized</div>
+                    <div className="text-3xl font-black text-emerald-700 tracking-tighter">{completed.length}</div>
+                  </div>
               </div>
               
-              <div className="mt-4 pt-4 border-t">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-medium text-slate-500">Progress</span>
-                  <span className="text-xs font-medium text-blue-600">
-                    {duties.length ? Math.round((completed.length / duties.length) * 100) : 0}%
-                  </span>
+              <div className="p-8 bg-indigo-600 rounded-[2rem] shadow-xl shadow-indigo-100 relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-6 opacity-10 transition-transform group-hover:scale-110 duration-700">
+                    <ClipboardCheck className="h-20 w-20 rotate-12" />
                 </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-blue-600 transition-all duration-500" 
-                    style={{ width: `${duties.length ? (completed.length / duties.length) * 100 : 0}%` }}
-                  />
+                <div className="relative z-10">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-[10px] font-black text-indigo-100 uppercase tracking-[0.2em]">Daily Velocity</span>
+                      <span className="text-2xl font-black text-white font-mono tracking-tighter">
+                          {progress}%
+                      </span>
+                    </div>
+                    <div className="h-3 w-full bg-indigo-400/30 rounded-full overflow-hidden ring-1 ring-white/10">
+                    <div 
+                        className="h-full bg-white transition-all duration-1000 ease-out shadow-[0_0_15px_rgba(255,255,255,0.5)]" 
+                        style={{ width: `${progress}%` }}
+                    />
+                    </div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      <ConfirmDialog 
+        open={dutyToDelete !== null}
+        onOpenChange={(open) => !open && setDutyToDelete(null)}
+        title="Remove Duty"
+        description="This will permanently delete this duty from today's execution log. This action cannot be undone."
+        confirmLabel="REMOVE DUTY"
+        confirmVariant="destructive"
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }
@@ -238,30 +255,34 @@ function DutyCard({ duty, onToggle, onDelete }: { duty: Duty, onToggle: () => vo
   
   return (
     <div className={cn(
-      "flex items-start justify-between p-4 border rounded-xl transition-all shadow-sm group",
-      isCompleted ? "bg-slate-50 border-slate-200" : "bg-white border-blue-100 hover:border-blue-200"
+      "flex items-start justify-between p-6 border rounded-[2rem] transition-all duration-500 group",
+      isCompleted 
+        ? "bg-slate-50/50 border-slate-100 opacity-60" 
+        : "bg-white border-slate-100 shadow-sm hover:border-indigo-100 hover:shadow-premium"
     )}>
-      <div className="flex items-start gap-4 flex-1">
+      <div className="flex items-start gap-5 flex-1">
         <button 
           onClick={onToggle}
           className={cn(
-            "mt-0.5 shrink-0 h-5 w-5 rounded-md border flex items-center justify-center transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-            isCompleted ? "bg-emerald-500 border-emerald-500" : "bg-white border-slate-300 hover:border-blue-400"
+            "mt-1 shrink-0 h-7 w-7 rounded-xl border-2 flex items-center justify-center transition-all focus:outline-none",
+            isCompleted 
+                ? "bg-emerald-500 border-emerald-500 shadow-lg shadow-emerald-100" 
+                : "bg-white border-slate-200 hover:border-indigo-400 group-hover:scale-110 shadow-sm"
           )}
         >
-          {isCompleted && <CheckSquare className="h-3.5 w-3.5 text-white" />}
+          {isCompleted && <CheckSquare className="h-4 w-4 text-white" />}
         </button>
         <div className="flex-1">
           <p className={cn(
-            "text-sm font-medium transition-colors",
-            isCompleted ? "text-slate-500 line-through" : "text-slate-900"
+            "text-base font-black transition-all tracking-tight",
+            isCompleted ? "text-slate-400 line-through" : "text-slate-900"
           )}>
             {duty.title}
           </p>
           {duty.description && (
             <p className={cn(
-              "text-xs mt-1",
-              isCompleted ? "text-slate-400" : "text-slate-500"
+              "text-xs mt-1.5 font-bold leading-relaxed",
+              isCompleted ? "text-slate-300" : "text-slate-500"
             )}>
               {duty.description}
             </p>
@@ -270,10 +291,10 @@ function DutyCard({ duty, onToggle, onDelete }: { duty: Duty, onToggle: () => vo
       </div>
       <button 
         onClick={onDelete}
-        className="text-slate-400 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 ml-2"
+        className="text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all p-3 rounded-2xl hover:bg-rose-50"
         aria-label="Delete duty"
       >
-        <Trash2 className="h-4 w-4" />
+        <Trash2 className="h-5 w-5" />
       </button>
     </div>
   );

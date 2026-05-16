@@ -7,8 +7,8 @@ import * as z from 'zod';
 import { useAuth } from '@/lib/auth/AuthContext';
 import apiClient from '@/lib/api/client';
 import { AuthResponse } from '@/types';
-import { Loader2, Eye, EyeOff, CheckCircle2, BarChart3, Users, Network } from 'lucide-react';
-import { toast } from 'sonner';
+import { Loader2, Eye, EyeOff, Mail, Lock, UserCircle, AlertCircle } from 'lucide-react';
+import { toast, Toaster } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +29,51 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+// SVG Cherry Blossom Branch Component
+const CherryBlossomBranch = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 300 200" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path 
+      d="M20,180 Q60,150 120,160 T220,120 Q260,100 280,40" 
+      fill="none" 
+      stroke="#4A3728" 
+      strokeWidth="2.5" 
+      strokeLinecap="round"
+    />
+    <path 
+      d="M80,155 Q100,120 90,80" 
+      fill="none" 
+      stroke="#4A3728" 
+      strokeWidth="2" 
+      strokeLinecap="round"
+    />
+    <path 
+      d="M170,140 Q190,110 230,100" 
+      fill="none" 
+      stroke="#4A3728" 
+      strokeWidth="2" 
+      strokeLinecap="round"
+    />
+    {/* Flower shapes */}
+    {[
+      {x: 280, y: 40}, {x: 240, y: 70}, {x: 210, y: 110}, 
+      {x: 170, y: 140}, {x: 130, y: 160}, {x: 90, y: 80}, 
+      {x: 85, y: 120}, {x: 260, y: 60}, {x: 230, y: 100}
+    ].map((f, i) => (
+      <g key={i} transform={`translate(${f.x}, ${f.y})`}>
+        <circle cx="0" cy="0" r="5" fill="#FFB7C5" />
+        <circle cx="4" cy="4" r="5" fill="#FFB7C5" />
+        <circle cx="-4" cy="4" r="5" fill="#FFB7C5" />
+        <circle cx="-4" cy="-4" r="5" fill="#FFB7C5" />
+        <circle cx="4" cy="-4" r="5" fill="#FFB7C5" />
+        <circle cx="0" cy="0" r="2.5" fill="#FF8FA3" />
+      </g>
+    ))}
+    {/* Petals */}
+    <path d="M100,60 Q105,55 110,60 T120,70" fill="#FFC8D5" opacity="0.7" />
+    <path d="M180,40 Q185,35 190,40 T200,50" fill="#FFC8D5" opacity="0.7" />
+  </svg>
+);
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
@@ -56,7 +101,6 @@ export default function LoginPage() {
       
       toast.success('Logged in successfully');
       login(access_token, refresh_token, user);
-      // Do not set isLoading(false) here, so the button stays in loading state until redirect completes
     } catch (error: any) {
       console.error('Login error', error);
       toast.error(
@@ -67,209 +111,162 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="container relative min-h-screen flex-col items-center justify-center grid lg:max-w-none lg:grid-cols-2 lg:px-0 bg-[#f8f9fa]">
-      
-      {/* Right Side - Dashboard Preview & Abstract Illustration */}
-      <div className="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#020617]">
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay" />
+    <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden">
+      {/* BACKGROUND LAYERS */}
+      <div className="fixed inset-0 z-0 bg-[linear-gradient(160deg,_#C8E8F8_0%,_#B8DFF5_40%,_#A8D4F0_100%)]">
+        <div 
+          className="absolute inset-0 opacity-40 pointer-events-none" 
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)`,
+            backgroundSize: '40px 40px'
+          }}
+          aria-hidden="true"
+        />
         
-        <div className="relative z-20 flex flex-col gap-1">
-          <div className="flex items-center text-xl font-bold tracking-tight text-white gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-xl overflow-hidden shrink-0 bg-white p-1.5 shadow-lg border border-white/20">
-              <img src="/logo.png" alt="Paramount Logo" className="h-full w-full object-contain" />
-            </div>
-            <span>Paramount Intelligence</span>
-          </div>
-          <span className="text-sm text-slate-400 font-medium ml-[3.25rem]">Workforce Intelligence & Execution OS</span>
-        </div>
-        
-        {/* Abstract Dashboard Visual */}
-        <div className="relative z-20 mt-auto mb-auto w-full max-w-lg mx-auto transform translate-x-8 hover:translate-x-6 transition-transform duration-700 ease-out">
-          <div className="rounded-2xl border border-white/10 bg-[#0f172a]/60 backdrop-blur-xl p-8 shadow-2xl ring-1 ring-white/5">
-            {/* Mock Header */}
-            <div className="flex items-center justify-between mb-8">
-              <div className="space-y-2">
-                <div className="h-5 w-32 rounded-md bg-white/20" />
-                <div className="h-3 w-48 rounded-md bg-white/10" />
-              </div>
-              <div className="flex space-x-2">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-[#3b82f6]/40 to-white/20 border border-white/20" />
-              </div>
-            </div>
-            
-            {/* Mock KPI Cards */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="h-28 rounded-xl bg-white/5 border border-white/5 p-4 flex flex-col justify-between hover:bg-white/10 transition-colors">
-                <Users className="h-5 w-5 text-[#93c5fd]" />
-                <div className="space-y-2">
-                  <div className="h-3 w-16 rounded bg-white/20" />
-                  <div className="h-5 w-20 rounded bg-white/40" />
-                </div>
-              </div>
-              <div className="h-28 rounded-xl bg-white/5 border border-white/5 p-4 flex flex-col justify-between hover:bg-white/10 transition-colors">
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
-                <div className="space-y-2">
-                  <div className="h-3 w-16 rounded bg-white/20" />
-                  <div className="h-5 w-20 rounded bg-white/40" />
-                </div>
-              </div>
-              <div className="h-28 rounded-xl bg-gradient-to-br from-[#3b82f6]/20 to-[#1d4ed8]/20 border border-[#3b82f6]/30 p-4 flex flex-col justify-between shadow-inner">
-                <BarChart3 className="h-5 w-5 text-white" />
-                <div className="space-y-2">
-                  <div className="h-3 w-16 rounded bg-white/30" />
-                  <div className="h-5 w-20 rounded bg-white/60" />
-                </div>
-              </div>
-            </div>
+        {/* Large Rising Sun */}
+        <div 
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[55%] w-[360px] h-[360px] md:w-[520px] md:h-[520px] bg-[#D94F4F] rounded-full pointer-events-none z-1" 
+          aria-hidden="true"
+        />
 
-            {/* Mock List */}
-            <div className="space-y-3">
-              <div className="h-12 w-full rounded-lg bg-white/5 border border-white/5 flex items-center px-4">
-                <div className="h-3 w-3/4 rounded bg-white/20" />
-              </div>
-              <div className="h-12 w-full rounded-lg bg-white/5 border border-white/5 flex items-center px-4">
-                <div className="h-3 w-1/2 rounded bg-white/20" />
-              </div>
-            </div>
-          </div>
-          
-          {/* Decorative floating element */}
-          <div className="absolute -bottom-8 -left-12 h-40 w-40 rounded-full bg-[#3b82f6]/10 backdrop-blur-3xl border border-white/5 blur-xl -rotate-12" />
-        </div>
+        {/* Cherry Blossom Branches */}
+        <CherryBlossomBranch className="absolute bottom-[-20px] left-[-40px] w-[200px] md:w-[300px] rotate-[15deg] z-[2] pointer-events-none scale-75 md:scale-100" />
+        <CherryBlossomBranch className="absolute bottom-[-20px] right-[-40px] w-[200px] md:w-[300px] -scale-x-100 rotate-[-15deg] z-[2] pointer-events-none scale-75 md:scale-100" />
 
-        <div className="relative z-20 mt-auto">
-          <blockquote className="space-y-3">
-            <p className="text-lg text-slate-300 font-medium leading-relaxed">
-              "Paramount Intelligence has built an operating system that completely transformed how our enterprise tracks performance, manages daily operations, and maintains governance at scale."
-            </p>
-            <footer className="text-sm text-slate-400">Sofia Davis, Operations Director</footer>
-          </blockquote>
+        {/* Dotted Triangle */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 opacity-30 z-[2] pointer-events-none" aria-hidden="true">
+          <svg width="40" height="20" viewBox="0 0 40 20">
+            {[...Array(10)].map((_, i) => (
+              <circle key={i} cx={4 + i * 4} cy={18 - i * 1.5} r="1" fill="#1E4DB7" />
+            ))}
+          </svg>
         </div>
       </div>
 
-      {/* Left Side - Login Form */}
-      <div className="p-4 sm:p-8 flex items-center justify-center h-full">
-        <div className="mx-auto flex w-full flex-col justify-center space-y-8 sm:w-[400px]">
-          
-          {/* Mobile Header (Hidden on Desktop) */}
-          <div className="flex flex-col gap-1 lg:hidden mb-4 items-center">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center justify-center h-9 w-9 rounded-lg overflow-hidden shrink-0 bg-white p-1.5 shadow-sm border border-slate-200">
-                <img src="/logo.png" alt="Paramount Logo" className="h-full w-full object-contain" />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">Paramount Intelligence</span>
+      {/* LOGIN CARD */}
+      <div className="relative z-10 w-full max-w-[92vw] sm:max-w-[420px] animate-in fade-in zoom-in-95 duration-500">
+        <div 
+          className="bg-[rgba(42,72,140,0.82)] backdrop-blur-[24px] border border-white/12 rounded-[24px] p-[28px_20px] sm:p-[40px_36px] shadow-[0_32px_80px_rgba(15,40,100,0.35),0_8px_24px_rgba(0,0,0,0.2)] flex flex-col"
+        >
+          {/* App Icon & Title */}
+          <div className="flex flex-col items-center space-y-4 mb-7">
+            <div className="bg-white w-[64px] h-[64px] rounded-[16px] shadow-[0_4px_16px_rgba(0,0,0,0.15)] flex items-center justify-center">
+              <UserCircle className="h-9 w-9 text-[#1E4DB7]" />
             </div>
-            <span className="text-xs text-slate-500 font-medium">Workforce Intelligence & Execution OS</span>
+            <h1 className="text-[20px] font-semibold text-white">Login to your account</h1>
           </div>
 
-          <div className="flex flex-col space-y-2 text-center lg:text-left">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
-              Welcome back
-            </h1>
-            <p className="text-sm text-slate-500">
-              Sign in to manage work, teams, and performance insights.
-            </p>
-          </div>
-
-          <div className="bg-white p-8 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-200/60">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-slate-700 font-medium">Email address</FormLabel>
-                      <FormControl>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[13px] font-medium text-white/85">Email</FormLabel>
+                    <FormControl>
+                      <div className="relative flex items-center bg-[rgba(20,50,110,0.7)] border border-white/15 rounded-[12px] group focus-within:border-[#4FC3F7]/60 focus-within:ring-3 focus-within:ring-[#4FC3F7]/15 transition-all">
+                        <Mail className="ml-4 h-4 w-4 text-[#90CAF9]/80 group-focus-within:text-white" />
                         <Input 
-                          placeholder="name@paramount.com" 
+                          placeholder="name@company.com" 
                           {...field} 
                           disabled={isLoading} 
-                          className="h-11 bg-slate-50/50 border-slate-200 focus-visible:ring-[#0f172a]"
+                          className="bg-transparent border-none text-white text-[15px] placeholder:text-[#90CAF9]/70 focus-visible:ring-0 h-12"
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-slate-700 font-medium">Password</FormLabel>
-                        <Link 
-                          href="/forgot-password" 
-                          className="text-sm text-[#3b82f6] hover:text-[#2563eb] font-medium transition-colors"
-                        >
-                          Forgot password?
-                        </Link>
                       </div>
-                      <FormControl>
-                        <div className="relative">
-                          <Input 
-                            type={showPassword ? 'text' : 'password'} 
-                            placeholder="••••••••" 
-                            {...field} 
-                            disabled={isLoading} 
-                            className="h-11 bg-slate-50/50 border-slate-200 focus-visible:ring-[#0f172a] pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                          >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    </FormControl>
+                    <FormMessage className="flex items-center gap-1 text-[12px] text-[#FF8A80]">
+                      <AlertCircle className="h-3 w-3" /> {form.formState.errors.email?.message}
+                    </FormMessage>
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                    <FormLabel className="text-[13px] font-medium text-white/85">Password</FormLabel>
+                    <FormControl>
+                      <div className="relative flex items-center bg-[rgba(20,50,110,0.7)] border border-white/15 rounded-[12px] group focus-within:border-[#4FC3F7]/60 focus-within:ring-3 focus-within:ring-[#4FC3F7]/15 transition-all">
+                        <Lock className="ml-4 h-4 w-4 text-[#90CAF9]/80 group-focus-within:text-white" />
+                        <Input 
+                          type={showPassword ? 'text' : 'password'} 
+                          placeholder="••••••••" 
+                          {...field} 
+                          disabled={isLoading} 
+                          className="bg-transparent border-none text-white text-[15px] placeholder:text-[#90CAF9]/70 focus-visible:ring-0 h-12 pr-12"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 text-[#90CAF9]/80 hover:text-white transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage className="flex items-center gap-1 text-[12px] text-[#FF8A80]">
+                      <AlertCircle className="h-3 w-3" /> {form.formState.errors.password?.message}
+                    </FormMessage>
+                  </FormItem>
+                )}
+              />
 
+              <div className="flex items-center justify-between my-4">
                 <FormField
                   control={form.control}
                   name="rememberMe"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 mt-2">
+                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
                       <FormControl>
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-[#0f172a] focus:ring-[#0f172a]"
+                          className="h-4 w-4 rounded border-white/20 bg-transparent accent-[#4FC3F7] cursor-pointer"
                           checked={field.value}
                           onChange={field.onChange}
                           disabled={isLoading}
                         />
                       </FormControl>
-                      <FormLabel className="text-sm font-normal text-slate-600 cursor-pointer">
-                        Remember me
+                      <FormLabel className="text-[13px] font-medium text-white/80 cursor-pointer select-none">
+                        Keep me logged in
                       </FormLabel>
                     </FormItem>
                   )}
                 />
-
-                <Button 
-                  type="submit" 
-                  className="w-full h-11 bg-[#0f172a] hover:bg-[#1e293b] text-white font-medium text-base shadow-sm transition-all" 
-                  disabled={isLoading}
+                <Link 
+                  href="/forgot-password" 
+                  className="text-[13px] font-medium text-[#90CAF9] hover:text-white transition-colors no-underline"
                 >
-                  {isLoading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                  Sign In
-                </Button>
-              </form>
-            </Form>
-          </div>
+                  Forgot password?
+                </Link>
+              </div>
 
-
+              <Button 
+                type="submit" 
+                className="w-full h-[50px] bg-[linear-gradient(135deg,_#4FC3F7_0%,_#1976D2_60%,_#1565C0_100%)] text-white rounded-[12px] font-semibold text-[16px] tracking-[0.3px] shadow-[0_4px_20px_rgba(21,101,192,0.5)] hover:opacity-92 active:scale-[0.99] transition-all" 
+                disabled={isLoading}
+              >
+                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Login'}
+              </Button>
+            </form>
+          </Form>
         </div>
       </div>
+      
+      {/* Toast Notifications Custom Styling */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          style: {
+            background: 'rgba(15, 40, 100, 0.95)',
+            border: '1px solid rgba(79, 195, 247, 0.3)',
+            color: 'white',
+            backdropFilter: 'blur(12px)',
+          },
+        }}
+      />
     </div>
   );
 }

@@ -5,12 +5,14 @@ import { useParams, useRouter } from 'next/navigation';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
+import { getErrorMessage } from '@/lib/api/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
+import Link from 'next/link';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
+import { StatusBadge } from '@/components/ui/status-badge';
 
 export default function ProjectDetailsPage() {
   const { id } = useParams();
@@ -36,7 +39,7 @@ export default function ProjectDetailsPage() {
       const data = await projectsApi.getProject(id as string);
       setProject(data);
     } catch (error) {
-      toast.error('Failed to load project details');
+      toast.error(getErrorMessage(error));
     }
   };
 
@@ -50,7 +53,7 @@ export default function ProjectDetailsPage() {
         setProject(projectData);
         setCurrentUser(userData);
       } catch (error) {
-        toast.error('Failed to load project details');
+        toast.error(getErrorMessage(error));
       } finally {
         setIsLoading(false);
       }
@@ -66,7 +69,7 @@ export default function ProjectDetailsPage() {
       toast.success('Project approved successfully');
       await fetchProject();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to approve project');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsActionLoading(false);
     }
@@ -87,7 +90,7 @@ export default function ProjectDetailsPage() {
       setRejectionReason('');
       await fetchProject();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to reject project');
+      toast.error(getErrorMessage(error));
     } finally {
       setIsActionLoading(false);
     }
@@ -95,159 +98,146 @@ export default function ProjectDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Loading Initiative Details</span>
       </div>
     );
   }
 
   if (!project) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500">
-        <Briefcase className="h-12 w-12 text-slate-200 mb-4" />
-        <h2 className="text-xl font-medium text-slate-900 mb-2">Project not found</h2>
-        <p>The project you are looking for does not exist or you don't have access.</p>
+      <div className="flex flex-col items-center justify-center min-h-[600px] text-center px-6">
+        <div className="h-24 w-24 rounded-[2rem] bg-slate-50 flex items-center justify-center mb-8">
+            <Briefcase className="h-10 w-10 text-slate-200" />
+        </div>
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight mb-2">Initiative Not Found</h2>
+        <p className="text-slate-500 font-bold uppercase text-[10px] tracking-widest max-w-xs">The project you are looking for does not exist or access is restricted.</p>
+        <Button variant="ghost" className="mt-8 font-black text-[10px] uppercase tracking-widest" onClick={() => router.back()}>
+            <ChevronLeft className="mr-2 h-4 w-4" /> Go Back
+        </Button>
       </div>
     );
   }
-
-  const getPriorityBadge = (priority: string) => {
-    switch (priority) {
-      case 'critical': return <Badge variant="destructive">Critical</Badge>;
-      case 'high': return <Badge className="bg-orange-500 text-white border-none">High</Badge>;
-      case 'medium': return <Badge variant="secondary">Medium</Badge>;
-      case 'low': return <Badge variant="outline">Low</Badge>;
-      default: return <Badge>{priority}</Badge>;
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'approved': return <Badge className="bg-emerald-100 text-emerald-800 border-none">{status}</Badge>;
-      case 'pending':
-      case 'pending_approval': return <Badge className="bg-amber-100 text-amber-800 border-none">Pending Approval</Badge>;
-      case 'completed': return <Badge className="bg-blue-100 text-blue-800 border-none">Completed</Badge>;
-      case 'on_hold': return <Badge variant="secondary">On Hold</Badge>;
-      case 'cancelled': return <Badge variant="destructive">Cancelled</Badge>;
-      case 'rejected': return <Badge variant="destructive">Rejected</Badge>;
-      default: return <Badge className="capitalize border-none">{status.replace('_', ' ')}</Badge>;
-    }
-  };
 
   const isManager = currentUser?.id === project.manager_id;
   const isPending = project.approval_status === 'pending' || project.approval_status === 'pending_approval';
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-10">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-slate-400 mb-2">
-            <Link href="/manager/projects" className="hover:text-blue-600 transition-colors">Projects</Link>
-            <span>/</span>
-            <span className="text-sm font-medium text-slate-600">{project.title}</span>
+    <div className="space-y-10 pb-20 max-w-5xl mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
+        <div className="space-y-2">
+          <Link href="/manager/projects" className="group flex items-center gap-2 text-slate-400 hover:text-indigo-600 transition-all mb-4">
+            <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Back to Projects</span>
+          </Link>
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Initiative Governance</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">{project.title}</h1>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">{project.title}</h1>
         </div>
-        <div className="flex gap-2">
-          {getStatusBadge(project.approval_status)}
-          {getPriorityBadge(project.priority)}
+        <div className="flex items-center gap-3">
+          <StatusBadge status={project.approval_status} />
+          <StatusBadge status={project.priority} />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <Card className="shadow-sm border-slate-100">
-            <CardHeader className="pb-3 border-b border-slate-50">
-              <CardTitle className="text-lg">Project Description</CardTitle>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="md:col-span-2 space-y-8">
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden p-10">
+            <CardHeader className="p-0 mb-6">
+              <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                Strategic Scope
+              </CardTitle>
             </CardHeader>
-            <CardContent className="pt-6">
-              <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">{project.description}</p>
+            <CardContent className="p-0">
+              <p className="text-slate-600 font-medium text-sm leading-relaxed whitespace-pre-wrap">{project.description}</p>
             </CardContent>
           </Card>
 
           {project.rejected_reason && (
-            <Card className="shadow-sm border-rose-100 bg-rose-50/20">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold text-rose-600 flex items-center gap-2">
+            <Card className="border-none shadow-premium bg-rose-50/30 rounded-[2.5rem] overflow-hidden p-10">
+              <CardHeader className="p-0 mb-4">
+                <CardTitle className="text-sm font-black text-rose-600 flex items-center gap-2 uppercase tracking-widest">
                   <AlertCircle className="h-4 w-4" />
-                  Rejection Reason
+                  Governance Feedback
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-rose-700">{project.rejected_reason}</p>
+              <CardContent className="p-0">
+                <p className="text-sm font-bold text-rose-700/80 leading-relaxed italic">{project.rejected_reason}</p>
               </CardContent>
             </Card>
           )}
         </div>
 
-        <div className="space-y-6">
-          {isManager && isPending && (
-            <Card className="shadow-md border-blue-100 bg-blue-50/10">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-blue-600" />
-                  Approval Actions
+        <div className="space-y-8">
+          {isPending && (
+            <Card className="border-none shadow-premium-lg bg-indigo-600 rounded-[2.5rem] overflow-hidden p-8 text-white">
+              <CardHeader className="p-0 mb-6">
+                <CardTitle className="text-lg font-black tracking-tight flex items-center gap-3">
+                  <ShieldCheck className="h-6 w-6 text-indigo-200" />
+                  Governance Review
                 </CardTitle>
-                <CardDescription>Review and decide on this project request.</CardDescription>
+                <CardDescription className="text-indigo-100/60 font-bold uppercase text-[10px] tracking-widest mt-1">Review and Decisive Action Required</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="p-0 space-y-3">
                 <Button 
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                  className="w-full h-12 bg-white hover:bg-indigo-50 text-indigo-600 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-lg transition-all active:scale-[0.98]"
                   onClick={handleApprove}
                   disabled={isActionLoading}
                 >
                   {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                  Approve Project
+                  Approve Initiative
                 </Button>
                 <Button 
-                  variant="outline"
-                  className="w-full border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 font-bold"
+                  variant="ghost"
+                  className="w-full h-12 text-white hover:bg-white/10 font-black text-[10px] uppercase tracking-[0.2em] rounded-xl transition-all"
                   onClick={() => setIsRejectDialogOpen(true)}
                   disabled={isActionLoading}
                 >
                   <XCircle className="mr-2 h-4 w-4" />
-                  Reject Project
+                  Decline Proposal
                 </Button>
               </CardContent>
             </Card>
           )}
 
-          <Card className="shadow-sm border-slate-100">
-            <CardHeader className="pb-3 border-b border-slate-50">
-              <CardTitle className="text-base">Project Details</CardTitle>
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden p-8">
+            <CardHeader className="p-0 mb-6 border-b border-slate-50 pb-4">
+              <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Initiative Metrics</CardTitle>
             </CardHeader>
-            <CardContent className="pt-6 space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-slate-500">
+            <CardContent className="p-0 space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-400">
                   <Calendar className="h-4 w-4" />
-                  <span>Created</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Initialized</span>
                 </div>
-                <span className="font-semibold text-slate-900">{format(parseISO(project.created_at), 'MMM d, yyyy')}</span>
+                <span className="text-xs font-black text-slate-900">{format(parseISO(project.created_at), 'MMM d, yyyy')}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-slate-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-400">
                   <Target className="h-4 w-4" />
-                  <span>Due Date</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Target Deadline</span>
                 </div>
-                <span className="font-semibold text-slate-900">
-                  {project.due_date ? format(parseISO(project.due_date), 'MMM d, yyyy') : 'No due date'}
+                <span className="text-xs font-black text-slate-900">
+                  {project.due_date ? format(parseISO(project.due_date), 'MMM d, yyyy') : 'PERPETUAL'}
                 </span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-slate-500">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-slate-400">
                   <Clock className="h-4 w-4" />
-                  <span>Last Updated</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">Synchronized</span>
                 </div>
-                <span className="font-semibold text-slate-900">{format(parseISO(project.updated_at), 'MMM d, yyyy')}</span>
+                <span className="text-xs font-black text-slate-900">{format(parseISO(project.updated_at), 'MMM d, yyyy')}</span>
               </div>
               {project.approved_at && (
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-50 mt-2">
                   <div className="flex items-center gap-2 text-emerald-600">
                     <CheckCircle2 className="h-4 w-4" />
-                    <span>Approved On</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Approved</span>
                   </div>
-                  <span className="font-semibold text-emerald-700">{format(parseISO(project.approved_at), 'MMM d, yyyy')}</span>
+                  <span className="text-xs font-black text-emerald-700">{format(parseISO(project.approved_at), 'MMM d, yyyy')}</span>
                 </div>
               )}
             </CardContent>
@@ -256,32 +246,32 @@ export default function ProjectDetailsPage() {
       </div>
 
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-rose-600">Reject Project</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for rejecting this project. This will be visible to the project owner.
+        <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-2xl font-black text-rose-600 tracking-tighter">Decline Initiative</DialogTitle>
+            <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight leading-relaxed">
+              Provide justification for declining this proposal. This feedback will be recorded in the initiative audit trail.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-8">
             <Textarea 
-              placeholder="e.g. Budget constraints, scope overlap, or requires more details..."
-              className="min-h-[100px] resize-none"
+              placeholder="e.g. Strategic alignment gap, resource constraints, or scope overlap..."
+              className="min-h-[140px] resize-none rounded-2xl bg-slate-50 border-slate-100 font-bold text-sm leading-relaxed p-6 focus:bg-white transition-all"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setIsRejectDialogOpen(false)} disabled={isActionLoading}>
+          <DialogFooter className="gap-3 sm:gap-0">
+            <Button variant="ghost" onClick={() => setIsRejectDialogOpen(false)} disabled={isActionLoading} className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest text-slate-400 transition-all flex-1">
               Cancel
             </Button>
             <Button 
-              className="bg-rose-600 hover:bg-rose-700 text-white" 
+              className="h-12 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-lg shadow-rose-100 transition-all flex-1" 
               onClick={handleReject}
               disabled={isActionLoading || !rejectionReason.trim()}
             >
               {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Reject Project
+              Confirm Decline
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -289,5 +279,3 @@ export default function ProjectDetailsPage() {
     </div>
   );
 }
-
-import Link from 'next/link';

@@ -27,6 +27,16 @@ class ApprovalService:
         action: ApprovalAction,
         comment: str | None = None
     ) -> ApprovalTimeline:
+        """
+        Stage a timeline entry in the current transaction.
+
+        Uses db.flush() — NOT db.commit() — so the caller controls when the
+        transaction is committed. This allows the LeaveRequest and its first
+        timeline entry to be written atomically in submit_request.
+
+        All callers that need a commit (resolve_leave_request, escalate_request,
+        submit_request) already call db.commit() after this method.
+        """
         entry = ApprovalTimeline(
             entity_type=entity_type,
             entity_id=entity_id,
@@ -37,7 +47,7 @@ class ApprovalService:
             updated_at=datetime.now(timezone.utc)
         )
         self.db.add(entry)
-        self.db.commit()
+        self.db.flush()  # Stage in transaction; caller is responsible for commit()
         return entry
 
     def resolve_leave_request(

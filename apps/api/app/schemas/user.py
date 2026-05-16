@@ -15,6 +15,8 @@ class UserCreate(BaseModel):
     password: str | None = Field(None, min_length=8)
     role: UserRole
     department: str | None = None
+    department_id: uuid.UUID | None = None
+    shift_id: uuid.UUID | None = None
     designation: str | None = None
     manager_id: uuid.UUID | None = None
 
@@ -27,6 +29,8 @@ class UserCreateResponse(BaseModel):
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
     department: str | None = None
+    department_id: uuid.UUID | None = None
+    shift_id: uuid.UUID | None = None
     designation: str | None = None
     manager_id: uuid.UUID | None = None
     status: UserStatus | None = None

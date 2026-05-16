@@ -5,13 +5,19 @@ import { dashboardApi, DashboardSummary } from '@/lib/api/dashboard';
 import { eodApi, EODReport } from '@/lib/api/eod';
 import { dutiesApi, Duty } from '@/lib/api/duties';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Activity, Clock, CheckSquare, AlertCircle, PlayCircle, Loader2, ShieldCheck, ClipboardCheck, Megaphone, Briefcase } from 'lucide-react';
+import { 
+  Activity, Clock, CheckSquare, AlertCircle, PlayCircle, Loader2, 
+  ShieldCheck, ClipboardCheck, Megaphone, Briefcase, LayoutDashboard,
+  ArrowRight, Palmtree, Timer, CheckCircle2, Calendar
+} from 'lucide-react';
 import { buttonVariants } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 import { AnnouncementList } from '@/components/dashboard/announcement-list';
+import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
+import { Skeleton } from '@/components/ui/skeletons';
 
 export default function EmployeeDashboard() {
   const [data, setData] = useState<DashboardSummary | null>(null);
@@ -40,16 +46,11 @@ export default function EmployeeDashboard() {
   }, []);
 
   if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
-  // Provide safe defaults if backend fails or returns empty
   const summary = data || {
-    attendance_status: 'Not Checked In',
+    attendance_status: 'not_checked_in',
     total_time_today: 0,
     productive_time_today: 0,
     active_timer_task_id: null,
@@ -64,201 +65,239 @@ export default function EmployeeDashboard() {
   };
 
   const eodStatus = eod ? eod.status : 'Not Started';
-  const completedDuties = duties.filter(d => d.status === 'completed').length;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Dashboard</h1>
-          <p className="text-sm text-slate-500">Here's your activity for today.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+            <LayoutDashboard className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Employee Command Center</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Pulse Overview</h1>
+          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Daily Operational Intel</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {summary?.attendance_status !== 'active' ? (
+            <Link 
+              href="/employee/attendance"
+              className={cn(
+                buttonVariants({ variant: "default" }), 
+                "h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl px-8 shadow-xl shadow-indigo-100 transition-all active:scale-95"
+              )}
+            >
+              Initialize Check In
+            </Link>
+          ) : (
+            <Link 
+              href="/employee/attendance"
+              className="flex items-center gap-3 px-6 py-3 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-700 shadow-sm group hover:bg-emerald-100 transition-all"
+            >
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-xs font-black uppercase tracking-widest">Active Shift Session</span>
+              <ArrowRight className="h-4 w-4 opacity-40 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          )}
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Content Area */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Attendance</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold capitalize">{(summary?.attendance_status || 'not_checked_in').replace('_', ' ')}</div>
-                <div className="mt-4 flex items-center justify-between">
-                    <p className="text-xs text-muted-foreground">
-                      {summary?.attendance_status === 'active' 
-                        ? <span className="text-emerald-600 font-medium">Currently clocked in</span>
-                        : 'Ready to work?'}
-                    </p>
-                    <Link 
-                      href="/employee/attendance"
-                      className={cn(buttonVariants({ variant: summary?.attendance_status === 'active' ? "outline" : "default", size: "sm" }), summary?.attendance_status === 'active' ? "text-amber-600 border-amber-200 hover:bg-amber-50 hover:text-amber-700" : "bg-blue-600 hover:bg-blue-700")}
-                    >
-                      {summary?.attendance_status === 'active' ? 'Check Out' : 'Check In'}
-                    </Link>
-                </div>
-              </CardContent>
-            </Card>
+      {/* KPI Section */}
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <KPICard 
+          title="Attendance Status"
+          value={summary.attendance_status === 'active' ? 'Online' : 'Offline'}
+          icon={Activity}
+          color={summary.attendance_status === 'active' ? 'emerald' : 'slate'}
+          trend={summary.attendance_status === 'active' ? { value: 'Clocked In', label: 'Shift active', isPositive: true } : { value: 'Standby', label: 'Awaiting check-in', isPositive: false }}
+        />
+        <KPICard 
+          title="Time Aggregate"
+          value={formatHours(summary.total_time_today)}
+          icon={Timer}
+          color="indigo"
+          trend={{ value: formatHours(summary.productive_time_today), label: 'Productive work', isPositive: true }}
+        />
+        <KPICard 
+          title="Units In Progress"
+          value={summary.tasks_in_progress}
+          icon={CheckSquare}
+          color="amber"
+          trend={{ value: 'Task Load', label: 'Active execution', isPositive: true }}
+        />
+        <KPICard 
+          title="Critical Units"
+          value={summary.tasks_due_soon}
+          icon={AlertCircle}
+          color="rose"
+          trend={summary.tasks_due_soon > 0 ? { value: 'High Priority', label: 'Due in 48h', isPositive: false } : undefined}
+        />
+      </div>
 
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Time Logged Today</CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatHours(summary.total_time_today)}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatHours(summary.productive_time_today)} productive time
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Tasks In Progress</CardTitle>
-                <CheckSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{summary.tasks_in_progress}</div>
-                <p className="text-xs text-muted-foreground mt-1">Active tasks on your plate</p>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Due Soon</CardTitle>
-                <AlertCircle className="h-4 w-4 text-amber-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{summary.tasks_due_soon}</div>
-                <p className="text-xs text-amber-600/80 mt-1">Tasks due within 48 hours</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="shadow-sm">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-                <CardDescription>Common things you might want to do</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  <Link 
-                    href="/employee/attendance"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
-                  >
-                    <Activity className="h-5 w-5 text-blue-600" />
-                    <span className="text-xs font-medium">Attendance</span>
-                  </Link>
-                  <Link 
-                    href="/employee/time-logs"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
-                  >
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <span className="text-xs font-medium">Time Tracking</span>
-                  </Link>
-                  <Link 
-                    href="/employee/tasks"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
-                  >
-                    <CheckSquare className="h-5 w-5 text-blue-600" />
-                    <span className="text-xs font-medium">Tasks</span>
-                  </Link>
-                  <Link 
-                    href="/employee/duties"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
-                  >
-                    <ClipboardCheck className="h-5 w-5 text-blue-600" />
-                    <span className="text-xs font-medium">Duties</span>
-                  </Link>
-                  <Link 
-                    href="/employee/projects"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
-                  >
-                    <Briefcase className="h-5 w-5 text-blue-600" />
-                    <span className="text-xs font-medium">Projects</span>
-                  </Link>
-                  <Link 
-                    href="/employee/growth"
-                    className={cn(buttonVariants({ variant: "outline" }), "h-20 flex flex-col items-center justify-center gap-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600 border-slate-200")}
-                  >
-                    <Activity className="h-5 w-5 text-blue-600" />
-                    <span className="text-xs font-medium">Notes & Goals</span>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm border-blue-100 bg-blue-50/30">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">EOD Status</CardTitle>
-                <ShieldCheck className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg font-bold text-blue-700 truncate">{eodStatus}</div>
-                <Link href="/employee/eod" className="text-xs text-blue-600/80 mt-1 hover:underline">
-                  View EOD &rarr;
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Sidebar Area */}
-        <div className="lg:col-span-1 space-y-6">
-          <Card className="shadow-sm border-blue-100 bg-blue-50/10">
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Megaphone className="h-5 w-5 text-blue-600" />
-                  Announcements
-                </CardTitle>
-              </div>
+      <div className="grid gap-8 lg:grid-cols-12">
+        {/* Left Column: Quick Actions & Compliance */}
+        <div className="lg:col-span-8 space-y-8">
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+              <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Quick Operations</CardTitle>
+              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rapid Command Access</CardDescription>
             </CardHeader>
-            <CardContent>
-              <AnnouncementList />
+            <CardContent className="p-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
+                {[
+                  { href: "/employee/attendance", icon: Clock, label: "Attendance", color: "text-indigo-600 bg-indigo-50", desc: "Shift Logs" },
+                  { href: "/employee/time-logs", icon: Timer, label: "Time Tracking", color: "text-emerald-600 bg-emerald-50", desc: "Unit Logs" },
+                  { href: "/employee/tasks", icon: CheckSquare, label: "My Tasks", color: "text-amber-600 bg-amber-50", desc: "Execution" },
+                  { href: "/employee/duties", icon: ClipboardCheck, label: "Daily Duties", color: "text-rose-600 bg-rose-50", desc: "Checklist" },
+                  { href: "/employee/projects", icon: Briefcase, label: "Projects", color: "text-violet-600 bg-violet-50", desc: "Strategy" },
+                  { href: "/employee/leaves", icon: Palmtree, label: "Leave Hub", color: "text-sky-600 bg-sky-50", desc: "Requests" },
+                ].map((action) => (
+                  <Link 
+                    key={action.href}
+                    href={action.href}
+                    className="flex flex-col items-center justify-center gap-4 p-6 rounded-[2rem] border border-slate-100 bg-white hover:bg-slate-50/50 hover:border-indigo-100 transition-all group shadow-sm hover:shadow-md"
+                  >
+                    <div className={cn("p-4 rounded-2xl transition-all group-hover:scale-110 group-hover:shadow-lg", action.color)}>
+                      <action.icon className="h-6 w-6" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs font-black text-slate-900 uppercase tracking-widest">{action.label}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 opacity-60 tracking-tighter">{action.desc}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
-          <Card className="shadow-sm bg-gradient-to-br from-blue-50 to-white border-blue-100">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <PlayCircle className="h-5 w-5 text-blue-600" />
-                Active Timer
-              </CardTitle>
-              <CardDescription>Your current tracking session</CardDescription>
+          <Card className="border-none shadow-premium bg-indigo-600 text-white rounded-[2.5rem] overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-10 opacity-10 transition-transform group-hover:scale-110 duration-700">
+                <ShieldCheck className="h-40 w-40 rotate-12" />
+            </div>
+            <CardHeader className="relative z-10 px-10 pt-10 pb-4">
+              <CardTitle className="text-2xl font-black tracking-tight">Compliance Protocol</CardTitle>
+              <CardDescription className="text-indigo-100 font-bold opacity-80 uppercase tracking-[0.2em] text-[10px]">End of Day Intelligence Report</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="relative z-10 px-10 pb-10">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                <div className="space-y-2">
+                    <div className="flex items-center gap-3">
+                      <div className="h-3 w-3 rounded-full bg-white animate-pulse" />
+                      <div className="text-3xl font-black tracking-tighter">{eodStatus}</div>
+                    </div>
+                    <p className="text-indigo-100 text-sm font-medium opacity-80 max-w-md">
+                      {eodStatus === 'Completed' 
+                        ? 'Operational summary has been successfully committed to the organizational ledger.' 
+                        : 'Your daily intelligence report is pending submission. Ensure all units are logged before checkout.'}
+                    </p>
+                </div>
+                <Link 
+                  href="/employee/eod" 
+                  className={cn(
+                    buttonVariants({ variant: "secondary" }), 
+                    "bg-white text-indigo-600 hover:bg-indigo-50 font-black text-xs uppercase tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all active:scale-95 whitespace-nowrap"
+                  )}
+                >
+                  {eodStatus === 'Completed' ? 'View Intel' : 'Initialize Report'}
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column: Active Status & Announcements */}
+        <div className="lg:col-span-4 space-y-8">
+          <Card className={cn(
+            "border-none shadow-premium rounded-[2.5rem] transition-all duration-700 overflow-hidden",
+            summary.active_timer_task_id ? "bg-white ring-2 ring-amber-400 shadow-amber-100" : "bg-white"
+          )}>
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+              <CardTitle className="flex items-center gap-3 text-xl font-black text-slate-900 tracking-tight">
+                <PlayCircle className={cn("h-6 w-6", summary.active_timer_task_id ? "text-amber-500 animate-pulse" : "text-slate-300")} />
+                Active Unit
+              </CardTitle>
+              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Execution Layer</CardDescription>
+            </CardHeader>
+            <CardContent className="p-8">
               {summary.active_timer_task_id ? (
-                <div className="text-center py-4">
-                  <div className="text-sm text-slate-500 mb-1">Tracking Task</div>
-                  <div className="font-medium text-slate-900 mb-4">
-                    {summary.active_timer_task_title || summary.active_timer_task_id || 'Active Task'}
+                <div className="space-y-6">
+                  <div className="p-6 rounded-[2rem] bg-amber-50/50 border border-amber-100 shadow-inner">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping" />
+                      <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">In Progress</span>
+                    </div>
+                    <div className="font-black text-slate-900 text-lg leading-tight line-clamp-2">
+                      {summary.active_timer_task_title || 'Autonomous Execution'}
+                    </div>
                   </div>
                   <Link 
                     href="/employee/time-logs" 
-                    className={cn(buttonVariants({ variant: "default" }), "bg-rose-600 hover:bg-rose-700 text-white")}
+                    className={cn(
+                      buttonVariants({ variant: "default" }), 
+                      "w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95"
+                    )}
                   >
-                    Stop Timer
+                    Open Control Console
                   </Link>
                 </div>
               ) : (
-                <div className="text-center py-6 text-slate-500">
-                  <p className="mb-4 text-sm">No timer is currently running.</p>
+                <div className="text-center py-6 space-y-6">
+                  <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto text-slate-200">
+                    <Calendar className="h-8 w-8" />
+                  </div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">No active task execution detected in the current session.</p>
                   <Link 
                     href="/employee/tasks" 
-                    className={cn(buttonVariants({ variant: "default" }), "bg-blue-600 hover:bg-blue-700 text-white")}
+                    className={cn(
+                      buttonVariants({ variant: "default" }), 
+                      "w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95"
+                    )}
                   >
-                    Start a Task
+                    Review Objectives
                   </Link>
                 </div>
               )}
             </CardContent>
           </Card>
+
+          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+                  <Megaphone className="h-6 w-6 text-indigo-600" />
+                  Broadcasts
+                </CardTitle>
+                <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-lg font-black text-[9px] px-2 py-0.5 uppercase tracking-widest">Latest</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0 overflow-y-auto max-h-[400px] scrollbar-hide">
+              <AnnouncementList />
+            </CardContent>
+          </Card>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-10 pb-20 animate-pulse">
+      <div className="flex justify-between items-end">
+        <div className="space-y-3">
+          <Skeleton className="h-10 w-64 rounded-xl" />
+          <Skeleton className="h-4 w-96 rounded-lg" />
+        </div>
+        <Skeleton className="h-12 w-48 rounded-2xl" />
+      </div>
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-40 rounded-[2.5rem]" />
+        ))}
+      </div>
+      <div className="grid gap-8 lg:grid-cols-12">
+        <Skeleton className="lg:col-span-8 h-[500px] rounded-[2.5rem]" />
+        <Skeleton className="lg:col-span-4 h-[500px] rounded-[2.5rem]" />
       </div>
     </div>
   );
