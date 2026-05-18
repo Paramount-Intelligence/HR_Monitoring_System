@@ -21,6 +21,9 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
     # Add columns to attendance_sessions
     with op.batch_alter_table('attendance_sessions', schema=None) as batch_op:
         batch_op.add_column(sa.Column('worked_minutes', sa.Integer(), nullable=True))
@@ -33,14 +36,23 @@ def upgrade() -> None:
         batch_op.add_column(sa.Column('expected_shift_end_at', sa.DateTime(timezone=True), nullable=True))
 
     # Add column to daily_stats
-    with op.batch_alter_table('daily_stats', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('is_overtime', sa.Boolean(), nullable=False, server_default=sa.text('false')))
+    if 'daily_stats' in inspector.get_table_names():
+        daily_stats_columns = {column['name'] for column in inspector.get_columns('daily_stats')}
+        if 'is_overtime' not in daily_stats_columns:
+            with op.batch_alter_table('daily_stats', schema=None) as batch_op:
+                batch_op.add_column(sa.Column('is_overtime', sa.Boolean(), nullable=False, server_default=sa.text('false')))
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+
     # Remove column from daily_stats
-    with op.batch_alter_table('daily_stats', schema=None) as batch_op:
-        batch_op.drop_column('is_overtime')
+    if 'daily_stats' in inspector.get_table_names():
+        daily_stats_columns = {column['name'] for column in inspector.get_columns('daily_stats')}
+        if 'is_overtime' in daily_stats_columns:
+            with op.batch_alter_table('daily_stats', schema=None) as batch_op:
+                batch_op.drop_column('is_overtime')
 
     # Remove columns from attendance_sessions
     with op.batch_alter_table('attendance_sessions', schema=None) as batch_op:

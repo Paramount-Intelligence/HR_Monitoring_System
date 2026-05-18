@@ -72,7 +72,19 @@ def upgrade() -> None:
     )
 
     # 4. Late FK for Users -> Departments
-    op.create_foreign_key(op.f('fk_users_department_id_departments'), 'users', 'departments', ['department_id'], ['id'])
+    # SQLite cannot add constraints with ALTER TABLE, so use batch mode for
+    # local development while keeping the same constraint for Postgres.
+    bind = op.get_bind()
+    if bind.dialect.name == "sqlite":
+        with op.batch_alter_table('users', schema=None) as batch_op:
+            batch_op.create_foreign_key(
+                batch_op.f('fk_users_department_id_departments'),
+                'departments',
+                ['department_id'],
+                ['id'],
+            )
+    else:
+        op.create_foreign_key(op.f('fk_users_department_id_departments'), 'users', 'departments', ['department_id'], ['id'])
 
     op.create_table('holidays',
     sa.Column('id', sa.Uuid(), nullable=False),

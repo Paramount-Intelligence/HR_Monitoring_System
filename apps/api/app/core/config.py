@@ -1,9 +1,18 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
-import os
 
-load_dotenv()
+load_dotenv(interpolate=False)
+
+
+def is_unresolved_template(value: str | None) -> bool:
+    return bool(value and "${" in value)
+
+
+def normalize_postgres_url(value: str) -> str:
+    if value.startswith("postgres://"):
+        return value.replace("postgres://", "postgresql://", 1)
+    return value
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -14,6 +23,7 @@ class Settings(BaseSettings):
     app_secret_key: str = "change-me"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    database_public_url: str | None = None
     database_url: str | None = None
     
     # Postgres specific (Railway/Heroku style)
@@ -53,9 +63,12 @@ class Settings(BaseSettings):
     def fix_postgres_scheme(cls, v: str | None, info) -> str:
         # 1. If DATABASE_URL is provided, normalize the scheme
         if v and isinstance(v, str):
-            if v.startswith("postgres://"):
-                return v.replace("postgres://", "postgresql://", 1)
-            return v
+            if is_unresolved_template(v):
+                public_url = info.data.get("database_public_url")
+                if public_url and not is_unresolved_template(public_url):
+                    return normalize_postgres_url(public_url)
+            elif v:
+                return normalize_postgres_url(v)
             
         # 2. Fallback: Try to construct from individual PG variables
         # We access values via info.data (pydantic v2)
@@ -66,7 +79,9 @@ class Settings(BaseSettings):
         pgdb = data.get("pgdatabase")
         pgport = data.get("pgport", "5432")
         
-        if all([pghost, pguser, pgpass, pgdb]):
+        if all([pghost, pguser, pgpass, pgdb]) and not any(
+            is_unresolved_template(value) for value in [pghost, pguser, pgpass, pgdb, pgport]
+        ):
             return f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
             
         # 3. Default fallback to SQLite

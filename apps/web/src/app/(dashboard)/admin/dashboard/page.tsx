@@ -199,38 +199,42 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="h-[380px] p-8 pt-10">
+          <CardContent className="p-8 pt-10">
             {attendance_trend?.length === 0 ? (
-              <EmptyState message="No trend data recorded in the last 7 days." />
+              <div className="h-[300px]">
+                <EmptyState message="No trend data recorded in the last 7 days." />
+              </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={attendance_trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="date" 
-                    tickFormatter={(val) => format(parseISO(val), 'MMM d')}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
-                    dy={15}
-                  />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
-                    dx={-10}
-                  />
-                  <RechartsTooltip 
-                    contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px'}}
-                    labelStyle={{fontWeight: 900, color: '#0f172a', marginBottom: '8px', fontSize: '12px'}}
-                    itemStyle={{fontSize: '11px', fontWeight: 700}}
-                  />
-                  <Legend iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '30px'}} />
-                  <Line type="monotone" name="Present" dataKey="checked_in" stroke="#4f46e5" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
-                  <Line type="monotone" name="Late" dataKey="late" stroke="#f59e0b" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
-                  <Line type="monotone" name="Absent" dataKey="absent" stroke="#ef4444" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
-                </LineChart>
-              </ResponsiveContainer>
+              <div className="h-[300px] w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                  <LineChart data={attendance_trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="date" 
+                      tickFormatter={(val) => format(parseISO(val), 'MMM d')}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
+                      dy={15}
+                    />
+                    <YAxis 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
+                      dx={-10}
+                    />
+                    <RechartsTooltip 
+                      contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px'}}
+                      labelStyle={{fontWeight: 900, color: '#0f172a', marginBottom: '8px', fontSize: '12px'}}
+                      itemStyle={{fontSize: '11px', fontWeight: 700}}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '30px'}} />
+                    <Line type="monotone" name="Present" dataKey="checked_in" stroke="#4f46e5" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
+                    <Line type="monotone" name="Late" dataKey="late" stroke="#f59e0b" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
+                    <Line type="monotone" name="Absent" dataKey="absent" stroke="#ef4444" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -241,37 +245,41 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Execution Hub</CardTitle>
             <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aggregate Task Distribution</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 min-h-[380px] p-8 pt-10 relative">
+          <CardContent className="flex-1 p-8 pt-10 relative">
             {taskData.length === 0 ? (
-              <EmptyState message="No tasks assigned in this organization." />
+              <div className="h-[300px]">
+                <EmptyState message="No tasks assigned in this organization." />
+              </div>
             ) : (
               <>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
                   <span className="text-5xl font-black text-slate-900 tracking-tighter">{task_statistics?.total || 0}</span>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Total Unit Focus</span>
                 </div>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={taskData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={90}
-                      outerRadius={125}
-                      paddingAngle={8}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {taskData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <RechartsTooltip 
-                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px'}}
-                    />
-                    <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '20px'}} />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="h-[300px] w-full min-w-0">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                    <PieChart>
+                      <Pie
+                        data={taskData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={90}
+                        outerRadius={125}
+                        paddingAngle={8}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {taskData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip 
+                        contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px'}}
+                      />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '20px'}} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
               </>
             )}
           </CardContent>
@@ -345,44 +353,48 @@ export default function AdminDashboardPage() {
             <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Unit Comparison</CardTitle>
             <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Attendance Efficiency by Department</CardDescription>
           </CardHeader>
-          <CardContent className="h-[460px] p-8 pt-10">
+          <CardContent className="p-8 pt-10">
             {department_comparison?.length === 0 ? (
-              <EmptyState message="No department performance data available." />
+              <div className="h-[380px]">
+                <EmptyState message="No department performance data available." />
+              </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={department_comparison} margin={{ top: 0, right: 30, left: -10, bottom: 0 }} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    type="number"
-                    domain={[0, 100]}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
-                  />
-                  <YAxis 
-                    type="category"
-                    dataKey="department_name" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{fontSize: 11, fill: '#475569', fontWeight: 800}}
-                    width={110}
-                  />
-                  <RechartsTooltip 
-                    cursor={{fill: '#f8fafc', radius: 12}}
-                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px'}}
-                    formatter={(value: number) => [`${value}%`, 'Attendance Rate']}
-                  />
-                  <Bar dataKey="attendance_rate" radius={[0, 10, 10, 0]} barSize={28}>
-                    {department_comparison.map((entry: any, index: number) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.attendance_rate < 80 ? '#f43f5e' : entry.attendance_rate < 95 ? '#4f46e5' : '#10b981'} 
-                        fillOpacity={0.9}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-[380px] w-full min-w-0">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                  <BarChart data={department_comparison} margin={{ top: 0, right: 30, left: -10, bottom: 0 }} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      type="number"
+                      domain={[0, 100]}
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
+                    />
+                    <YAxis 
+                      type="category"
+                      dataKey="department_name" 
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{fontSize: 11, fill: '#475569', fontWeight: 800}}
+                      width={110}
+                    />
+                    <RechartsTooltip 
+                      cursor={{fill: '#f8fafc', radius: 12}}
+                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px'}}
+                      formatter={(value: number) => [`${value}%`, 'Attendance Rate']}
+                    />
+                    <Bar dataKey="attendance_rate" radius={[0, 10, 10, 0]} barSize={28}>
+                      {department_comparison.map((entry: any, index: number) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.attendance_rate < 80 ? '#f43f5e' : entry.attendance_rate < 95 ? '#4f46e5' : '#10b981'} 
+                          fillOpacity={0.9}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             )}
           </CardContent>
         </Card>
