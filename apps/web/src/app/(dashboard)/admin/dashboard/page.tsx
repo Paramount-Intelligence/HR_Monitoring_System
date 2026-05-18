@@ -205,8 +205,8 @@ export default function AdminDashboardPage() {
                 <EmptyState message="No trend data recorded in the last 7 days." />
               </div>
             ) : (
-              <div className="h-[300px] w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <div className="h-[300px] w-full min-w-[1px]">
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <LineChart data={attendance_trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
@@ -256,8 +256,8 @@ export default function AdminDashboardPage() {
                   <span className="text-5xl font-black text-slate-900 tracking-tighter">{task_statistics?.total || 0}</span>
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Total Unit Focus</span>
                 </div>
-                <div className="h-[300px] w-full min-w-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                <div className="h-[300px] w-full min-w-[1px]">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     <PieChart>
                       <Pie
                         data={taskData}
@@ -359,8 +359,8 @@ export default function AdminDashboardPage() {
                 <EmptyState message="No department performance data available." />
               </div>
             ) : (
-              <div className="h-[380px] w-full min-w-0">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <div className="h-[380px] w-full min-w-[1px]">
+                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <BarChart data={department_comparison} margin={{ top: 0, right: 30, left: -10, bottom: 0 }} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
                     <XAxis 

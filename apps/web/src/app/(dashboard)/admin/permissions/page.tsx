@@ -48,7 +48,7 @@ export default function AdminPermissionsPage() {
 
   const loadPermissions = async () => {
     try {
-      const response = await apiClient.get<{ key: string; description: string }[]>('/permissions/');
+      const response = await apiClient.get<{ key: string; description: string }[]>('/permissions');
       setAllPermissions(response.data);
     } catch {
       toast.error('Failed to load permissions');
