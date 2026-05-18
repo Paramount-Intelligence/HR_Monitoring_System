@@ -12,7 +12,7 @@ The system uses standard SMTP for sending emails. Configuration is managed via e
 | `SMTP_TLS` | Enable/Disable TLS encryption | `True` |
 | `SMTP_USER` | Authenticated email address | `your_email@gmail.com` |
 | `SMTP_PASSWORD` | App-specific password | `xxxx xxxx xxxx xxxx` |
-| `EMAILS_FROM_EMAIL` | "From" address displayed to users | `hr.picentral@gmail.com` |
+| `EMAILS_FROM_EMAIL` | "From" address displayed to users | `hr@example.com` |
 | `EMAILS_FROM_NAME` | "From" name displayed to users | `Workforce OS` |
 
 ## 2. Core Email Types

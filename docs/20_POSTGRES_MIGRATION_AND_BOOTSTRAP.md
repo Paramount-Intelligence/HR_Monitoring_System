@@ -24,8 +24,8 @@ Once the tables are created, you need an Admin account to log in for the first t
 
 ### Bootstrap Credentials
 The following values are used by default (and can be overridden in `.env`):
-*   **Email**: `hr.picentral@gmail.com`
-*   **Password**: `aliazzam1995`
+*   **Email**: value of `BOOTSTRAP_ADMIN_EMAIL`
+*   **Password**: value of `BOOTSTRAP_ADMIN_PASSWORD`
 *   **Name**: `HR Admin`
 
 ### How to Bootstrap
@@ -38,7 +38,7 @@ The following values are used by default (and can be overridden in `.env`):
     *   Hash the password.
     *   Create the User with the `admin` role.
     *   Set the status to `active`.
-    *   Log a success message: `Successfully bootstrapped admin user: hr.picentral@gmail.com`.
+    *   Log a success message with the configured bootstrap admin email.
 
 ### Important Security Note
 > [!CAUTION]

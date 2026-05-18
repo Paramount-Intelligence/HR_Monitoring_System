@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_host: str = "0.0.0.0"
     app_port: int = 8000
-    app_secret_key: str = "change-me"
+    app_secret_key: str = "change-me-in-env"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
     database_public_url: str | None = None
@@ -44,8 +44,8 @@ class Settings(BaseSettings):
     emails_from_name: str | None = None
     
     # Production Bootstrap Admin
-    bootstrap_admin_email: str = "hr.picentral@gmail.com"
-    bootstrap_admin_password: str = "aliazzam1995"
+    bootstrap_admin_email: str = "admin@example.com"
+    bootstrap_admin_password: str = "change-this-password"
     bootstrap_admin_name: str = "HR Admin"
     
     api_v1_prefix: str = "/api/v1"
