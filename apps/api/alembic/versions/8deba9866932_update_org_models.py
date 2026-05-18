@@ -34,11 +34,11 @@ def upgrade() -> None:
 
     with op.batch_alter_table('departments', schema=None) as batch_op:
         batch_op.add_column(sa.Column('description', sa.String(length=255), nullable=True))
-        batch_op.add_column(sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')))
+        batch_op.add_column(sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')))
 
     with op.batch_alter_table('holidays', schema=None) as batch_op:
         batch_op.add_column(sa.Column('description', sa.String(length=255), nullable=True))
-        batch_op.add_column(sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('1')))
+        batch_op.add_column(sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')))
 
     with op.batch_alter_table('shifts', schema=None) as batch_op:
         batch_op.add_column(sa.Column('description', sa.String(length=255), nullable=True))
