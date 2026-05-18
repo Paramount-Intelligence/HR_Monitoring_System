@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Ensure the API URL is properly set for development
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1';
+// Browser requests use the Next.js rewrite in next.config.mjs to avoid CORS in local dev.
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 console.log('[API Client] Base URL:', API_URL);
 
 const apiClient = axios.create({
