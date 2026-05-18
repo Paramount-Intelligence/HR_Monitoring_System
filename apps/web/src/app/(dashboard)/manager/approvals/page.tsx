@@ -112,33 +112,33 @@ export default function ManagerApprovalsPage() {
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <ShieldCheck className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Approvals</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Pending Approvals</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Review & Approve Team Submissions</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Pending Approvals</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Review & Approve Team Submissions</p>
         </div>
       </div>
 
       <Tabs defaultValue="leaves" className="w-full">
-        <TabsList className="bg-slate-100 p-1.5 mb-10 rounded-2xl inline-flex h-16 border border-slate-200/50 shadow-inner">
-          <TabsTrigger value="leaves" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-premium transition-all h-full">
+        <TabsList className="bg-[var(--bg-subtle)] p-1.5 mb-10 rounded-2xl inline-flex h-16 border border-[var(--border-subtle)] shadow-inner">
+          <TabsTrigger value="leaves" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:shadow-[var(--shadow-soft)] text-[var(--text-muted)] transition-all h-full">
             Leave & WFH Requests ({leaveRequests.length})
           </TabsTrigger>
-          <TabsTrigger value="corrections" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-white data-[state=active]:text-indigo-600 data-[state=active]:shadow-premium transition-all h-full">
-            Session Corrections ({corrections.length})
+          <TabsTrigger value="corrections" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:shadow-[var(--shadow-soft)] text-[var(--text-muted)] transition-all h-full">
+            Attendance Corrections ({corrections.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="leaves" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
-              <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                <Inbox className="h-6 w-6 text-indigo-600" />
+          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
+            <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
+              <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
+                <Inbox className="h-6 w-6 text-[var(--accent-primary)]" />
                 Leave Requests
               </CardTitle>
             </CardHeader>
@@ -156,43 +156,43 @@ export default function ManagerApprovalsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
-                        <TableHead className="w-[250px] font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Employee</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Request Details</TableHead>
-                        <TableHead className="max-w-[300px] font-black text-[10px] uppercase tracking-widest text-slate-400">Reason</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
+                    <TableHeader className="bg-[var(--bg-subtle)]">
+                      <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                        <TableHead className="w-[250px] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Employee</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request Details</TableHead>
+                        <TableHead className="max-w-[300px] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Reason</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {leaveRequests.map((req) => (
-                        <TableRow key={req.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                        <TableRow key={req.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
                           <TableCell className="pl-10">
                             <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 font-black text-xs shadow-inner">
+                              <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)] border border-[var(--border-subtle)] font-black text-xs shadow-inner">
                                 {req.user_full_name ? req.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
                               </div>
                               <div className="flex flex-col">
-                                <span className="font-black text-slate-900 text-sm tracking-tight">{req.user_full_name || 'Team Member'}</span>
-                                <span className="text-[9px] text-indigo-600 uppercase font-black tracking-widest">Active Personnel</span>
+                                <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{req.user_full_name || 'Team Member'}</span>
+                                <span className="text-[9px] text-[var(--accent-primary)] uppercase font-black tracking-widest">Employee</span>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col gap-1.5">
-                              <span className="capitalize font-black text-slate-700 text-[10px] uppercase tracking-widest flex items-center gap-2">
-                                <Zap className="h-3 w-3 text-indigo-500" />
+                              <span className="capitalize font-black text-[var(--text-secondary)] text-[10px] uppercase tracking-widest flex items-center gap-2">
+                                <Zap className="h-3 w-3 text-[var(--accent-primary)]" />
                                 {req.leave_type.replace('_', ' ')}
-                                {req.is_half_day && <Badge className="bg-blue-600 text-white border-none text-[8px] h-4">HALF DAY</Badge>}
+                                {req.is_half_day && <Badge className="bg-[var(--accent-primary)] text-white border-none text-[8px] h-4">HALF DAY</Badge>}
                               </span>
-                              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                              <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
                                 {formatPKDate(req.start_date)} — {formatPKDate(req.end_date)}
                               </span>
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[300px]">
-                            <p className="text-xs font-bold text-slate-500 leading-relaxed italic line-clamp-2 pr-6">
+                            <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
                                 "{req.reason}"
                             </p>
                           </TableCell>
@@ -204,7 +204,7 @@ export default function ManagerApprovalsPage() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-indigo-600 border-slate-100 hover:border-indigo-100 hover:bg-indigo-50 transition-all"
+                                className="h-11 w-11 p-0 rounded-xl text-[var(--accent-primary)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)] transition-all"
                                 onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('clarified'); }}
                               >
                                 <MessageSquare className="h-5 w-5" />
@@ -212,14 +212,14 @@ export default function ManagerApprovalsPage() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-slate-100 hover:border-rose-100 hover:bg-rose-50 transition-all"
+                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-default)] hover:bg-rose-50 transition-all"
                                 onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('rejected'); }}
                               >
                                 <XCircle className="h-5 w-5" />
                               </Button>
                               <Button 
                                 size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg border-none transition-all active:scale-95"
                                 onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('approved'); }}
                               >
                                 <CheckCircle className="h-5 w-5 text-white" />
@@ -237,10 +237,10 @@ export default function ManagerApprovalsPage() {
         </TabsContent>
 
         <TabsContent value="corrections" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
-              <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                <RefreshCcw className="h-6 w-6 text-indigo-600" />
+          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
+            <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
+              <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
+                <RefreshCcw className="h-6 w-6 text-[var(--accent-primary)]" />
                 Attendance Corrections
               </CardTitle>
             </CardHeader>
@@ -250,38 +250,38 @@ export default function ManagerApprovalsPage() {
               ) : corrections.length === 0 ? (
                 <div className="p-20">
                   <EmptyState 
-                      title="Audits Complete"
-                      message="All session corrections have been finalized and committed to the ledger."
+                      title="Corrections Clear"
+                      message="All attendance corrections have been reviewed and resolved."
                       icon={ShieldCheck}
                   />
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <Table>
-                    <TableHeader className="bg-slate-50/50">
-                      <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Employee</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Correction Details</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Reason</TableHead>
-                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Actions</TableHead>
+                    <TableHeader className="bg-[var(--bg-subtle)]">
+                      <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Employee</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Correction Details</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Reason</TableHead>
+                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {corrections.map((corr) => (
-                        <TableRow key={corr.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                        <TableRow key={corr.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
                           <TableCell className="pl-10">
                               <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-500 border border-slate-200 font-black text-xs shadow-inner">
+                                <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)] border border-[var(--border-subtle)] font-black text-xs shadow-inner">
                                   {corr.user_full_name ? corr.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
                                 </div>
                                 <div className="flex flex-col">
-                                  <span className="font-black text-slate-900 text-sm tracking-tight">{corr.user_full_name || 'Team Member'}</span>
-                                  <span className="text-[9px] text-indigo-600 uppercase font-black tracking-widest">Active Personnel</span>
+                                  <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{corr.user_full_name || 'Team Member'}</span>
+                                  <span className="text-[9px] text-[var(--accent-primary)] uppercase font-black tracking-widest">Employee</span>
                                 </div>
                               </div>
                           </TableCell>
                           <TableCell>
-                            <div className="flex flex-col gap-1.5 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                            <div className="flex flex-col gap-1.5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
                                 <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg w-fit border border-emerald-100/50">
                                   <Clock className="h-3 w-3" />
                                   IN: {formatPKDateTime(corr.check_in_at)}
@@ -293,7 +293,7 @@ export default function ManagerApprovalsPage() {
                             </div>
                           </TableCell>
                           <TableCell className="max-w-[350px]">
-                            <p className="text-xs font-bold text-slate-500 leading-relaxed italic line-clamp-2 pr-6">
+                            <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
                                 "{corr.correction_reason}"
                             </p>
                           </TableCell>
@@ -302,14 +302,14 @@ export default function ManagerApprovalsPage() {
                               <Button 
                                 variant="outline" 
                                 size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-slate-100 hover:border-rose-100 hover:bg-rose-50 transition-all"
+                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-default)] hover:bg-rose-50 transition-all"
                                 onClick={() => { setSelectedItem({id: corr.id, type: 'correction'}); setActionType('rejected'); }}
                               >
                                 <XCircle className="h-5 w-5" />
                               </Button>
                               <Button 
                                 size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100 transition-all active:scale-95"
+                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg border-none transition-all active:scale-95"
                                 onClick={() => { 
                                     setSelectedItem({id: corr.id, type: 'correction', check_in_at: corr.check_in_at}); 
                                     setActionType('approved'); 
@@ -340,75 +340,75 @@ export default function ManagerApprovalsPage() {
 
       {/* Resolution Dialog */}
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="sm:max-w-[500px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+        <DialogContent className="sm:max-w-[500px] rounded-[2.5rem] border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] p-10 animate-in zoom-in-95 duration-300 text-[var(--text-primary)]">
           <DialogHeader className="space-y-4">
             <div className="flex items-center gap-4">
               <div className={cn(
                 "h-16 w-16 rounded-3xl flex items-center justify-center shadow-inner",
                 actionType === 'approved' ? "bg-emerald-50 text-emerald-600" : 
                 actionType === 'rejected' ? "bg-rose-50 text-rose-600" : 
-                "bg-indigo-50 text-indigo-600"
+                "bg-indigo-50 text-[var(--accent-primary)]"
               )}>
                 {actionType === 'approved' && <CheckCircle className="h-8 w-8" />}
                 {actionType === 'rejected' && <XCircle className="h-8 w-8" />}
                 {actionType === 'clarified' && <MessageSquare className="h-8 w-8" />}
               </div>
               <div>
-                <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter capitalize">{actionType} Request</DialogTitle>
-                <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">Final Decision</DialogDescription>
+                <DialogTitle className="text-3xl font-black tracking-tighter capitalize text-[var(--text-primary)]">{actionType} Request</DialogTitle>
+                <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">Final Decision</DialogDescription>
               </div>
             </div>
           </DialogHeader>
           <div className="grid gap-8 py-8">
             {selectedItem?.type === 'correction' && actionType === 'approved' && (
-              <div className="grid grid-cols-2 gap-6 p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100 shadow-inner">
+              <div className="grid grid-cols-2 gap-6 p-6 bg-[var(--bg-subtle)] rounded-[2rem] border border-[var(--border-subtle)] shadow-inner">
                 <div className="space-y-2">
-                  <Label htmlFor="checkIn" className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Adjusted Commencement</Label>
+                  <Label htmlFor="checkIn" className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Adjusted Check-in</Label>
                   <Input 
                     id="checkIn" 
                     type="time" 
                     value={checkInTime} 
                     onChange={(e) => setCheckInTime(e.target.value)} 
-                    className="h-12 rounded-xl border-slate-100 font-bold bg-white"
+                    className="h-12 rounded-xl border-[var(--border-default)] font-bold bg-[var(--bg-surface)] text-[var(--text-primary)]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="checkOut" className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Adjusted Termination</Label>
+                  <Label htmlFor="checkOut" className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Adjusted Check-out</Label>
                   <Input 
                     id="checkOut" 
                     type="time" 
                     value={checkOutTime} 
                     onChange={(e) => setCheckOutTime(e.target.value)} 
-                    className="h-12 rounded-xl border-slate-100 font-bold bg-white"
+                    className="h-12 rounded-xl border-[var(--border-default)] font-bold bg-[var(--bg-surface)] text-[var(--text-primary)]"
                   />
                 </div>
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="comment" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Reason / Comments</Label>
+              <Label htmlFor="comment" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason / Comments</Label>
               <Textarea
                 id="comment"
-                placeholder={actionType === 'clarified' ? "Specify required organizational clarification..." : "Provide objective context for this decision..."}
+                placeholder={actionType === 'clarified' ? "Specify required clarification..." : "Provide objective context for this decision..."}
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[140px] font-bold text-sm leading-relaxed p-6"
+                className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)]/50 border-[var(--border-subtle)] text-[var(--text-primary)] min-h-[140px] font-bold text-sm leading-relaxed p-6"
               />
             </div>
           </div>
           <DialogFooter className="gap-4">
-            <Button variant="ghost" onClick={() => setSelectedItem(null)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
+            <Button variant="ghost" onClick={() => setSelectedItem(null)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
             <Button 
                 onClick={handleResolve} 
                 disabled={isActionLoading}
                 className={cn(
-                    "h-14 rounded-2xl font-black text-xs uppercase tracking-widest px-10 shadow-xl transition-all active:scale-95 flex-1",
+                    "h-14 rounded-2xl font-black text-xs uppercase tracking-widest px-10 shadow-xl border-none transition-all active:scale-95 flex-1 text-white",
                     actionType === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : 
                     actionType === 'rejected' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-100' : 
-                    'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'
+                    'bg-[var(--accent-primary)] hover:opacity-90'
                 )}
             >
               {isActionLoading ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : null}
-              Submit Decision
+              Confirm
             </Button>
           </DialogFooter>
         </DialogContent>

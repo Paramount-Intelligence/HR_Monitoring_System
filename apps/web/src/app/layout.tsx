@@ -8,8 +8,8 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Workforce Intelligence OS",
-  description: "Internal workforce intelligence and execution platform",
+  title: "PIMS - Paramount Intelligence Monitoring System",
+  description: "Paramount Intelligence Monitoring System (PIMS) - Enterprise Workforce Operations & Monitoring Platform",
 };
 
 export default function RootLayout({

@@ -33,15 +33,15 @@ export default function HRDashboardPage() {
   }, []);
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <ShieldCheck className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">People Operations</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">HR Dashboard</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Global Workforce Overview & Policy Management</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">HR Dashboard</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Global Team Overview</p>
         </div>
       </div>
 
@@ -52,7 +52,7 @@ export default function HRDashboardPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <KPICard 
-                title="Workforce Size"
+                title="Team Size"
                 value={summary?.total_employees || 0}
                 description="Active employees"
                 icon={Users}
@@ -82,28 +82,28 @@ export default function HRDashboardPage() {
       )}
 
       <div className="grid gap-8 md:grid-cols-3">
-        <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden group cursor-pointer hover:shadow-premium-lg transition-all duration-500">
+        <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden group cursor-pointer hover:shadow-[var(--shadow-hard)] transition-all duration-500 text-[var(--text-primary)]">
           <CardHeader className="p-8 pb-4">
             <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-              <Users className="h-6 w-6 text-indigo-600" />
+              <Users className="h-6 w-6 text-[var(--accent-primary)]" />
             </div>
-            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">User Management</CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">Lifecycle & Account Governance</CardDescription>
+            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">User Management</CardTitle>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">Lifecycle & Account Governance</CardDescription>
           </CardHeader>
           <CardContent className="px-8 pb-8">
-            <a href="/admin/users" className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em] hover:underline">
+            <a href="/admin/users" className="text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-[0.2em] hover:underline">
               Open Directory &rarr;
             </a>
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden group cursor-pointer hover:shadow-premium-lg transition-all duration-500">
+        <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden group cursor-pointer hover:shadow-[var(--shadow-hard)] transition-all duration-500 text-[var(--text-primary)]">
           <CardHeader className="p-8 pb-4">
             <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Palmtree className="h-6 w-6 text-amber-600" />
             </div>
-            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Leave Approvals</CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">Global Mobility Review</CardDescription>
+            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Leave Approvals</CardTitle>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">Review leave and WFH requests</CardDescription>
           </CardHeader>
           <CardContent className="px-8 pb-8">
             <a href="/manager/approvals" className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] hover:underline">
@@ -112,13 +112,13 @@ export default function HRDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden group cursor-pointer hover:shadow-premium-lg transition-all duration-500">
+        <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden group cursor-pointer hover:shadow-[var(--shadow-hard)] transition-all duration-500 text-[var(--text-primary)]">
           <CardHeader className="p-8 pb-4">
             <div className="h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
               <Building className="h-6 w-6 text-emerald-600" />
             </div>
-            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Organization Setup</CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">Infrastructure & Policy</CardDescription>
+            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Organization Setup</CardTitle>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">Organizational Policy</CardDescription>
           </CardHeader>
           <CardContent className="px-8 pb-8">
             <a href="/admin/organization" className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] hover:underline">
@@ -128,23 +128,23 @@ export default function HRDashboardPage() {
         </Card>
       </div>
 
-      <Card className="rounded-[2.5rem] shadow-premium border-none bg-white overflow-hidden">
-        <CardHeader className="p-8 border-b border-slate-50/50">
-          <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Operations Summary</CardTitle>
-          <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-tight">System Access & HR Capability Scope</CardDescription>
+      <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden text-[var(--text-primary)]">
+        <CardHeader className="p-8 border-b border-[var(--border-subtle)]">
+          <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">System Overview</CardTitle>
+          <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">System access and capability scope</CardDescription>
         </CardHeader>
         <CardContent className="p-8">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {[
-              'Full Personnel View', 'Employee Onboarding', 'Global Leave Resolution', 
-              'Infrastructure Config', 'Holiday Governance', 'Broadcasting Control',
-              'Shift Scheduling', 'Workforce Analytics', 'Attendance Audit'
+              'Personnel Directory', 'Employee Onboarding', 'Leave Approvals', 
+              'Policy Configuration', 'Holiday Management', 'System Announcements',
+              'Shift Scheduling', 'Team Analytics', 'Attendance Audits'
             ].map((cap) => (
               <div key={cap} className="flex items-center gap-3">
                 <div className="h-6 w-6 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 </div>
-                <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{cap}</span>
+                <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-tight">{cap}</span>
               </div>
             ))}
           </div>

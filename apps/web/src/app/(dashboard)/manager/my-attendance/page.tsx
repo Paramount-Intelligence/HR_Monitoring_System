@@ -32,9 +32,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-
-// --- Sub-components (extracted for parity with employee version) ---
 
 const LiveTimer = ({ checkInAt }: { checkInAt: string }) => {
   const [elapsed, setElapsed] = useState('');
@@ -56,8 +53,8 @@ const LiveTimer = ({ checkInAt }: { checkInAt: string }) => {
 
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Session Live Counter</span>
-      <span className="text-3xl font-black text-indigo-700 font-mono tracking-tighter">{elapsed}</span>
+      <span className="text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-[0.2em] mb-1">Session Live Counter</span>
+      <span className="text-3xl font-black text-[var(--accent-primary)] font-mono tracking-tighter">{elapsed}</span>
     </div>
   );
 };
@@ -85,7 +82,7 @@ const BreakTimer = ({ startedAt, breakType }: { startedAt: string, breakType: st
         </div>
         <div>
           <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest leading-none mb-1">On {breakType} break</p>
-          <p className="text-sm font-black text-slate-800 font-mono">{elapsed}</p>
+          <p className="text-sm font-black text-[var(--text-primary)] font-mono">{elapsed}</p>
         </div>
       </div>
     </div>
@@ -242,27 +239,27 @@ export default function AttendancePage() {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Personal Attendance</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">Manage your professional work sessions and availability status.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">My Attendance</h1>
+          <p className="text-sm font-medium text-[var(--text-secondary)] mt-1">Manage your daily work sessions, breaks, and attendance history</p>
         </div>
-        <div className="text-right bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
-          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Assigned Shift</div>
-          <div className="text-sm font-bold text-indigo-600">
-            {currentUser?.shift_name || 'Management Standard'}
+        <div className="text-right bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-subtle)] shadow-sm text-[var(--text-primary)]">
+          <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">Assigned Shift</div>
+          <div className="text-sm font-bold text-[var(--accent-primary)]">
+            {currentUser?.shift_name || 'Standard Shift'}
           </div>
-          <div className="text-xs font-medium text-slate-500">
+          <div className="text-xs font-medium text-[var(--text-secondary)]">
             {currentUser?.shift_timing || '5:00 PM - 2:00 AM'}
           </div>
         </div>
       </div>
 
-      <Card className="rounded-xl shadow-premium border-slate-100 overflow-hidden">
-        <CardHeader className="pb-4 border-b border-slate-50 bg-slate-50/30">
-          <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-slate-600">
-            <Clock className="h-4 w-4 text-indigo-600" />
+      <Card className="rounded-xl shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] border-[var(--border-subtle)] overflow-hidden text-[var(--text-primary)]">
+        <CardHeader className="pb-4 border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/30">
+          <CardTitle className="text-sm font-black flex items-center gap-2 uppercase tracking-widest text-[var(--text-muted)]">
+            <Clock className="h-4 w-4 text-[var(--accent-primary)]" />
             Session Control
           </CardTitle>
         </CardHeader>
@@ -270,7 +267,7 @@ export default function AttendancePage() {
           <div className="flex flex-col lg:flex-row items-stretch gap-6">
             <div className={cn(
               "flex-1 p-6 rounded-2xl border transition-all duration-300",
-              activeSession ? "bg-indigo-50/30 border-indigo-100" : "bg-slate-50 border-slate-100"
+              activeSession ? "bg-[var(--bg-subtle)]/50 border-[var(--border-subtle)]" : "bg-[var(--bg-subtle)]/20 border-[var(--border-subtle)]"
             )}>
               <div className="flex justify-between items-start mb-8">
                 <div>
@@ -279,19 +276,19 @@ export default function AttendancePage() {
                       "h-3 w-3 rounded-full",
                       activeSession ? "bg-emerald-500 animate-pulse" : "bg-slate-300"
                     )} />
-                    <span className="font-bold text-slate-900 text-xl tracking-tight">
-                      {activeSession ? 'Session Active' : 'Offline'}
+                    <span className="font-bold text-[var(--text-primary)] text-xl tracking-tight">
+                      {activeSession ? 'Active Session' : 'Offline'}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 font-medium">
+                  <p className="text-sm text-[var(--text-secondary)] font-medium">
                     {activeSession
                       ? `Clocked in at ${formatPKDateTime(activeSession.check_in_at, { hour: '2-digit', minute: '2-digit' })} • ${activeSession.work_mode.toUpperCase()} Mode`
-                      : 'Initialize your professional tracking session.'}
+                      : 'Start your daily work session by checking in.'}
                   </p>
                 </div>
                 {activeSession && (
-                  <Badge className="bg-indigo-600 text-white border-none px-3 py-1 font-bold text-[10px] uppercase tracking-wider">
-                    {activeSession.is_late_login ? 'LATE LOG' : 'VERIFIED'}
+                  <Badge className="bg-[var(--accent-primary)] text-white border-none px-3 py-1 font-bold text-[10px] uppercase tracking-wider">
+                    {activeSession.is_late_login ? 'LATE' : 'VERIFIED'}
                   </Badge>
                 )}
               </div>
@@ -300,16 +297,16 @@ export default function AttendancePage() {
                 {[
                   { label: "Shift Start", value: currentUser?.shift_timing?.split(' - ')[0] || '5:00 PM' },
                   { label: "Shift End", value: currentUser?.shift_timing?.split(' - ')[1] || '2:00 AM' },
-                  { label: "Actual In", value: activeSession ? formatPKDateTime(activeSession.check_in_at, { hour: '2-digit', minute: '2-digit' }) : '-' },
+                  { label: "Check-in Time", value: activeSession ? formatPKDateTime(activeSession.check_in_at, { hour: '2-digit', minute: '2-digit' }) : '-' },
                   { 
-                    label: "Overage", 
+                    label: "Late Minutes", 
                     value: activeSession?.is_late_login ? `${Math.floor((activeSession.late_minutes || 0) / 60)}h ${(activeSession.late_minutes || 0) % 60}m` : '0m',
                     color: activeSession?.is_late_login ? 'text-rose-600' : 'text-emerald-600'
                   }
                 ].map((item, i) => (
                   <div key={i} className="space-y-1.5">
-                    <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{item.label}</div>
-                    <div className={cn("text-sm font-bold text-slate-700", item.color)}>{item.value}</div>
+                    <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest">{item.label}</div>
+                    <div className={cn("text-sm font-bold text-[var(--text-secondary)]", item.color)}>{item.value}</div>
                   </div>
                 ))}
               </div>
@@ -317,21 +314,21 @@ export default function AttendancePage() {
               <div className="flex flex-wrap items-center gap-4">
                 {!activeSession ? (
                   <>
-                    <div className="flex items-center gap-2 bg-white rounded-xl border border-slate-200 p-1 pr-3 shadow-sm">
+                    <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-1 pr-3 shadow-sm text-[var(--text-primary)]">
                       <Select value={workMode} onValueChange={(val: 'office' | 'wfh') => setWorkMode(val)}>
-                        <SelectTrigger className="w-[130px] border-none shadow-none focus:ring-0 h-9 font-bold text-xs uppercase tracking-tight text-slate-600">
+                        <SelectTrigger className="w-[130px] border-none shadow-none focus:ring-0 h-9 font-bold text-xs uppercase tracking-tight text-[var(--text-secondary)] bg-transparent">
                           <SelectValue placeholder="Work Mode" />
                         </SelectTrigger>
-                        <SelectContent className="rounded-xl border-slate-100 shadow-premium-lg">
+                        <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                           <SelectItem value="office" className="text-xs font-bold uppercase tracking-tight">
                             <div className="flex items-center">
-                              <MapPin className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                              <MapPin className="mr-2 h-3.5 w-3.5 text-[var(--accent-primary)]" />
                               Office
                             </div>
                           </SelectItem>
                           <SelectItem value="wfh" className="text-xs font-bold uppercase tracking-tight">
                             <div className="flex items-center">
-                              <Home className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                              <Home className="mr-2 h-3.5 w-3.5 text-[var(--accent-primary)]" />
                               WFH
                             </div>
                           </SelectItem>
@@ -342,30 +339,30 @@ export default function AttendancePage() {
                       onClick={handleCheckIn}
                       disabled={isActionLoading}
                       size="lg"
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-8 shadow-premium"
+                      className="bg-[var(--accent-primary)] hover:opacity-90 text-white font-bold rounded-xl px-8 shadow-sm border-none"
                     >
-                      {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
-                      CHECK IN
+                      {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <LogIn className="mr-2 h-4 w-4 text-white" />}
+                      Check-in
                     </Button>
                   </>
                 ) : (
-                  <div className="flex flex-col gap-6 w-full">
+                  <div className="flex flex-col gap-6 w-full text-[var(--text-primary)]">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full">
-                      <div className="bg-white p-3 rounded-xl border border-indigo-100 shadow-sm flex-1">
+                      <div className="bg-[var(--bg-surface)] p-3 rounded-xl border border-[var(--border-subtle)] shadow-sm flex-1">
                         <LiveTimer checkInAt={activeSession.check_in_at} />
                       </div>
                       <Button
                         onClick={handleCheckOutClick}
                         disabled={isActionLoading || !!activeSession.active_break}
                         size="lg"
-                        className="min-w-[160px] h-14 bg-rose-600 text-white font-bold hover:bg-rose-700 rounded-xl shadow-premium uppercase tracking-widest text-xs"
+                        className="min-w-[160px] h-14 bg-rose-600 text-white font-bold hover:bg-rose-700 rounded-xl shadow-sm border-none uppercase tracking-widest text-xs"
                       >
-                        {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogOut className="mr-2 h-4 w-4" />}
-                        CHECK OUT
+                        {isActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <LogOut className="mr-2 h-4 w-4 text-white" />}
+                        Check-out
                       </Button>
                     </div>
 
-                    <div className="pt-6 border-t border-indigo-100/50">
+                    <div className="pt-6 border-t border-[var(--border-subtle)]">
                       {activeSession.active_break ? (
                         <div className="flex flex-col sm:flex-row items-center gap-4 animate-in fade-in slide-in-from-top-2">
                           <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2 flex-1 w-full">
@@ -381,13 +378,13 @@ export default function AttendancePage() {
                             className="w-full sm:w-auto min-w-[160px] h-12 rounded-xl border-amber-200 text-amber-700 hover:bg-amber-50 font-bold"
                           >
                             {isBreakLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Coffee className="mr-2 h-4 w-4" />}
-                            END BREAK
+                            End Break
                           </Button>
                         </div>
                       ) : (
                         <div className="flex flex-col gap-4">
                           <div className="flex flex-wrap items-center gap-3">
-                            <div className="flex bg-white rounded-xl border border-slate-200 p-1 shadow-sm">
+                            <div className="flex bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-1 shadow-sm text-[var(--text-primary)]">
                               {[
                                 { id: 'dinner', icon: Utensils, label: 'Dinner' },
                                 { id: 'prayer', icon: Zap, label: 'Prayer' },
@@ -399,7 +396,7 @@ export default function AttendancePage() {
                                   size="sm" 
                                   className={cn(
                                     "h-8 gap-2 rounded-lg font-bold text-[10px] uppercase tracking-wider px-3",
-                                    breakType === b.id ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100" : "text-slate-500"
+                                    breakType === b.id ? "bg-[var(--bg-subtle)] text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)]/80" : "text-[var(--text-muted)]"
                                   )}
                                   onClick={() => { setBreakType(b.id); setShowBreakNote(b.id === 'other'); }}
                                 >
@@ -412,18 +409,18 @@ export default function AttendancePage() {
                             <Button 
                               onClick={handleStartBreak}
                               disabled={isBreakLoading}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-10 px-6 rounded-xl shadow-sm uppercase tracking-widest text-[10px]"
+                              className="bg-[var(--accent-primary)] hover:opacity-90 text-white font-bold h-10 px-6 rounded-xl border-none shadow-sm uppercase tracking-widest text-[10px]"
                             >
-                              {isBreakLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Coffee className="mr-2 h-4 w-4" />}
-                              START BREAK
+                              {isBreakLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <Coffee className="mr-2 h-4 w-4 text-white" />}
+                              Start Break
                             </Button>
                           </div>
                           
                           {showBreakNote && (
                             <div className="animate-in fade-in slide-in-from-top-1 max-w-md">
                               <Input 
-                                placeholder="Annotate break purpose..." 
-                                className="h-10 border-slate-200 focus:border-indigo-500 rounded-xl bg-slate-50/50 text-xs font-bold"
+                                placeholder="Reason for break..." 
+                                className="h-10 border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-xl bg-[var(--bg-subtle)] text-xs font-bold text-[var(--text-primary)]"
                                 value={breakNote}
                                 onChange={(e) => setBreakNote(e.target.value)}
                               />
@@ -440,11 +437,11 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl shadow-premium border-slate-100 overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50 bg-slate-50/30">
+      <Card className="rounded-xl shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] border-[var(--border-subtle)] overflow-hidden text-[var(--text-primary)]">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/30">
           <div>
-            <CardTitle className="text-sm font-black uppercase tracking-widest text-slate-600">Archive & Integrity History</CardTitle>
-            <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Audit trail of personal sessions</CardDescription>
+            <CardTitle className="text-sm font-black uppercase tracking-widest text-[var(--text-muted)]">Attendance History</CardTitle>
+            <CardDescription className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mt-1">Log of tracked hours and manual entries</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="pt-6">
@@ -457,23 +454,23 @@ export default function AttendancePage() {
                 icon={Clock}
             />
           ) : (
-            <div className="rounded-2xl border border-slate-100 overflow-hidden bg-white shadow-sm">
+            <div className="rounded-2xl border border-[var(--border-subtle)] overflow-hidden bg-[var(--bg-surface)] shadow-sm text-[var(--text-primary)]">
               <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="hover:bg-transparent border-b border-slate-100">
-                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 px-6 py-4">Filing Date</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 px-6 py-4">Verification In/Out</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 px-6 py-4">Duration</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 px-6 py-4">Breaks</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 px-6 py-4">Integrity Status</TableHead>
-                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-slate-500 px-6 py-4">Exceptions</TableHead>
+                <TableHeader className="bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)]">
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Date</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Check-in / Out</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Duration</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Breaks</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Status</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Exceptions</TableHead>
                     <TableHead className="text-right px-6 py-4"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sessions.map((session) => (
-                    <TableRow key={session.id} className="hover:bg-slate-50/50 transition-colors border-b border-slate-50 last:border-0">
-                      <TableCell className="font-bold text-slate-700 whitespace-nowrap px-6 py-4">
+                    <TableRow key={session.id} className="hover:bg-[var(--bg-subtle)]/50 transition-colors border-b border-[var(--border-subtle)] last:border-0 text-[var(--text-primary)]">
+                      <TableCell className="font-bold text-[var(--text-secondary)] whitespace-nowrap px-6 py-4">
                         {formatPKDate(session.check_in_at)}
                       </TableCell>
                       <TableCell className="px-6 py-4">
@@ -488,12 +485,12 @@ export default function AttendancePage() {
                               {formatPKDateTime(session.check_out_at, { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           ) : (
-                            <span className="text-[10px] font-bold text-indigo-400 italic tracking-widest">IN PROGRESS</span>
+                            <span className="text-[10px] font-bold text-[var(--accent-primary)] italic tracking-widest">IN PROGRESS</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        <div className="font-mono text-[10px] font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-lg w-fit border border-slate-200 shadow-inner">
+                        <div className="font-mono text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-2 py-1 rounded-lg w-fit border border-[var(--border-subtle)] shadow-inner">
                           {formatDuration(session.total_hours)}
                         </div>
                       </TableCell>
@@ -513,20 +510,20 @@ export default function AttendancePage() {
                             <StatusBadge status="late" className="bg-rose-50 text-rose-600 border-rose-100" />
                           )}
                           {!session.is_late_login && !session.is_corrected && (
-                            <span className="text-[9px] font-bold text-slate-300 uppercase">Clear</span>
+                            <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase">None</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right px-6 py-4">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-slate-900 rounded-lg">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 rounded-xl shadow-premium-lg border-slate-100 p-1">
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl shadow-[var(--shadow-card)] border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-1">
                             <DropdownMenuItem
-                              className="text-indigo-600 focus:text-indigo-700 font-bold text-[10px] uppercase tracking-widest cursor-pointer rounded-lg h-9"
+                              className="text-[var(--accent-primary)] focus:text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] font-bold text-[10px] uppercase tracking-widest cursor-pointer rounded-lg h-9"
                               onClick={() => setCorrectionDialog({ isOpen: true, sessionId: session.id })}
                               disabled={session.correction_requested}
                             >
@@ -546,32 +543,32 @@ export default function AttendancePage() {
 
       {/* Correction Dialog */}
       <Dialog open={correctionDialog.isOpen} onOpenChange={(open) => setCorrectionDialog(prev => ({ ...prev, isOpen: open }))}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-none shadow-premium-lg">
+        <DialogContent className="sm:max-w-md rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-10">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-slate-900">Session Integrity Correction</DialogTitle>
-            <DialogDescription className="text-sm font-medium text-slate-500">
-              Provide justification for the requested data adjustment.
+            <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">Attendance Correction</DialogTitle>
+            <DialogDescription className="text-sm font-medium text-[var(--text-muted)]">
+              Request adjustment for this attendance session.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <Label htmlFor="reason" className="text-[10px] font-bold text-slate-700 uppercase tracking-widest mb-2 block">Adjustment Rationale</Label>
+            <Label htmlFor="reason" className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-2 block">Reason for Correction</Label>
             <Textarea
               id="reason"
-              className="min-h-[120px] border-slate-200 focus:border-indigo-500 rounded-xl bg-slate-50/50 font-bold text-xs"
+              className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-xl bg-[var(--bg-subtle)]/50 font-bold text-xs text-[var(--text-primary)]"
               value={correctionReason}
               onChange={(e) => setCorrectionReason(e.target.value)}
-              placeholder="Annotate correction reason..."
+              placeholder="Explain the reason for correction..."
             />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="ghost" className="rounded-xl font-bold text-slate-500 hover:text-slate-900 text-xs" onClick={() => setCorrectionDialog({ isOpen: false, sessionId: '' })}>DISCARD</Button>
+            <Button variant="ghost" className="rounded-xl font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs" onClick={() => setCorrectionDialog({ isOpen: false, sessionId: '' })}>Discard</Button>
             <Button
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl px-8 shadow-sm text-xs"
+              className="bg-[var(--accent-primary)] hover:opacity-90 text-white font-bold rounded-xl px-8 shadow-sm text-xs border-none"
               onClick={handleCorrectionSubmit}
               disabled={isActionLoading}
             >
-              {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              SUBMIT AUDIT
+              {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
+              Confirm
             </Button>
           </DialogFooter>
         </DialogContent>

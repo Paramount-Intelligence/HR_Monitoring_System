@@ -67,16 +67,16 @@ export default function EmployeeDashboard() {
   const eodStatus = eod ? eod.status : 'Not Started';
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <LayoutDashboard className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Employee Command Center</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Employee Dashboard</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Pulse Overview</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Daily Operational Intel</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Pulse Overview</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Daily Overview & Operations</p>
         </div>
         <div className="flex items-center gap-3">
           {summary?.attendance_status !== 'active' ? (
@@ -84,10 +84,10 @@ export default function EmployeeDashboard() {
               href="/employee/attendance"
               className={cn(
                 buttonVariants({ variant: "default" }), 
-                "h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl px-8 shadow-xl shadow-indigo-100 transition-all active:scale-95"
+                "h-12 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl px-8 shadow-xl transition-all active:scale-95 border-none"
               )}
             >
-              Initialize Check In
+              Check In
             </Link>
           ) : (
             <Link 
@@ -119,14 +119,14 @@ export default function EmployeeDashboard() {
           trend={{ value: formatHours(summary.productive_time_today), label: 'Productive work', isPositive: true }}
         />
         <KPICard 
-          title="Units In Progress"
+          title="Tasks In Progress"
           value={summary.tasks_in_progress}
           icon={CheckSquare}
           color="amber"
-          trend={{ value: 'Task Load', label: 'Active execution', isPositive: true }}
+          trend={{ value: 'Task Load', label: 'Active tasks', isPositive: true }}
         />
         <KPICard 
-          title="Critical Units"
+          title="Critical Tasks"
           value={summary.tasks_due_soon}
           icon={AlertCircle}
           color="rose"
@@ -137,32 +137,32 @@ export default function EmployeeDashboard() {
       <div className="grid gap-8 lg:grid-cols-12">
         {/* Left Column: Quick Actions & Compliance */}
         <div className="lg:col-span-8 space-y-8">
-          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
-              <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Quick Operations</CardTitle>
-              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Rapid Command Access</CardDescription>
+          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
+              <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Quick Links</CardTitle>
+              <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Quick Dashboard Navigation</CardDescription>
             </CardHeader>
             <CardContent className="p-8">
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-6">
                 {[
-                  { href: "/employee/attendance", icon: Clock, label: "Attendance", color: "text-indigo-600 bg-indigo-50", desc: "Shift Logs" },
-                  { href: "/employee/time-logs", icon: Timer, label: "Time Tracking", color: "text-emerald-600 bg-emerald-50", desc: "Unit Logs" },
-                  { href: "/employee/tasks", icon: CheckSquare, label: "My Tasks", color: "text-amber-600 bg-amber-50", desc: "Execution" },
+                  { href: "/employee/attendance", icon: Clock, label: "Attendance", color: "text-[var(--accent-primary)] bg-[var(--bg-subtle)]", desc: "Shift Logs" },
+                  { href: "/employee/time-logs", icon: Timer, label: "Time Tracking", color: "text-emerald-600 bg-emerald-50", desc: "Task Logs" },
+                  { href: "/employee/tasks", icon: CheckSquare, label: "My Tasks", color: "text-amber-600 bg-amber-50", desc: "Tasks" },
                   { href: "/employee/duties", icon: ClipboardCheck, label: "Daily Duties", color: "text-rose-600 bg-rose-50", desc: "Checklist" },
-                  { href: "/employee/projects", icon: Briefcase, label: "Projects", color: "text-violet-600 bg-violet-50", desc: "Strategy" },
+                  { href: "/employee/projects", icon: Briefcase, label: "Projects", color: "text-violet-600 bg-violet-50", desc: "Projects" },
                   { href: "/employee/leaves", icon: Palmtree, label: "Leave Hub", color: "text-sky-600 bg-sky-50", desc: "Requests" },
                 ].map((action) => (
                   <Link 
                     key={action.href}
                     href={action.href}
-                    className="flex flex-col items-center justify-center gap-4 p-6 rounded-[2rem] border border-slate-100 bg-white hover:bg-slate-50/50 hover:border-indigo-100 transition-all group shadow-sm hover:shadow-md"
+                    className="flex flex-col items-center justify-center gap-4 p-6 rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] transition-all group shadow-sm hover:shadow-md"
                   >
                     <div className={cn("p-4 rounded-2xl transition-all group-hover:scale-110 group-hover:shadow-lg", action.color)}>
                       <action.icon className="h-6 w-6" />
                     </div>
                     <div className="text-center">
-                      <p className="text-xs font-black text-slate-900 uppercase tracking-widest">{action.label}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 opacity-60 tracking-tighter">{action.desc}</p>
+                      <p className="text-xs font-black text-[var(--text-primary)] uppercase tracking-widest">{action.label}</p>
+                      <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase mt-0.5 opacity-60 tracking-tighter">{action.desc}</p>
                     </div>
                   </Link>
                 ))}
@@ -170,13 +170,13 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-premium bg-indigo-600 text-white rounded-[2.5rem] overflow-hidden relative group">
+          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--accent-primary)] text-white rounded-[2.5rem] overflow-hidden relative group">
             <div className="absolute top-0 right-0 p-10 opacity-10 transition-transform group-hover:scale-110 duration-700">
                 <ShieldCheck className="h-40 w-40 rotate-12" />
             </div>
             <CardHeader className="relative z-10 px-10 pt-10 pb-4">
-              <CardTitle className="text-2xl font-black tracking-tight">Compliance Protocol</CardTitle>
-              <CardDescription className="text-indigo-100 font-bold opacity-80 uppercase tracking-[0.2em] text-[10px]">End of Day Intelligence Report</CardDescription>
+              <CardTitle className="text-2xl font-black tracking-tight">EOD Submission</CardTitle>
+              <CardDescription className="text-indigo-100 font-bold opacity-80 uppercase tracking-[0.2em] text-[10px]">End of Day Report</CardDescription>
             </CardHeader>
             <CardContent className="relative z-10 px-10 pb-10">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -187,15 +187,15 @@ export default function EmployeeDashboard() {
                     </div>
                     <p className="text-indigo-100 text-sm font-medium opacity-80 max-w-md">
                       {eodStatus === 'Completed' 
-                        ? 'Operational summary has been successfully committed to the organizational ledger.' 
-                        : 'Your daily intelligence report is pending submission. Ensure all units are logged before checkout.'}
+                        ? 'Operational summary has been successfully saved to database.' 
+                        : 'Your daily intelligence report is pending submission. Ensure all tasks are logged before checkout.'}
                     </p>
                 </div>
                 <Link 
                   href="/employee/eod" 
                   className={cn(
                     buttonVariants({ variant: "secondary" }), 
-                    "bg-white text-indigo-600 hover:bg-indigo-50 font-black text-xs uppercase tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all active:scale-95 whitespace-nowrap"
+                    "bg-white text-[var(--accent-primary)] hover:bg-indigo-50 font-black text-xs uppercase tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all active:scale-95 whitespace-nowrap border-none"
                   )}
                 >
                   {eodStatus === 'Completed' ? 'View Intel' : 'Initialize Report'}
@@ -208,15 +208,15 @@ export default function EmployeeDashboard() {
         {/* Right Column: Active Status & Announcements */}
         <div className="lg:col-span-4 space-y-8">
           <Card className={cn(
-            "border-none shadow-premium rounded-[2.5rem] transition-all duration-700 overflow-hidden",
-            summary.active_timer_task_id ? "bg-white ring-2 ring-amber-400 shadow-amber-100" : "bg-white"
+            "border-none shadow-[var(--shadow-soft)] rounded-[2.5rem] transition-all duration-700 overflow-hidden bg-[var(--bg-surface)]",
+            summary.active_timer_task_id ? "ring-2 ring-amber-400 shadow-amber-100" : ""
           )}>
-            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
-              <CardTitle className="flex items-center gap-3 text-xl font-black text-slate-900 tracking-tight">
-                <PlayCircle className={cn("h-6 w-6", summary.active_timer_task_id ? "text-amber-500 animate-pulse" : "text-slate-300")} />
-                Active Unit
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
+              <CardTitle className="flex items-center gap-3 text-xl font-black text-[var(--text-primary)] tracking-tight">
+                <PlayCircle className={cn("h-6 w-6", summary.active_timer_task_id ? "text-amber-500 animate-pulse" : "text-[var(--text-muted)]")} />
+                Active Task
               </CardTitle>
-              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Execution Layer</CardDescription>
+              <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Current Active Task</CardDescription>
             </CardHeader>
             <CardContent className="p-8">
               {summary.active_timer_task_id ? (
@@ -234,7 +234,7 @@ export default function EmployeeDashboard() {
                     href="/employee/time-logs" 
                     className={cn(
                       buttonVariants({ variant: "default" }), 
-                      "w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95"
+                      "w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95 border-none"
                     )}
                   >
                     Open Control Console
@@ -242,15 +242,15 @@ export default function EmployeeDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-6 space-y-6">
-                  <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mx-auto text-slate-200">
+                  <div className="h-16 w-16 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center mx-auto text-[var(--text-muted)]">
                     <Calendar className="h-8 w-8" />
                   </div>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest leading-relaxed">No active task execution detected in the current session.</p>
+                  <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest leading-relaxed">No active task running at the moment.</p>
                   <Link 
                     href="/employee/tasks" 
                     className={cn(
                       buttonVariants({ variant: "default" }), 
-                      "w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95"
+                      "w-full h-12 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg transition-all active:scale-95 border-none"
                     )}
                   >
                     Review Objectives
@@ -260,14 +260,14 @@ export default function EmployeeDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-            <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
+            <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                  <Megaphone className="h-6 w-6 text-indigo-600" />
+                <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+                  <Megaphone className="h-6 w-6 text-[var(--accent-primary)]" />
                   Broadcasts
                 </CardTitle>
-                <Badge className="bg-indigo-50 text-indigo-600 border-none rounded-lg font-black text-[9px] px-2 py-0.5 uppercase tracking-widest">Latest</Badge>
+                <Badge className="bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-none rounded-lg font-black text-[9px] px-2 py-0.5 uppercase tracking-widest">Latest</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0 overflow-y-auto max-h-[400px] scrollbar-hide">

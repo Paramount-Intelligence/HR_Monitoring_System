@@ -44,22 +44,22 @@ export default function AlertsPage() {
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <Bell className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Monitoring</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Alerts</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Real-time monitoring of operational exceptions</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Alerts</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Real-time monitoring of system alerts</p>
         </div>
       </div>
 
       {isLoading ? (
         <div className="grid gap-6">
             {[1, 2, 3].map(i => (
-                <Card key={i} className="rounded-[2.5rem] h-32 animate-pulse bg-slate-50 border-none shadow-premium" />
+                <Card key={i} className="rounded-[2.5rem] h-32 animate-pulse bg-[var(--bg-subtle)] border-none shadow-[var(--shadow-soft)]" />
             ))}
         </div>
       ) : alerts.length === 0 ? (
@@ -74,8 +74,8 @@ export default function AlertsPage() {
         <div className="grid gap-6">
           {alerts.map(alert => (
             <Card key={alert.id} className={cn(
-                "rounded-[2.5rem] shadow-premium border-none bg-white transition-all overflow-hidden",
-                alert.status === 'RESOLVED' ? 'opacity-50 grayscale-[0.5]' : 'hover:shadow-premium-lg'
+                "rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] transition-all overflow-hidden",
+                alert.status === 'RESOLVED' ? 'opacity-50 grayscale-[0.5]' : 'hover:shadow-[var(--shadow-card)]'
             )}>
               <CardContent className="p-8 flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
                 <div className="flex gap-6 items-start flex-1">
@@ -91,22 +91,22 @@ export default function AlertsPage() {
                   </div>
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-3">
-                      <span className="font-black text-slate-900 text-xl tracking-tight leading-tight">{alert.title}</span>
+                      <span className="font-black text-[var(--text-primary)] text-xl tracking-tight leading-tight">{alert.title}</span>
                       <StatusBadge status={alert.severity} />
                       {alert.status === 'RESOLVED' && (
-                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 font-black text-[9px] uppercase tracking-widest px-3 h-6 rounded-lg">
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 font-black text-[9px] uppercase tracking-widest px-3 h-6 rounded-lg border-none">
                             RESOLVED
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm font-bold text-slate-500 leading-relaxed max-w-3xl">{alert.message}</p>
+                    <p className="text-sm font-bold text-[var(--text-secondary)] leading-relaxed max-w-3xl">{alert.message}</p>
                     <div className="flex items-center gap-4 pt-2">
-                        <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
                             <Clock className="h-3.5 w-3.5" />
                             DETECTION: {alert.created_at ? formatPKDateTime(alert.created_at) : 'PENDING'}
                         </div>
                         {alert.category && (
-                            <div className="flex items-center gap-2 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
+                            <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-widest">
                                 <ShieldCheck className="h-3.5 w-3.5" />
                                 {alert.category}
                             </div>
@@ -118,7 +118,7 @@ export default function AlertsPage() {
                 {alert.status === 'OPEN' && (
                   <Button 
                     variant="outline" 
-                    className="h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest px-8 border-slate-200 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-all shadow-sm"
+                    className="h-12 rounded-2xl font-black text-[10px] uppercase tracking-widest px-8 border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 transition-all shadow-sm"
                     onClick={() => handleResolve(alert.id)}
                   >
                     <CheckCircle2 className="mr-2 h-4 w-4" />

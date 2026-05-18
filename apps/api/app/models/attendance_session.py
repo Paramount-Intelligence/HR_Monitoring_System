@@ -58,6 +58,7 @@ class AttendanceSession(Base, TimestampMixin):
     # Justification for checkout after shift end
     checkout_after_shift_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     checkout_after_shift_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    early_checkout_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     # Expected boundaries (captured at time of session)
     expected_shift_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

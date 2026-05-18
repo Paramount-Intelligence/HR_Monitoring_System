@@ -135,7 +135,15 @@ class AttendanceService:
             shift = self.db.get(Shift, actor.shift_id)
             if shift:
                 is_early, early_mins = ShiftService.is_early_logout(now, shift, session.expected_shift_end_at)
-        
+                
+        if is_early:
+            if not payload or not payload.early_checkout_reason or len(payload.early_checkout_reason.strip()) < 5:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="A reason of at least 5 characters is required for checking out before your shift ends."
+                )
+            session.early_checkout_reason = payload.early_checkout_reason
+
         # Auto-end active break if any
         active_break = self.get_active_break(actor.id)
         if active_break:
@@ -452,6 +460,18 @@ class AttendanceService:
         self.db.add(new_break)
         self.db.commit()
         self.db.refresh(new_break)
+        
+        # Auto-pause task timer if applicable
+        from app.services.task_timer_service import TaskTimerService
+        from app.models.enums import TimerSessionStatus, TimerPauseReason
+        try:
+            timer_service = TaskTimerService(self.db)
+            active_timer = timer_service.get_active_session(actor.id)
+            if active_timer and active_timer.status == TimerSessionStatus.RUNNING:
+                timer_service.pause_timer(active_timer.task_id, actor, reason=TimerPauseReason.BREAK_STARTED)
+        except Exception as e:
+            print(f"Failed to auto-pause task timer on break start: {e}")
+
         return new_break
 
     def end_break(self, actor: User, break_id: uuid.UUID | None = None) -> AttendanceBreak:
@@ -491,6 +511,28 @@ class AttendanceService:
 
         self.db.commit()
         self.db.refresh(active_break)
+        
+        # Auto-resume task timer if applicable
+        from app.services.task_timer_service import TaskTimerService
+        from app.models.enums import TimerSessionStatus, TimerPauseReason
+        from app.models.task_timer_session import TaskTimerSession
+        try:
+            timer_service = TaskTimerService(self.db)
+            last_session = (
+                self.db.query(TaskTimerSession)
+                .filter(
+                    TaskTimerSession.user_id == actor.id,
+                    TaskTimerSession.status == TimerSessionStatus.PAUSED,
+                    TaskTimerSession.pause_reason == TimerPauseReason.BREAK_STARTED
+                )
+                .order_by(TaskTimerSession.updated_at.desc())
+                .first()
+            )
+            if last_session:
+                timer_service.resume_timer(last_session.task_id, actor)
+        except Exception as e:
+            print(f"Failed to auto-resume task timer on break end: {e}")
+
         return active_break
 
     def get_active_break(self, user_id: uuid.UUID) -> AttendanceBreak | None:

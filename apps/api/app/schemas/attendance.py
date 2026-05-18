@@ -16,6 +16,7 @@ class CheckInRequest(BaseModel):
 class CheckOutRequest(BaseModel):
     checkout_after_shift_reason: str | None = None  # 'overtime', 'forgot_checkout', etc.
     checkout_after_shift_note: str | None = None
+    early_checkout_reason: str | None = None
 
 
 class CorrectionRequest(BaseModel):

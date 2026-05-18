@@ -13,39 +13,71 @@
     --font-heading: var(--font-sans);
     --font-sans: var(--font-sans);
   }
+  
   :root {
-    /* Brand Core */
-    --color-primary: #1565C0;
+    /* ==========================================
+       PIMS CANONICAL THEME TOKENS (LIGHT MODE)
+       ========================================== */
+    --accent-primary: #1565C0;
+    --bg-base: #BFE0F5;
+    --bg-surface: #EAF4FD;
+    --bg-elevated: #FFFFFF;
+    --bg-subtle: rgba(21, 101, 192, 0.08);
+    
+    --text-primary: #0D1B3E;
+    --text-secondary: #2E5090;
+    --text-muted: #90CAF9;
+
+    --border-default: rgba(30, 60, 120, 0.15);
+    --border-subtle: rgba(30, 60, 120, 0.08);
+    --border-strong: #1565C0;
+
+    /* Status Colors */
+    --status-info-bg: rgba(79, 195, 247, 0.15);
+    --status-info-text: #1565C0;
+    --status-info-border: rgba(79, 195, 247, 0.3);
+
+    --status-success-bg: rgba(16, 185, 129, 0.15);
+    --status-success-text: #10B981;
+    --status-success-border: rgba(16, 185, 129, 0.3);
+
+    --status-warning-bg: rgba(245, 158, 11, 0.15);
+    --status-warning-text: #F59E0B;
+    --status-warning-border: rgba(245, 158, 11, 0.3);
+
+    --status-danger-bg: rgba(224, 90, 90, 0.15);
+    --status-danger-text: #E05A5A;
+    --status-danger-border: rgba(224, 90, 90, 0.3);
+
+    /* Sidebar Variables */
+    --bg-sidebar: var(--bg-surface);
+    --bg-sidebar-active: var(--bg-subtle);
+    --bg-sidebar-hover: rgba(21, 101, 192, 0.04);
+
+    /* ==========================================
+       LEGACY COMPATIBILITY ALIASES
+       ========================================== */
+    --color-primary: var(--accent-primary);
     --color-primary-light: #4FC3F7;
-    --color-primary-gradient: linear-gradient(135deg, #4FC3F7, #1565C0);
-
-    /* Backgrounds */
-    --color-bg-base: #BFE0F5;
-    --color-bg-card: rgba(30, 60, 120, 0.75);
-    --color-bg-input: rgba(20, 45, 95, 0.8);
-    --color-bg-surface: #EAF4FD;
-
-    /* Accent */
-    --color-accent: #E05A5A;
-    --color-accent-muted: rgba(224, 90, 90, 0.3);
-
-    /* Text */
-    --color-text-primary: #0D1B3E;
-    --color-text-secondary: #2E5090;
-    --color-text-muted: #90CAF9;
+    --color-primary-gradient: linear-gradient(135deg, #4FC3F7, var(--accent-primary));
+    --color-bg-base: var(--bg-base);
+    --color-bg-card: var(--bg-elevated);
+    --color-bg-input: var(--bg-elevated);
+    --color-bg-surface: var(--bg-surface);
+    --color-accent: var(--accent-primary);
+    --color-accent-muted: var(--bg-subtle);
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-text-muted: var(--text-muted);
     --color-text-on-dark: #FFFFFF;
-
-    /* Status */
-    --color-success: #10B981;
-    --color-warning: #F59E0B;
-    --color-danger: #E05A5A;
-    --color-info: #4FC3F7;
-
-    /* Borders & Shadows */
-    --color-border: rgba(30, 60, 120, 0.15);
+    --color-success: var(--status-success-text);
+    --color-warning: var(--status-warning-text);
+    --color-danger: var(--status-danger-text);
+    --color-info: var(--status-info-text);
+    --color-border: var(--border-default);
     --color-shadow: rgba(21, 101, 192, 0.12);
 
-    /* Original Shadcn variables (kept for compatibility) */
+    /* Original Shadcn variables (preserved for compatibility) */
     --background: 210 40% 98%;
     --foreground: 222 47% 11%;
     --card: 0 0% 100%;
@@ -67,16 +99,60 @@
     --ring: 222.2 47.4% 11.2%;
     --radius: 0.75rem;
   }
+
   .dark {
-    --color-bg-base: #0D1B3E;
-    --color-bg-card: rgba(20, 45, 95, 0.85);
-    --color-bg-surface: #162447;
+    /* ==========================================
+       PIMS CANONICAL THEME TOKENS (DARK MODE)
+       ========================================== */
+    --accent-primary: #4FC3F7;
+    --bg-base: #0D1B3E;
+    --bg-surface: #162447;
+    --bg-elevated: rgba(20, 45, 95, 0.85);
+    --bg-subtle: rgba(79, 195, 247, 0.08);
+    
+    --text-primary: #E8F4FD;
+    --text-secondary: #90CAF9;
+    --text-muted: #577399;
+
+    --border-default: rgba(79, 195, 247, 0.15);
+    --border-subtle: rgba(79, 195, 247, 0.08);
+    --border-strong: #4FC3F7;
+
+    /* Status Colors */
+    --status-info-bg: rgba(79, 195, 247, 0.2);
+    --status-info-text: #4FC3F7;
+    --status-info-border: rgba(79, 195, 247, 0.4);
+
+    --status-success-bg: rgba(16, 185, 129, 0.2);
+    --status-success-text: #10B981;
+    --status-success-border: rgba(16, 185, 129, 0.4);
+
+    --status-warning-bg: rgba(245, 158, 11, 0.2);
+    --status-warning-text: #F59E0B;
+    --status-warning-border: rgba(245, 158, 11, 0.4);
+
+    --status-danger-bg: rgba(224, 90, 90, 0.2);
+    --status-danger-text: #E05A5A;
+    --status-danger-border: rgba(224, 90, 90, 0.4);
+
+    /* Sidebar Variables */
+    --bg-sidebar: var(--bg-surface);
+    --bg-sidebar-active: var(--bg-subtle);
+    --bg-sidebar-hover: rgba(79, 195, 247, 0.04);
+
+    /* ==========================================
+       LEGACY COMPATIBILITY ALIASES
+       ========================================== */
+    --color-bg-base: var(--bg-base);
+    --color-bg-card: var(--bg-elevated);
+    --color-bg-surface: var(--bg-surface);
     --color-bg-input: rgba(10, 25, 60, 0.9);
-    --color-text-primary: #E8F4FD;
-    --color-text-secondary: #90CAF9;
-    --color-border: rgba(79, 195, 247, 0.15);
+    --color-text-primary: var(--text-primary);
+    --color-text-secondary: var(--text-secondary);
+    --color-border: var(--border-default);
     --color-shadow: rgba(79, 195, 247, 0.08);
 
+    /* Original Shadcn variables (preserved for compatibility) */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -107,5 +183,166 @@
 }
 
 @layer components {
-  /* No global !important overrides needed with correct HSL mapping */
+  /* ==========================================
+     PIMS REUSABLE COMPONENT ABSTRACTIONS
+     ========================================== */
+
+  /* Page & Header */
+  .app-page {
+    @apply min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] transition-colors duration-200;
+  }
+
+  .app-page-header {
+    @apply border-b border-[var(--border-default)] bg-[var(--bg-surface)] px-6 py-4 flex items-center justify-between transition-colors duration-200;
+  }
+
+  /* Typography */
+  .app-title {
+    @apply font-sans font-semibold tracking-tight text-[var(--text-primary)] text-2xl;
+  }
+
+  .app-copy {
+    @apply text-[var(--text-secondary)] font-normal leading-relaxed text-sm;
+  }
+
+  /* Surfaces & Containers */
+  .app-surface {
+    @apply bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl shadow-premium transition-all duration-200;
+  }
+
+  .app-surface-elevated {
+    @apply bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl shadow-premium-lg transition-all duration-200;
+  }
+
+  /* Alerts */
+  .app-alert-info {
+    @apply bg-[var(--status-info-bg)] border-l-4 border-[var(--status-info-text)] text-[var(--status-info-text)] p-4 rounded-lg shadow-sm transition-all duration-200;
+  }
+
+  .app-alert-success {
+    @apply bg-[var(--status-success-bg)] border-l-4 border-[var(--status-success-text)] text-[var(--status-success-text)] p-4 rounded-lg shadow-sm transition-all duration-200;
+  }
+
+  .app-alert-warning {
+    @apply bg-[var(--status-warning-bg)] border-l-4 border-[var(--status-warning-text)] text-[var(--status-warning-text)] p-4 rounded-lg shadow-sm transition-all duration-200;
+  }
+
+  .app-alert-error {
+    @apply bg-[var(--status-danger-bg)] border-l-4 border-[var(--status-danger-text)] text-[var(--status-danger-text)] p-4 rounded-lg shadow-sm transition-all duration-200;
+  }
+
+  /* Badges */
+  .app-badge-neutral {
+    @apply bg-[var(--bg-subtle)] text-[var(--text-secondary)] px-2.5 py-0.5 rounded-full text-xs font-semibold border border-[var(--border-subtle)] transition-colors duration-200;
+  }
+
+  .app-badge-info {
+    @apply bg-[var(--status-info-bg)] text-[var(--status-info-text)] px-2.5 py-0.5 rounded-full text-xs font-semibold border border-[var(--status-info-border)] transition-colors duration-200;
+  }
+
+  .app-badge-success {
+    @apply bg-[var(--status-success-bg)] text-[var(--status-success-text)] px-2.5 py-0.5 rounded-full text-xs font-semibold border border-[var(--status-success-border)] transition-colors duration-200;
+  }
+
+  .app-badge-warning {
+    @apply bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] px-2.5 py-0.5 rounded-full text-xs font-semibold border border-[var(--status-warning-border)] transition-colors duration-200;
+  }
+
+  .app-badge-danger {
+    @apply bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] px-2.5 py-0.5 rounded-full text-xs font-semibold border border-[var(--status-danger-border)] transition-colors duration-200;
+  }
+
+  /* Inputs, Selects & Textareas */
+  .app-input {
+    @apply w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/50 focus:border-[var(--accent-primary)] transition-all duration-200 disabled:opacity-50;
+  }
+
+  .app-select {
+    @apply w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/50 focus:border-[var(--accent-primary)] transition-all duration-200 disabled:opacity-50;
+  }
+
+  .app-textarea {
+    @apply w-full px-3 py-2 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--accent-primary)]/50 focus:border-[var(--accent-primary)] transition-all duration-200 disabled:opacity-50;
+  }
+
+  /* Tables */
+  .app-table-shell {
+    @apply w-full overflow-x-auto border border-[var(--border-default)] rounded-xl bg-[var(--bg-surface)] transition-all duration-200;
+  }
+
+  .app-table-head {
+    @apply bg-[var(--bg-subtle)] text-[var(--text-secondary)] font-semibold border-b border-[var(--border-default)] transition-colors duration-200;
+  }
+
+  .app-table-row {
+    @apply border-b border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] transition-colors duration-150;
+  }
+
+  .app-table-row-active {
+    @apply bg-[var(--bg-subtle)] border-b border-[var(--border-default)];
+  }
+
+  /* Sidebars */
+  .app-sidebar {
+    @apply bg-[var(--bg-sidebar)] border-r border-[var(--border-subtle)] text-[var(--text-secondary)] transition-all duration-200;
+  }
+
+  .app-sidebar-item-active {
+    @apply bg-[var(--bg-sidebar-active)] text-[var(--text-primary)] font-medium border-r-2 border-[var(--accent-primary)] transition-colors duration-200;
+  }
+
+  .app-sidebar-item-hover {
+    @apply hover:bg-[var(--bg-sidebar-hover)] hover:text-[var(--text-primary)] transition-all duration-200;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply bg-[var(--accent-primary)] text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  .btn-primary:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--accent-primary);
+  }
+
+  .btn-secondary {
+    @apply bg-transparent text-[var(--text-secondary)] border border-[var(--border-default)] font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm focus:outline-none disabled:opacity-50;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background-color: var(--bg-subtle);
+    color: var(--text-primary);
+  }
+  .btn-secondary:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-default);
+  }
+
+  .btn-danger {
+    @apply bg-[var(--status-danger-text)] text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 shadow-sm focus:outline-none disabled:opacity-50;
+  }
+  .btn-danger:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+  .btn-danger:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--status-danger-text);
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-[var(--text-secondary)] font-medium py-2 px-4 rounded-lg transition-all duration-200 focus:outline-none disabled:opacity-50;
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background-color: var(--bg-subtle);
+    color: var(--text-primary);
+  }
+  .btn-ghost:focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--border-default);
+  }
 }

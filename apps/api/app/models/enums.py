@@ -39,6 +39,7 @@ class TimerSessionStatus(str, enum.Enum):
 class TimerPauseReason(str, enum.Enum):
     MANUAL = "manual_pause"
     ATTENDANCE_CHECKOUT = "attendance_checkout"
+    BREAK_STARTED = "break_started"
     SYSTEM = "system"
 
 

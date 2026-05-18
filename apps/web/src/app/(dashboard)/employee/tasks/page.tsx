@@ -55,22 +55,25 @@ export default function EmployeeTasksPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTimer, setActiveTimer] = useState<TaskTimerSession | null>(null);
   const [attendance, setAttendance] = useState<AttendanceSession | null>(null);
+  const [activeBreak, setActiveBreak] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
   const { user } = useAuth();
 
   const fetchData = async () => {
     try {
-      const [tasksData, projectsData, timerData, attendanceData] = await Promise.all([
+      const [tasksData, projectsData, timerData, attendanceData, breakData] = await Promise.all([
         tasksApi.getTasks(),
         projectsApi.getTaskEligibleProjects(),
         timeLogsApi.getActiveTimer(),
-        apiClient.get<AttendanceSession | null>('/attendance/active').then(res => res.data)
+        apiClient.get<AttendanceSession | null>('/attendance/active').then(res => res.data),
+        apiClient.get<any>('/attendance/breaks/current').then(res => res.data)
       ]);
       setTasks(tasksData);
       setProjects(projectsData);
       setActiveTimer(timerData);
       setAttendance(attendanceData);
+      setActiveBreak(breakData);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -103,7 +106,7 @@ export default function EmployeeTasksPage() {
         assigned_to: user.id,
         due_date: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined
       });
-      toast.success('Task initialized successfully');
+      toast.success('Task created successfully');
       setIsDialogOpen(false);
       form.reset();
       await fetchData();
@@ -117,10 +120,14 @@ export default function EmployeeTasksPage() {
         toast.error('You must check in before starting a task.');
         return;
     }
+    if (activeBreak) {
+        toast.error('You cannot start a task while on break.');
+        return;
+    }
     setIsActionLoading(taskId);
     try {
       await timeLogsApi.startTimer(taskId);
-      toast.success('Execution session started');
+      toast.success('Task timer started');
       await fetchData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -133,7 +140,7 @@ export default function EmployeeTasksPage() {
     setIsActionLoading(taskId);
     try {
       await timeLogsApi.pauseTimer(taskId);
-      toast.success('Execution session paused');
+      toast.success('Task timer paused');
       await fetchData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -147,10 +154,14 @@ export default function EmployeeTasksPage() {
         toast.error('You must check in before resuming a task.');
         return;
     }
+    if (activeBreak) {
+        toast.error('You cannot resume a task while on break.');
+        return;
+    }
     setIsActionLoading(taskId);
     try {
       await timeLogsApi.resumeTimer(taskId);
-      toast.success('Execution session resumed');
+      toast.success('Task timer resumed');
       await fetchData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -163,7 +174,7 @@ export default function EmployeeTasksPage() {
     setIsActionLoading(taskId);
     try {
       await timeLogsApi.stopTimer(taskId);
-      toast.success('Execution session finalized');
+      toast.success('Task timer saved to database');
       await fetchData();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -174,22 +185,23 @@ export default function EmployeeTasksPage() {
 
   const getPauseLabel = (reason: string | null) => {
     if (!reason) return 'Paused';
-    if (reason === 'attendance_checkout') return 'Paused after checkout';
+    if (reason === 'attendance_checkout') return 'Paused because you checked out';
+    if (reason === 'break_started') return 'Paused because break started';
     if (reason === 'manual_pause') return 'Paused manually';
     return 'Paused';
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       {/* Active Session Header */}
       {activeTimer && (
         <div className={cn(
-            "relative overflow-hidden rounded-[2.5rem] p-1 shadow-premium-lg transition-all duration-500",
-            activeTimer.status === 'running' ? "bg-indigo-600" : "bg-slate-400"
+            "relative overflow-hidden rounded-[2.5rem] p-1 shadow-[var(--shadow-soft)] transition-all duration-500",
+            activeTimer.status === 'running' ? "bg-[var(--accent-primary)]" : "bg-slate-400"
         )}>
           <div className={cn(
               "absolute inset-0 bg-gradient-to-r animate-gradient-x opacity-90",
-              activeTimer.status === 'running' ? "from-indigo-600 via-indigo-500 to-violet-600" : "from-slate-500 via-slate-400 to-slate-600"
+              activeTimer.status === 'running' ? "from-[var(--accent-primary)] via-indigo-500 to-violet-600" : "from-slate-500 via-slate-400 to-slate-600"
           )} />
           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 px-10 py-8 bg-white/5 backdrop-blur-xl rounded-[2.3rem]">
             <div className="flex items-center gap-6">
@@ -199,14 +211,14 @@ export default function EmployeeTasksPage() {
                 <div className="space-y-1">
                     <div className="flex items-center gap-2">
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-100/60">
-                            {activeTimer.status === 'running' ? 'Currently Executing' : getPauseLabel(activeTimer.pause_reason)}
+                            {activeTimer.status === 'running' ? 'Currently Running' : getPauseLabel(activeTimer.pause_reason)}
                         </span>
                         {activeTimer.status === 'running' && <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />}
                     </div>
                     <h2 className="text-2xl font-black text-white tracking-tight leading-none">{activeTimer.task_title || 'Active Task'}</h2>
                     <div className="flex items-center gap-2 text-indigo-100/40 text-[10px] font-black uppercase tracking-widest">
                         <Briefcase className="h-3 w-3" />
-                        {activeTimer.project_title || 'Execution Unit'}
+                        {activeTimer.project_title || 'Project Task'}
                     </div>
                 </div>
             </div>
@@ -238,7 +250,7 @@ export default function EmployeeTasksPage() {
                         <Button 
                             size="lg" 
                             variant="outline"
-                            className="h-14 px-8 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:bg-slate-300"
+                            className="h-14 px-8 rounded-2xl bg-[var(--accent-primary)] hover:opacity-90 text-white border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:bg-slate-300"
                             onClick={() => handleResumeTimer(activeTimer.task_id)}
                             disabled={isActionLoading === activeTimer.task_id || !isCheckedIn}
                         >
@@ -261,7 +273,7 @@ export default function EmployeeTasksPage() {
           </div>
           {!isCheckedIn && activeTimer.status === 'paused' && (
               <div className="px-10 py-3 bg-slate-900/10 text-[9px] font-bold text-white uppercase tracking-[0.3em] text-center border-t border-white/5">
-                  Attendance Offline: Check in to resume task execution
+                  Attendance Offline: Please check in to resume tracking focus
               </div>
           )}
         </div>
@@ -269,43 +281,43 @@ export default function EmployeeTasksPage() {
 
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <Zap className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Deployment Queue</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Tasks Dashboard</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Tasks</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Real-time Task Status & Priority Tracking</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Tasks</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Real-time Task Status & Priority Tracking</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95">
+            <Button className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl transition-all active:scale-95 border-none">
               <Plus className="mr-2 h-4 w-4" />
               New Task
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)] animate-in zoom-in-95 duration-300">
             <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">Initialize Task</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">
-                Define a new block of work within a project container
+              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Create Task</DialogTitle>
+              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">
+                Create a new task under a project context
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
                 <FormField control={form.control} name="title" render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Task Identity</FormLabel>
-                    <FormControl><Input placeholder="e.g. Refactor API Interceptors" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Task Title</FormLabel>
+                    <FormControl><Input placeholder="e.g. Refactor API Interceptors" className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold focus:bg-[var(--bg-surface)] transition-all text-[var(--text-primary)]" {...field} /></FormControl>
                     <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="project_id" render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Project Context</FormLabel>
+                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Project</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Select initiative" /></SelectTrigger></FormControl>
-                      <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
+                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                      <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                         {projects.map(p => (
                           <SelectItem key={p.id} value={p.id} className="text-xs font-bold">{p.title}</SelectItem>
                         ))}
@@ -316,18 +328,18 @@ export default function EmployeeTasksPage() {
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Implementation Details</FormLabel>
-                    <FormControl><Textarea placeholder="Provide context for this work unit..." className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[100px] font-bold text-sm leading-relaxed p-6 focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Description</FormLabel>
+                    <FormControl><Textarea placeholder="Provide context/details for this task..." className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)] border-[var(--border-default)] min-h-[100px] font-bold text-sm leading-relaxed p-6 focus:bg-[var(--bg-surface)] transition-all text-[var(--text-primary)]" {...field} /></FormControl>
                     <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-6">
                   <FormField control={form.control} name="priority" render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Priority</FormLabel>
+                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Priority</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
+                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                           <SelectItem value="low" className="text-[10px] font-black uppercase tracking-widest">Low</SelectItem>
                           <SelectItem value="medium" className="text-[10px] font-black uppercase tracking-widest">Medium</SelectItem>
                           <SelectItem value="high" className="text-[10px] font-black uppercase tracking-widest">High</SelectItem>
@@ -339,17 +351,17 @@ export default function EmployeeTasksPage() {
                   )} />
                   <FormField control={form.control} name="due_date" render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Deadline</FormLabel>
-                      <FormControl><Input type="date" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Deadline</FormLabel>
+                      <FormControl><Input type="date" className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold focus:bg-[var(--bg-surface)] transition-all text-[var(--text-primary)]" {...field} /></FormControl>
                       <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                     </FormItem>
                   )} />
                 </div>
                 <div className="flex justify-end pt-6 gap-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95 flex-1">
+                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl transition-all active:scale-95 flex-1 border-none">
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Initialize Task
+                    Create Task
                   </Button>
                 </div>
               </form>
@@ -358,11 +370,11 @@ export default function EmployeeTasksPage() {
         </Dialog>
       </div>
 
-      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
-          <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <Trophy className="h-6 w-6 text-indigo-600" />
-            Active Queue
+      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
+          <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+            <Trophy className="h-6 w-6 text-[var(--accent-primary)]" />
+            Task List
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -372,7 +384,7 @@ export default function EmployeeTasksPage() {
             <div className="p-20">
               <EmptyState 
                   title="Task queue empty"
-                  message="No active work units found. Initialize a new task to begin tracking execution."
+                  message="No tasks found. Create a new task to get started."
                   icon={Briefcase}
                   action={{
                       label: "New Task",
@@ -383,29 +395,29 @@ export default function EmployeeTasksPage() {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
-                    <TableHead className="w-[40%] font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Task Identity</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Project</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Priority</TableHead>
-                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Execution</TableHead>
+                <TableHeader className="bg-[var(--bg-subtle)]">
+                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                    <TableHead className="w-[40%] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Task Title</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Project</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Priority</TableHead>
+                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Timer</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.map((task) => (
-                    <TableRow key={task.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                    <TableRow key={task.id} className="hover:bg-[var(--bg-subtle)]/50 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
-                          <span className="font-black text-slate-900 text-sm tracking-tight">{task.title}</span>
-                          <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{task.title}</span>
+                          <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                             <Clock className="h-3 w-3" />
                             {task.due_date ? format(parseISO(task.due_date), 'MMM d, yyyy') : 'No Deadline'}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                        <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-widest">
                             <Briefcase className="h-3.5 w-3.5 opacity-60" />
                             {task.project_title || 'General'}
                         </div>
@@ -424,7 +436,7 @@ export default function EmployeeTasksPage() {
                                         <Button 
                                             variant="outline"
                                             size="sm"
-                                            className="h-11 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] px-4 transition-all active:scale-95 text-slate-600 border-slate-100 hover:bg-slate-50"
+                                            className="h-11 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] px-4 transition-all active:scale-95 text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
                                             onClick={() => handlePauseTimer(task.id)}
                                             disabled={isActionLoading === task.id}
                                         >
@@ -434,7 +446,7 @@ export default function EmployeeTasksPage() {
                                         <Button 
                                             variant="outline"
                                             size="sm"
-                                            className="h-11 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] px-4 transition-all active:scale-95 text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+                                            className="h-11 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] px-4 transition-all active:scale-95 text-[var(--accent-primary)] border-indigo-100 hover:bg-indigo-50"
                                             onClick={() => handleResumeTimer(task.id)}
                                             disabled={isActionLoading === task.id || !isCheckedIn}
                                         >
@@ -455,7 +467,7 @@ export default function EmployeeTasksPage() {
                                 <Button 
                                     variant="outline"
                                     size="sm"
-                                    className="h-11 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] px-6 transition-all active:scale-95 text-indigo-600 border-slate-100 hover:border-indigo-100 hover:bg-indigo-50 disabled:opacity-50"
+                                    className="h-11 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] px-6 transition-all active:scale-95 text-[var(--accent-primary)] border-[var(--border-default)] hover:border-[var(--accent-primary)] hover:bg-indigo-50 disabled:opacity-50"
                                     onClick={() => handleStartTimer(task.id)}
                                     disabled={isActionLoading === task.id || (activeTimer !== null) || !isCheckedIn}
                                 >

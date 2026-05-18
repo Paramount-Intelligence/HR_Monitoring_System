@@ -90,7 +90,7 @@ export default function ManagerProjectsPage() {
   const onSubmit = async (data: ProjectFormValues) => {
     try {
       await projectsApi.createProject(data as any);
-      toast.success('Project created and pending approval');
+      toast.success('Project created successfully');
       setIsDialogOpen(false);
       form.reset();
       loadProjects();
@@ -100,54 +100,54 @@ export default function ManagerProjectsPage() {
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Strategy Registry</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Projects</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Projects</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Organizational Initiative Registry & Approval Actions</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Projects</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Approve and manage project requests</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95">
-              <Plus className="mr-2 h-4 w-4" />
+            <Button className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl border-none shadow-xl transition-all active:scale-95">
+              <Plus className="mr-2 h-4 w-4 text-white" />
               New Project
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none bg-[var(--bg-surface)] shadow-[var(--shadow-hard)] p-10 animate-in zoom-in-95 duration-300 text-[var(--text-primary)]">
             <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">Submit Project Proposal</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-slate-500 uppercase tracking-tight">
-                Define initiative scope for operational activation
+              <DialogTitle className="text-3xl font-black tracking-tighter text-[var(--text-primary)]">Create Project</DialogTitle>
+              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">
+                Add a new project to your team's workspace
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
                 <FormField control={form.control} name="title" render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Initiative Title</FormLabel>
-                    <FormControl><Input placeholder="e.g. Q4 Performance Audit" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Project Title</FormLabel>
+                    <FormControl><Input placeholder="e.g. Q4 Performance Audit" className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
                     <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Initiative Scope</FormLabel>
-                    <FormControl><Textarea placeholder="Define objectives and key results..." className="resize-none rounded-[1.5rem] bg-slate-50/50 border-slate-100 min-h-[120px] font-bold text-sm leading-relaxed p-6 focus:bg-white transition-all" {...field} /></FormControl>
+                    <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Description</FormLabel>
+                    <FormControl><Textarea placeholder="Define objectives and key results..." className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)]/50 border-[var(--border-default)] text-[var(--text-primary)] min-h-[120px] font-bold text-sm leading-relaxed p-6 focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
                     <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-6">
                   <FormField control={form.control} name="priority" render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Priority Level</FormLabel>
+                      <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Priority</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
+                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
+                        <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                           <SelectItem value="low" className="text-[10px] font-black uppercase tracking-widest">Low</SelectItem>
                           <SelectItem value="medium" className="text-[10px] font-black uppercase tracking-widest">Medium</SelectItem>
                           <SelectItem value="high" className="text-[10px] font-black uppercase tracking-widest">High</SelectItem>
@@ -159,17 +159,17 @@ export default function ManagerProjectsPage() {
                   )} />
                   <FormField control={form.control} name="due_date" render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Target Deadline</FormLabel>
-                      <FormControl><Input type="date" className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold focus:bg-white transition-all" {...field} /></FormControl>
+                      <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Target Deadline</FormLabel>
+                      <FormControl><Input type="date" className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
                       <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                     </FormItem>
                   )} />
                 </div>
                 <div className="flex justify-end pt-6 gap-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1">Discard</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-95 flex-1">
-                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Submit Proposal
+                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl border-none shadow-xl transition-all active:scale-95 flex-1">
+                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
+                    Save Project
                   </Button>
                 </div>
               </form>
@@ -178,11 +178,11 @@ export default function ManagerProjectsPage() {
         </Dialog>
       </div>
 
-      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
-          <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <Zap className="h-6 w-6 text-indigo-600" />
-            Strategic Initiatives
+      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
+          <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
+            <Zap className="h-6 w-6 text-[var(--accent-primary)]" />
+            Team Projects
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -191,30 +191,30 @@ export default function ManagerProjectsPage() {
           ) : projects.length === 0 ? (
             <div className="p-20">
               <EmptyState 
-                  title="No projects managed"
-                  message="Your team's initiative pipeline is currently clear. Submit a proposal to begin."
+                  title="No projects found"
+                  message="Your team's project pipeline is currently empty."
                   icon={Briefcase}
               />
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
-                    <TableHead className="w-[40%] font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Initiative Identity</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Status</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Criticality</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Deadline</TableHead>
-                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-slate-400">Governance</TableHead>
+                <TableHeader className="bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                    <TableHead className="w-[40%] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Project Title / Description</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Priority</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Deadline</TableHead>
+                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {projects.map((project) => (
-                    <TableRow key={project.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-28">
+                    <TableRow key={project.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28 text-[var(--text-primary)]">
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
-                          <span className="font-black text-slate-900 text-sm tracking-tight">{project.title}</span>
-                          <span className="text-[10px] font-bold text-slate-400 leading-relaxed italic line-clamp-1 max-w-[350px]">
+                          <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{project.title}</span>
+                          <span className="text-[10px] font-bold text-[var(--text-muted)] leading-relaxed italic line-clamp-1 max-w-[350px]">
                             {project.description}
                           </span>
                         </div>
@@ -226,9 +226,9 @@ export default function ManagerProjectsPage() {
                         <StatusBadge status={project.priority} />
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 text-[10px] font-black text-slate-600 uppercase tracking-tighter">
-                          <Calendar className="h-3.5 w-3.5 text-indigo-400" />
-                          {project.due_date ? formatPKDate(project.due_date) : 'PERPETUAL'}
+                        <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-tighter">
+                          <Calendar className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
+                          {project.due_date ? formatPKDate(project.due_date) : 'No Date'}
                         </div>
                       </TableCell>
                       <TableCell className="text-right pr-10">
@@ -237,14 +237,14 @@ export default function ManagerProjectsPage() {
                             <>
                               <Button 
                                 variant="outline" size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-emerald-600 border-slate-100 hover:border-emerald-100 hover:bg-emerald-50 transition-all"
+                                className="h-11 w-11 p-0 rounded-xl text-emerald-600 border-[var(--border-subtle)] hover:border-emerald-100 hover:bg-emerald-50 transition-all"
                                 onClick={() => handleApproveQuick(project.id)}
                               >
                                 <CheckCircle className="h-5 w-5" />
                               </Button>
                               <Button 
                                 variant="outline" size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-slate-100 hover:border-rose-100 hover:bg-rose-50 transition-all"
+                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-subtle)] hover:border-rose-100 hover:bg-rose-50 transition-all"
                                 onClick={() => router.push(`/manager/projects/${project.id}`)}
                               >
                                 <XCircle className="h-5 w-5" />
@@ -252,9 +252,9 @@ export default function ManagerProjectsPage() {
                             </>
                           )}
                           <Link href={`/manager/projects/${project.id}`}>
-                            <Button variant="ghost" size="sm" className="h-11 rounded-xl px-5 font-black text-indigo-600 text-[10px] uppercase tracking-[0.2em] hover:bg-indigo-50 transition-all">
+                            <Button variant="ghost" size="sm" className="h-11 rounded-xl px-5 font-black text-[var(--accent-primary)] text-[10px] uppercase tracking-[0.2em] hover:bg-[var(--bg-subtle)] transition-all">
                               Details
-                              <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                              <ExternalLink className="ml-2 h-3.5 w-3.5 text-[var(--accent-primary)]" />
                             </Button>
                           </Link>
                         </div>

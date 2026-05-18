@@ -1,7 +1,7 @@
 import apiClient from './client';
 
 export type TimerSessionStatus = 'running' | 'paused' | 'completed';
-export type TimerPauseReason = 'manual_pause' | 'attendance_checkout' | 'system';
+export type TimerPauseReason = 'manual_pause' | 'attendance_checkout' | 'system' | 'break_started';
 
 export interface TaskTimerSession {
   id: string;

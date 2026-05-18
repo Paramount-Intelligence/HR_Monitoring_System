@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("animate-pulse rounded bg-slate-200/60", className)}
+      className={cn("animate-pulse rounded bg-[var(--border-default)]/60", className)}
       {...props}
     />
   );
@@ -13,14 +13,14 @@ export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivEl
 
 export function TableSkeleton({ rows = 5, cols = 4 }: { rows?: number, cols?: number }) {
   return (
-    <div className="w-full space-y-0 rounded-2xl border border-slate-100 overflow-hidden">
-      <div className="flex items-center space-x-4 bg-slate-50/50 p-4 border-b border-slate-100">
+    <div className="w-full space-y-0 rounded-2xl border border-[var(--border-subtle)] overflow-hidden bg-[var(--bg-surface)]">
+      <div className="flex items-center space-x-4 bg-[var(--bg-subtle)] p-4 border-b border-[var(--border-subtle)]">
         {Array.from({ length: cols }).map((_, i) => (
           <Skeleton key={i} className="h-4 flex-1" />
         ))}
       </div>
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center space-x-4 p-4 border-b border-slate-50 last:border-0">
+        <div key={i} className="flex items-center space-x-4 p-4 border-b border-[var(--border-subtle)]/30 last:border-0">
           {Array.from({ length: cols }).map((_, j) => (
             <Skeleton key={j} className="h-4 flex-1" />
           ))}
@@ -34,7 +34,7 @@ export function ListSkeleton({ items = 3 }: { items?: number }) {
   return (
     <div className="space-y-4">
       {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex items-center space-x-4 p-4 border border-slate-100 rounded-xl shadow-sm">
+        <div key={i} className="flex items-center space-x-4 p-4 border border-[var(--border-default)] bg-[var(--bg-surface)] rounded-xl shadow-premium-sm">
           <Skeleton className="h-10 w-10 rounded-full" />
           <div className="space-y-2 flex-1">
             <Skeleton className="h-4 w-[60%]" />

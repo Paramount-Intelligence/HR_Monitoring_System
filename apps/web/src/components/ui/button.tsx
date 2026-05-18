@@ -8,16 +8,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:scale-[0.98] transition-all",
+        default: "btn-primary shadow-sm active:scale-[0.98] transition-all",
         outline:
-          "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 active:scale-[0.98] transition-all",
+          "border border-[var(--border-default)] bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] active:scale-[0.98] transition-all",
         secondary:
-          "bg-slate-100 text-slate-900 hover:bg-slate-200/80 active:scale-[0.98] transition-all",
+          "bg-[var(--bg-subtle)] text-[var(--text-secondary)] hover:bg-[var(--border-default)] hover:text-[var(--text-primary)] active:scale-[0.98] transition-all",
         ghost:
-          "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
+          "text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)]",
         destructive:
-          "bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:scale-[0.98] transition-all",
-        link: "text-primary underline-offset-4 hover:underline",
+          "btn-danger shadow-sm active:scale-[0.98] transition-all",
+        link: "text-[var(--accent-primary)] underline-offset-4 hover:underline",
       },
       size: {
         default:

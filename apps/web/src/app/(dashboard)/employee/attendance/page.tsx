@@ -59,8 +59,8 @@ const LiveTimer = ({ checkInAt }: { checkInAt: string }) => {
   }, [checkInAt]);
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Session Duration</span>
-      <span className="text-3xl font-black text-indigo-700 font-mono tracking-tighter">{elapsed}</span>
+      <span className="text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-[0.2em] mb-1">Session Duration</span>
+      <span className="text-3xl font-black text-[var(--accent-primary)] font-mono tracking-tighter">{elapsed}</span>
     </div>
   );
 };
@@ -83,8 +83,8 @@ const BreakTimer = ({ startedAt, breakType }: { startedAt: string, breakType: st
       <div className="flex items-center gap-4">
         <div className="bg-amber-100 p-3 rounded-2xl ring-4 ring-amber-50 shadow-sm"><Coffee className="h-5 w-5 text-amber-600 animate-bounce" /></div>
         <div>
-          <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.15em] leading-none mb-1.5">Operational Pause: {breakType}</p>
-          <p className="text-xl font-black text-slate-800 font-mono tracking-tighter">{elapsed}</p>
+          <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.15em] leading-none mb-1.5">Break: {breakType}</p>
+          <p className="text-xl font-black text-[var(--text-primary)] font-mono tracking-tighter">{elapsed}</p>
         </div>
       </div>
     </div>
@@ -106,6 +106,10 @@ export default function AttendancePage() {
   const [checkoutDialog, setCheckoutDialog] = useState({ isOpen: false });
   const [checkoutReason, setCheckoutReason] = useState<'overtime' | 'forgot_checkout'>('overtime');
   const [checkoutNote, setCheckoutNote] = useState('');
+
+  // Early Checkout Dialog
+  const [earlyCheckoutDialog, setEarlyCheckoutDialog] = useState({ isOpen: false });
+  const [earlyCheckoutReason, setEarlyCheckoutReason] = useState('');
 
   // Break State
   const [isBreakLoading, setIsBreakLoading] = useState(false);
@@ -138,7 +142,7 @@ export default function AttendancePage() {
     setIsActionLoading(true);
     try {
       await attendanceApi.checkIn(workMode);
-      toast.success('Check-in protocol initiated');
+      toast.success('Check-in process initiated');
       await fetchData();
     } catch (error: any) {
       toast.error(getErrorMessage(error) || 'Check-in failed');
@@ -150,13 +154,27 @@ export default function AttendancePage() {
   const handleCheckOutClick = () => {
     if (!activeSession) return;
 
-    // Check if current time in PKT is after shift end
+    // Check if current time in PKT is relative to shift end
     const now = new Date();
     if (activeSession.expected_shift_end_at) {
       const shiftEnd = new Date(activeSession.expected_shift_end_at);
+      if (now < shiftEnd) {
+        setEarlyCheckoutDialog({ isOpen: true });
+        return;
+      }
       if (now > shiftEnd) {
         setCheckoutDialog({ isOpen: true });
         return;
+      }
+    } else {
+      // standard fallback logic for early checkout if expected_shift_end_at is missing for some reason
+      const shiftEndFallback = new Date();
+      shiftEndFallback.setHours(2, 0, 0, 0); // Assuming standard 5pm-2am shift end
+      if (now.getHours() >= 10) shiftEndFallback.setDate(shiftEndFallback.getDate() + 1);
+      
+      if (now < shiftEndFallback) {
+         setEarlyCheckoutDialog({ isOpen: true });
+         return;
       }
     }
 
@@ -164,14 +182,16 @@ export default function AttendancePage() {
     performCheckOut();
   };
 
-  const performCheckOut = async (justification?: { checkout_after_shift_reason: string, checkout_after_shift_note: string }) => {
+  const performCheckOut = async (justification?: { checkout_after_shift_reason?: string, checkout_after_shift_note?: string, early_checkout_reason?: string }) => {
     setIsActionLoading(true);
     try {
       await attendanceApi.checkOut(justification);
-      toast.success('Session committed and finalized');
+      toast.success('Session completed and saved to database');
       setCheckoutDialog({ isOpen: false });
+      setEarlyCheckoutDialog({ isOpen: false });
       setCheckoutReason('overtime');
       setCheckoutNote('');
+      setEarlyCheckoutReason('');
       await fetchData();
     } catch (error: any) {
       toast.error(getErrorMessage(error) || 'Check-out failed');
@@ -242,38 +262,38 @@ export default function AttendancePage() {
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
             <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Authentication Hub</span>
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Attendance Controller</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Attendance</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Session Governance & Shift Intelligence</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Attendance</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Shift Sessions & Attendance Settings</p>
         </div>
-        <div className="flex items-center gap-4 bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-premium group">
-          <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+        <div className="flex items-center gap-4 bg-[var(--bg-surface)] p-4 rounded-[1.5rem] border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] group">
+          <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-[var(--accent-primary)] group-hover:scale-110 transition-transform">
             <LayoutDashboard className="h-5 w-5" />
           </div>
           <div className="text-right">
-            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">
+            <div className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-0.5">
               {currentUser?.shift_name ? 'Assigned Shift' : 'Standard Shift'}
             </div>
-            <div className="text-sm font-black text-slate-900">
-              {currentUser?.shift_name || 'Workforce Standard'}
+            <div className="text-sm font-black text-[var(--text-primary)]">
+              {currentUser?.shift_name || 'Standard Shift'}
             </div>
-            <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-tighter opacity-80">
+            <div className="text-[10px] font-bold text-[var(--accent-primary)] uppercase tracking-tighter opacity-80">
               {currentUser?.shift_timing || '5:00 PM - 2:00 AM PKT'}
             </div>
           </div>
         </div>
       </div>
 
-      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50">
-          <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-            <Clock className="h-6 w-6 text-indigo-600" />
+      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
+          <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+            <Clock className="h-6 w-6 text-[var(--accent-primary)]" />
             Shift Controller
           </CardTitle>
         </CardHeader>
@@ -281,7 +301,7 @@ export default function AttendancePage() {
           <div className="flex flex-col lg:flex-row items-stretch gap-10">
             <div className={cn(
               "flex-1 p-8 rounded-[2rem] border transition-all duration-500 relative overflow-hidden",
-              activeSession ? "bg-indigo-50/30 border-indigo-100 shadow-inner" : "bg-slate-50 border-slate-100"
+              activeSession ? "bg-indigo-50/30 border-indigo-100 shadow-inner" : "bg-[var(--bg-subtle)] border-[var(--border-subtle)]"
             )}>
               {activeSession && (
                 <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -296,20 +316,20 @@ export default function AttendancePage() {
                       "h-3 w-3 rounded-full shadow-sm",
                       activeSession ? "bg-emerald-500 animate-pulse" : "bg-slate-300"
                     )} />
-                    <span className="font-black text-slate-900 text-3xl tracking-tighter">
-                      {activeSession ? 'Session Active' : 'Session Offline'}
+                    <span className="font-black text-[var(--text-primary)] text-3xl tracking-tighter">
+                      {activeSession ? 'Shift Session Active' : 'Session Inactive'}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-500 font-bold uppercase tracking-tight opacity-70">
+                  <p className="text-sm text-[var(--text-secondary)] font-bold uppercase tracking-tight opacity-70">
                     {activeSession
                       ? `Started at ${formatPKDateTime(activeSession.check_in_at, { hour: '2-digit', minute: '2-digit' })} PKT • ${activeSession.work_mode.toUpperCase()} Environment`
-                      : 'Initialize check-in protocol to begin operational tracking.'}
+                      : 'Check in to begin your shift.'}
                   </p>
                 </div>
                 {activeSession && (
                   <Badge className={cn(
-                    "px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest border-none shadow-md",
-                    activeSession.is_late_login ? "bg-rose-500 text-white" : "bg-indigo-600 text-white"
+                    "px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest border-none shadow-md text-white",
+                    activeSession.is_late_login ? "bg-rose-500" : "bg-[var(--accent-primary)]"
                   )}>
                     {activeSession.is_late_login ? 'LATE ARRIVAL' : 'ON SCHEDULE'}
                   </Badge>
@@ -328,8 +348,8 @@ export default function AttendancePage() {
                   }
                 ].map((item, i) => (
                   <div key={i} className="space-y-2">
-                    <div className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">{item.label}</div>
-                    <div className={cn("text-base font-black text-slate-800 tracking-tight", item.color)}>{item.value}</div>
+                    <div className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em]">{item.label}</div>
+                    <div className={cn("text-base font-black text-[var(--text-secondary)] tracking-tight", item.color)}>{item.value}</div>
                   </div>
                 ))}
               </div>
@@ -337,22 +357,22 @@ export default function AttendancePage() {
               <div className="flex flex-wrap items-center gap-6 relative z-10">
                 {!activeSession ? (
                   <>
-                    <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200 p-1.5 pr-4 shadow-sm group hover:border-indigo-200 transition-all">
+                    <div className="flex items-center gap-3 bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-default)] p-1.5 pr-4 shadow-sm group hover:border-indigo-200 transition-all">
                       <Select value={workMode} onValueChange={(val: 'office' | 'wfh') => setWorkMode(val)}>
-                        <SelectTrigger className="w-[140px] border-none shadow-none focus:ring-0 h-10 font-black text-[10px] uppercase tracking-widest text-slate-600">
+                        <SelectTrigger className="w-[140px] border-none shadow-none focus:ring-0 h-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">
                           <SelectValue placeholder="Work Mode" />
                         </SelectTrigger>
-                        <SelectContent className="rounded-2xl border-slate-100 shadow-premium-lg">
+                        <SelectContent className="rounded-2xl border-[var(--border-subtle)] shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
                           <SelectItem value="office" className="text-[10px] font-black uppercase tracking-widest py-3 cursor-pointer">
                             <div className="flex items-center">
-                              <MapPin className="mr-3 h-4 w-4 text-indigo-500" />
+                              <MapPin className="mr-3 h-4 w-4 text-[var(--accent-primary)]" />
                               Office Base
                             </div>
                           </SelectItem>
                           <SelectItem value="wfh" className="text-[10px] font-black uppercase tracking-widest py-3 cursor-pointer">
                             <div className="flex items-center">
-                              <Home className="mr-3 h-4 w-4 text-indigo-500" />
-                              Remote Unit
+                              <Home className="mr-3 h-4 w-4 text-[var(--accent-primary)]" />
+                              Work From Home
                             </div>
                           </SelectItem>
                         </SelectContent>
@@ -362,23 +382,23 @@ export default function AttendancePage() {
                       onClick={handleCheckIn}
                       disabled={isActionLoading}
                       size="lg"
-                      className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl px-10 shadow-xl shadow-indigo-100 transition-all active:scale-95"
+                      className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl px-10 shadow-xl transition-all active:scale-95 border-none"
                     >
                       {isActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <LogIn className="mr-2 h-5 w-5" />}
-                      Finalize Check In
+                      Check In
                     </Button>
                   </>
                 ) : (
                   <div className="flex flex-col gap-10 w-full animate-in slide-in-from-bottom-4 duration-700">
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full">
-                      <div className="bg-white p-5 rounded-[1.5rem] border border-indigo-100 shadow-sm flex-1 ring-4 ring-white">
+                      <div className="bg-[var(--bg-surface)] p-5 rounded-[1.5rem] border border-indigo-100 shadow-sm flex-1 ring-4 ring-white">
                         <LiveTimer checkInAt={activeSession.check_in_at} />
                       </div>
                       <Button
                         onClick={handleCheckOutClick}
                         disabled={isActionLoading || !!activeSession.active_break}
                         size="lg"
-                        className="h-16 min-w-[200px] bg-rose-600 text-white font-black text-sm uppercase tracking-[0.2em] hover:bg-rose-700 rounded-2xl shadow-xl shadow-rose-100 transition-all active:scale-95"
+                        className="h-16 min-w-[200px] bg-rose-600 text-white font-black text-sm uppercase tracking-[0.2em] hover:bg-rose-700 rounded-2xl shadow-xl transition-all active:scale-95 border-none animate-in fade-in"
                       >
                         {isActionLoading ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : <LogOut className="mr-3 h-5 w-5" />}
                         Check Out
@@ -386,7 +406,7 @@ export default function AttendancePage() {
                     </div>
 
                     {/* Break Controls */}
-                    <div className="pt-8 border-t border-indigo-100/40">
+                    <div className="pt-8 border-t border-[var(--border-subtle)]">
                       {activeSession.active_break ? (
                         <div className="flex flex-col sm:flex-row items-center gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
                           <div className="bg-amber-50 border border-amber-100 rounded-2xl px-8 py-5 flex-1 w-full shadow-inner">
@@ -408,11 +428,11 @@ export default function AttendancePage() {
                       ) : (
                         <div className="flex flex-col gap-6">
                           <div className="flex flex-wrap items-center gap-4">
-                            <div className="flex bg-white rounded-2xl border border-slate-200 p-1.5 shadow-sm ring-4 ring-white">
+                            <div className="flex bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-default)] p-1.5 shadow-sm ring-4 ring-white">
                               {[
-                                { id: 'dinner', icon: Utensils, label: 'Dinner' },
-                                { id: 'prayer', icon: Zap, label: 'Prayer' },
-                                { id: 'other', icon: MoreVertical, label: 'Other' },
+                                  { id: 'dinner', icon: Utensils, label: 'Dinner' },
+                                  { id: 'prayer', icon: Zap, label: 'Prayer' },
+                                  { id: 'other', icon: MoreVertical, label: 'Other' },
                               ].map((b) => (
                                 <Button 
                                   key={b.id}
@@ -420,7 +440,7 @@ export default function AttendancePage() {
                                   size="sm" 
                                   className={cn(
                                     "h-10 gap-3 rounded-xl font-black text-[10px] uppercase tracking-widest px-5 transition-all",
-                                    breakType === b.id ? "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 shadow-sm" : "text-slate-400 hover:text-slate-900"
+                                    breakType === b.id ? "bg-indigo-50 text-[var(--accent-primary)] hover:bg-indigo-100 shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                                   )}
                                   onClick={() => { setBreakType(b.id); setShowBreakNote(b.id === 'other'); }}
                                 >
@@ -433,7 +453,7 @@ export default function AttendancePage() {
                             <Button 
                               onClick={handleStartBreak}
                               disabled={isBreakLoading}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest h-12 px-8 rounded-2xl shadow-lg active:scale-95 transition-all"
+                              className="bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest h-12 px-8 rounded-2xl shadow-lg active:scale-95 transition-all border-none"
                             >
                               {isBreakLoading ? <Loader2 className="mr-3 h-4 w-4 animate-spin" /> : <Coffee className="mr-3 h-4 w-4" />}
                               Start Break
@@ -443,8 +463,8 @@ export default function AttendancePage() {
                           {showBreakNote && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300 max-w-lg">
                               <Input 
-                                placeholder="Purpose of custom operational pause..." 
-                                className="h-12 border-slate-200 focus:border-indigo-500 rounded-xl bg-slate-50/50 font-bold text-xs uppercase tracking-tight pl-6"
+                                placeholder="Reason for custom break..." 
+                                className="h-12 border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-xl bg-[var(--bg-subtle)] font-bold text-xs uppercase tracking-tight pl-6 text-[var(--text-primary)]"
                                 value={breakNote}
                                 onChange={(e) => setBreakNote(e.target.value)}
                               />
@@ -461,14 +481,14 @@ export default function AttendancePage() {
         </CardContent>
       </Card>
 
-      <Card className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50 flex flex-row items-center justify-between">
+      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)] flex flex-row items-center justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-              <History className="h-6 w-6 text-indigo-600" />
-              Session Ledger
+            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
+              <History className="h-6 w-6 text-[var(--accent-primary)]" />
+              Attendance History
             </CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Historical Operational Performance</CardDescription>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Log of attendance sessions</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -481,21 +501,21 @@ export default function AttendancePage() {
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/50">
-                  <TableRow className="hover:bg-transparent border-b border-slate-100 h-16">
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400 pl-10">Date/Time</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Shift Gate</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Execution</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Pause Buffer</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Governance</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-slate-400">Exceptions</TableHead>
+                <TableHeader className="bg-[var(--bg-subtle)]">
+                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Date/Time</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Shift Times</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Logged Hours</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Break Duration</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Details</TableHead>
                     <TableHead className="text-right pr-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {sessions.map((session) => (
-                    <TableRow key={session.id} className="hover:bg-slate-50/30 transition-all duration-300 border-b border-slate-50 last:border-0 h-24">
-                      <TableCell className="font-black text-slate-900 tracking-tight pl-10">
+                    <TableRow key={session.id} className="hover:bg-[var(--bg-subtle)]/50 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-24">
+                      <TableCell className="font-black text-[var(--text-primary)] tracking-tight pl-10">
                         {formatPKDate(session.check_in_at)}
                       </TableCell>
                       <TableCell>
@@ -510,12 +530,12 @@ export default function AttendancePage() {
                               {formatPKDateTime(session.check_out_at, { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           ) : (
-                            <Badge variant="outline" className="w-fit text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 border-indigo-100 py-0 animate-pulse">Open Session</Badge>
+                            <Badge variant="outline" className="w-fit text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-[var(--accent-primary)] border-indigo-100 py-0 animate-pulse border-none">Open Session</Badge>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-mono text-xs font-black text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl w-fit border border-slate-200 shadow-inner">
+                        <div className="font-mono text-xs font-black text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-3 py-1.5 rounded-xl w-fit border border-[var(--border-subtle)] shadow-inner">
                           {formatDuration(session.total_hours)}
                         </div>
                       </TableCell>
@@ -525,7 +545,7 @@ export default function AttendancePage() {
                             {(session.total_break_minutes || 0)}m
                           </div>
                           {session.breaks && session.breaks.length > 0 && (
-                            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter opacity-60">
+                            <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-tighter opacity-60">
                               {session.breaks.filter(b => b.ended_at).map(b => `${b.break_type[0].toUpperCase()}: ${b.duration_minutes}m`).join(', ')}
                             </div>
                           )}
@@ -543,23 +563,23 @@ export default function AttendancePage() {
                             <Badge className="bg-amber-50 text-amber-600 border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Early</Badge>
                           )}
                           {session.is_corrected && (
-                            <Badge className="bg-slate-100 text-slate-600 border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Audit</Badge>
+                            <Badge className="bg-slate-100 text-slate-600 border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Adjusted</Badge>
                           )}
                           {!session.is_late_login && !session.is_early_logout && !session.is_corrected && (
-                            <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest opacity-40">Zero</span>
+                            <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest opacity-40">None</span>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="text-right pr-10">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-slate-900 rounded-xl transition-all">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl transition-all">
                               <MoreVertical className="h-5 w-5" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-56 rounded-[1.5rem] shadow-premium-lg border-slate-100 p-2">
+                          <DropdownMenuContent align="end" className="w-56 rounded-[1.5rem] shadow-[var(--shadow-card)] border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-2">
                             <DropdownMenuItem
-                              className="text-indigo-600 focus:text-indigo-700 font-black text-[10px] uppercase tracking-[0.1em] cursor-pointer rounded-xl h-12"
+                              className="text-[var(--accent-primary)] focus:text-[var(--accent-primary)] font-black text-[10px] uppercase tracking-[0.1em] cursor-pointer rounded-xl h-12"
                               onClick={() => setCorrectionDialog({ isOpen: true, sessionId: session.id })}
                               disabled={session.correction_requested}
                             >
@@ -579,83 +599,126 @@ export default function AttendancePage() {
 
       {/* Correction Dialog */}
       <Dialog open={correctionDialog.isOpen} onOpenChange={(open) => setCorrectionDialog(prev => ({ ...prev, isOpen: open }))}>
-        <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-premium-lg p-10 animate-in zoom-in-95 duration-300">
+        <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)] animate-in zoom-in-95 duration-300">
           <DialogHeader className="space-y-4">
-            <div className="h-16 w-16 rounded-3xl bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-inner mb-2">
+            <div className="h-16 w-16 rounded-3xl bg-indigo-50 flex items-center justify-center text-[var(--accent-primary)] shadow-inner mb-2">
               <ShieldCheck className="h-8 w-8" />
             </div>
-            <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">Attendance Correction</DialogTitle>
-            <DialogDescription className="text-base font-bold text-slate-500 leading-relaxed">
-              Submit a formal request to modify this session log. Provide detailed governance justification for administrative review.
+            <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Attendance Correction Request</DialogTitle>
+            <DialogDescription className="text-base font-bold text-[var(--text-muted)] leading-relaxed">
+              Submit a request to adjust this session. Please provide a reason for the adjustment.
             </DialogDescription>
           </DialogHeader>
           <div className="py-8">
-            <Label htmlFor="reason" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 block ml-1">Correction Justification</Label>
+            <Label htmlFor="reason" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-4 block ml-1">Adjustment Reason</Label>
             <Textarea
               id="reason"
-              className="min-h-[160px] border-slate-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 rounded-2xl bg-slate-50/50 font-bold text-sm leading-relaxed p-6 resize-none transition-all"
+              className="min-h-[160px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm leading-relaxed p-6 resize-none transition-all"
               value={correctionReason}
               onChange={(e) => setCorrectionReason(e.target.value)}
-              placeholder="Explain why the session ledger requires amendment (e.g., technical failure, manual oversight, external disruption)..."
+              placeholder="Provide a reason for this request..."
             />
           </div>
           <DialogFooter className="gap-4 flex sm:flex-row flex-col">
-            <Button variant="ghost" className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all flex-1" onClick={() => setCorrectionDialog({ isOpen: false, sessionId: '' })}>Discard Request</Button>
+            <Button variant="ghost" className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1" onClick={() => setCorrectionDialog({ isOpen: false, sessionId: '' })}>Cancel</Button>
             <Button
-              className="h-14 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-widest rounded-2xl px-12 shadow-xl shadow-indigo-100 transition-all active:scale-95 flex-1"
+              className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl px-12 shadow-xl transition-all active:scale-95 flex-1 border-none"
               onClick={handleCorrectionSubmit}
               disabled={isActionLoading}
             >
               {isActionLoading && <Loader2 className="mr-3 h-4 w-4 animate-spin" />}
-              Commit Request
+              Submit Request
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Early Checkout Reason Dialog */}
+      <Dialog open={earlyCheckoutDialog.isOpen} onOpenChange={(open) => setEarlyCheckoutDialog({ isOpen: open })}>
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] max-h-[90vh] overflow-y-auto p-0 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="h-3 bg-gradient-to-r from-red-400 to-rose-600 w-full" />
+          <div className="p-12">
+            <DialogHeader className="space-y-4">
+              <div className="h-16 w-16 rounded-3xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner mb-2 ring-4 ring-rose-50/50">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
+                Early Checkout Reason
+              </DialogTitle>
+              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] leading-relaxed uppercase tracking-tight">
+                You are checking out before your scheduled shift end time. Please provide a reason.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-8 py-10">
+              <div className="space-y-4">
+                <Label htmlFor="early-note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason for early checkout</Label>
+                <Textarea
+                  id="early-note"
+                  placeholder="Provide a reason for checking out early..."
+                  className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm p-6 resize-none transition-all"
+                  value={earlyCheckoutReason}
+                  onChange={(e) => setEarlyCheckoutReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-4 flex sm:flex-row flex-col">
+              <Button variant="ghost" className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1" onClick={() => setEarlyCheckoutDialog({ isOpen: false })}>Cancel</Button>
+              <Button
+                className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 flex-1 border-none"
+                disabled={isActionLoading || earlyCheckoutReason.trim().length < 5}
+                onClick={() => performCheckOut({ early_checkout_reason: earlyCheckoutReason })}
+              >
+                {isActionLoading && <Loader2 className="mr-3 h-5 w-5 animate-spin" />}
+                Submit Checkout
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Checkout Justification Dialog */}
       <Dialog open={checkoutDialog.isOpen} onOpenChange={(open) => setCheckoutDialog({ isOpen: open })}>
-        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-premium-lg overflow-hidden p-0 animate-in slide-in-from-bottom-8 duration-500">
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] overflow-hidden p-0 animate-in slide-in-from-bottom-8 duration-500">
           <div className="h-3 bg-gradient-to-r from-amber-400 to-orange-500 w-full" />
           <div className="p-12">
             <DialogHeader className="space-y-4">
               <div className="h-16 w-16 rounded-3xl bg-amber-50 flex items-center justify-center text-amber-500 shadow-inner mb-2 ring-4 ring-amber-50/50">
                 <AlertCircle className="h-8 w-8" />
               </div>
-              <DialogTitle className="text-3xl font-black text-slate-900 tracking-tighter">
-                Overtime Protocol
+              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
+                Overtime Justification
               </DialogTitle>
-              <DialogDescription className="text-sm font-bold text-slate-500 leading-relaxed uppercase tracking-tight">
-                Session activity detected after scheduled shift end ({currentUser?.shift_timing?.split(' - ')[1] || '2:00 AM PKT'}). Governance justification required.
+              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] leading-relaxed uppercase tracking-tight">
+                You are checking out after your shift has ended. Please provide a reason.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-8 py-10">
               <div className="space-y-4">
-                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Overtime Categorization</Label>
+                <Label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason Type</Label>
                 <RadioGroup value={checkoutReason} onValueChange={(val: 'overtime' | 'forgot_checkout') => setCheckoutReason(val)} className="flex flex-col gap-3">
                   <div className={cn(
                     "flex items-center space-x-4 p-5 rounded-2xl border transition-all cursor-pointer group",
-                    checkoutReason === 'overtime' ? "bg-indigo-50 border-indigo-200 shadow-sm ring-4 ring-indigo-50/50" : "bg-white border-slate-100 hover:bg-slate-50"
+                    checkoutReason === 'overtime' ? "bg-indigo-50 border-indigo-200 shadow-sm ring-4 ring-indigo-50/50" : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
                   )} onClick={() => setCheckoutReason('overtime')}>
-                    <RadioGroupItem value="overtime" id="overtime" className="h-5 w-5 text-indigo-600" />
-                    <Label htmlFor="overtime" className="flex-1 font-black text-slate-700 cursor-pointer text-sm">Execution Overtime (Business Requirement)</Label>
+                    <RadioGroupItem value="overtime" id="overtime" className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <Label htmlFor="overtime" className="flex-1 font-black text-[var(--text-secondary)] cursor-pointer text-sm">Overtime Work (Business Requirement)</Label>
                   </div>
                   <div className={cn(
                     "flex items-center space-x-4 p-5 rounded-2xl border transition-all cursor-pointer group",
-                    checkoutReason === 'forgot_checkout' ? "bg-amber-50 border-amber-200 shadow-sm ring-4 ring-amber-50/50" : "bg-white border-slate-100 hover:bg-slate-50"
+                    checkoutReason === 'forgot_checkout' ? "bg-amber-50 border-amber-200 shadow-sm ring-4 ring-amber-50/50" : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
                   )} onClick={() => setCheckoutReason('forgot_checkout')}>
                     <RadioGroupItem value="forgot_checkout" id="forgot_checkout" className="h-5 w-5 text-amber-600" />
-                    <Label htmlFor="forgot_checkout" className="flex-1 font-black text-slate-700 cursor-pointer text-sm">Temporal Drift / Terminal Oversight</Label>
+                    <Label htmlFor="forgot_checkout" className="flex-1 font-black text-[var(--text-secondary)] cursor-pointer text-sm">Forgot to check out</Label>
                   </div>
                 </RadioGroup>
               </div>
 
               <div className="space-y-4">
-                <Label htmlFor="note" className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Internal Justification</Label>
+                <Label htmlFor="note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Explanation Notes</Label>
                 <Textarea
                   id="note"
-                  placeholder="Provide objective context for the overtime duration..."
-                  className="min-h-[120px] border-slate-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 rounded-2xl bg-slate-50/50 font-bold text-sm p-6 resize-none transition-all"
+                  placeholder="Provide a reason for this request..."
+                  className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm p-6 resize-none transition-all"
                   value={checkoutNote}
                   onChange={(e) => setCheckoutNote(e.target.value)}
                 />
@@ -663,12 +726,12 @@ export default function AttendancePage() {
             </div>
             <DialogFooter>
               <Button
-                className="w-full h-16 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 mt-4"
+                className="w-full h-16 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 mt-4 border-none"
                 disabled={isActionLoading || !checkoutNote.trim()}
                 onClick={() => performCheckOut({ checkout_after_shift_reason: checkoutReason, checkout_after_shift_note: checkoutNote })}
               >
                 {isActionLoading && <Loader2 className="mr-3 h-5 w-5 animate-spin" />}
-                Commit Final Check Out
+                Check Out
               </Button>
             </DialogFooter>
           </div>
@@ -677,4 +740,3 @@ export default function AttendancePage() {
     </div>
   );
 }
-

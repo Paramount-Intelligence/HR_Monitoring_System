@@ -31,7 +31,6 @@ export default function AdminDashboardPage() {
     setError(false);
     try {
       const analytics = await dashboardApi.getAdminAnalytics();
-      // Ensure data is valid before setting
       if (!analytics || !analytics.kpis) {
         throw new Error('Malformed analytics data');
       }
@@ -55,19 +54,19 @@ export default function AdminDashboardPage() {
   if (error || !data) {
     return (
       <div className="flex h-[80vh] w-full items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-6 text-center max-w-sm p-10 bg-white rounded-[2.5rem] shadow-premium-lg border border-slate-100">
+        <div className="flex flex-col items-center gap-6 text-center max-w-sm p-10 bg-[var(--bg-surface)] rounded-[2.5rem] shadow-[var(--shadow-card)] border border-[var(--border-default)]">
           <div className="h-20 w-20 rounded-full bg-rose-50 flex items-center justify-center ring-8 ring-rose-50/50">
             <AlertTriangle className="h-10 w-10 text-rose-500" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Intelligence Offline</h2>
-            <p className="text-sm text-slate-500 font-medium leading-relaxed">
+            <h2 className="text-2xl font-extrabold text-[var(--text-primary)] tracking-tight">Analytics Offline</h2>
+            <p className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed">
               We encountered a disruption while aggregating organizational insights. Please verify your connection or try again.
             </p>
           </div>
           <Button 
             onClick={loadData} 
-            className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95"
+            className="w-full h-12 bg-[var(--text-primary)] hover:opacity-90 text-[var(--bg-surface)] font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95"
           >
             <RefreshCcw className="mr-2 h-4 w-4" /> Retry Connection
           </Button>
@@ -86,18 +85,17 @@ export default function AdminDashboardPage() {
     recent_activity
   } = data;
 
-  // Formatting Task Data for Donut Chart - Null safe
   const taskData = [
     { name: 'Completed', value: task_statistics?.completed || 0, color: '#10b981' }, 
-    { name: 'In Progress', value: task_statistics?.in_progress || 0, color: '#4f46e5' }, 
+    { name: 'In Progress', value: task_statistics?.in_progress || 0, color: 'var(--accent-primary)' }, 
     { name: 'Pending', value: task_statistics?.pending || 0, color: '#f59e0b' }, 
-    { name: 'On Hold', value: task_statistics?.on_hold || 0, color: '#64748b' }, 
+    { name: 'On Hold', value: task_statistics?.on_hold || 0, color: 'var(--text-muted)' }, 
     { name: 'Blocked', value: task_statistics?.rejected || 0, color: '#ef4444' }, 
   ].filter(d => d.value > 0);
 
   const stats = [
     {
-      title: 'Global Workforce',
+      title: 'Total Employees',
       value: kpis.total_employees || 0,
       sub: `${kpis.checked_in_today || 0} Present Now`,
       icon: Users,
@@ -107,21 +105,21 @@ export default function AdminDashboardPage() {
     {
       title: 'Active Projects',
       value: kpis.total_projects || 0,
-      sub: `${project_statistics?.active || 0} In Execution`,
+      sub: `${project_statistics?.active || 0} In Progress`,
       icon: Briefcase,
       trend: `${project_statistics?.pending || 0} Pending`,
       gradient: 'from-emerald-500 to-teal-600'
     },
     {
-      title: 'Pending Actions',
+      title: 'Pending Approvals',
       value: kpis.pending_approvals || 0,
       sub: kpis.pending_approvals > 5 ? 'High Volume' : 'Under Control',
       icon: Activity,
-      trend: 'Awaiting Decision',
+      trend: 'Awaiting Action',
       gradient: kpis.pending_approvals > 10 ? 'from-rose-500 to-orange-600' : 'from-slate-700 to-slate-900'
     },
     {
-      title: 'Late Arrivals',
+      title: 'Late Today',
       value: kpis.late_today || 0,
       sub: `${kpis.wfh_today || 0} Working Remotely`,
       icon: Clock,
@@ -131,22 +129,22 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-indigo-600 mb-1.5">
-            <div className="h-2 w-2 rounded-full bg-indigo-600 animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Administrative Command Center</span>
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
+            <div className="h-2 w-2 rounded-full bg-[var(--accent-primary)] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">PIMS Admin Overview</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Admin Dashboard</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Governance & Execution Layer</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Admin Dashboard</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Governance & Operational Analytics</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="h-10 px-4 rounded-xl border-slate-200 font-bold text-slate-600 hover:bg-slate-50 shadow-sm transition-all active:scale-95">
+          <Button variant="outline" size="sm" className="h-10 px-4 rounded-xl border-[var(--border-default)] font-bold text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] shadow-sm transition-all active:scale-95">
             <Filter className="mr-2 h-4 w-4" /> Filters
           </Button>
-          <Button size="sm" className="h-10 px-4 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all active:scale-95">
+          <Button size="sm" className="h-10 px-4 rounded-xl bg-[var(--accent-primary)] text-white font-bold hover:opacity-90 shadow-lg shadow-indigo-100 transition-all active:scale-95" onClick={loadData}>
             <RefreshCcw className="mr-2 h-4 w-4" /> Refresh Data
           </Button>
         </div>
@@ -155,20 +153,20 @@ export default function AdminDashboardPage() {
       {/* KPI Row */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
-          <Card key={i} className="relative overflow-hidden border-none shadow-premium rounded-[2rem] group hover:shadow-premium-lg transition-all duration-500 bg-white p-1">
+          <Card key={i} className="relative overflow-hidden border-none shadow-[var(--shadow-soft)] rounded-[2rem] group hover:shadow-[var(--shadow-card)] transition-all duration-500 bg-[var(--bg-surface)] p-1">
             <div className={cn("absolute inset-0 bg-gradient-to-br opacity-[0.03] group-hover:opacity-[0.06] transition-opacity duration-500", stat.gradient)} />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 pt-6 px-7">
-              <CardTitle className="text-[10px] font-black text-slate-400 uppercase tracking-[0.15em]">{stat.title}</CardTitle>
+              <CardTitle className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.15em]">{stat.title}</CardTitle>
               <div className={cn("h-10 w-10 rounded-2xl flex items-center justify-center text-white shadow-lg transition-transform group-hover:scale-110 duration-500", stat.gradient)}>
                 <stat.icon className="h-5 w-5" />
               </div>
             </CardHeader>
             <CardContent className="px-7 pb-8">
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-slate-900 tracking-tighter">{stat.value}</span>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{stat.trend}</span>
+                <span className="text-4xl font-black text-[var(--text-primary)] tracking-tighter">{stat.value}</span>
+                <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">{stat.trend}</span>
               </div>
-              <p className="text-[11px] font-bold text-slate-500 mt-2.5 flex items-center gap-2">
+              <p className="text-[11px] font-bold text-[var(--text-secondary)] mt-2.5 flex items-center gap-2">
                 <span className={cn(
                   "h-1.5 w-1.5 rounded-full",
                   stat.sub === 'Requires attention' || stat.sub === 'High Volume' ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'
@@ -184,18 +182,18 @@ export default function AdminDashboardPage() {
       <div className="grid gap-8 lg:grid-cols-12">
         
         {/* Left: Attendance Trend */}
-        <Card className="lg:col-span-8 border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden group">
-          <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
+        <Card className="lg:col-span-8 border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden group">
+          <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <CardTitle className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                  Attendance Dynamics
-                  <ArrowUpRight className="h-4 w-4 text-indigo-500 opacity-0 group-hover:opacity-100 transition-all" />
+                <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2">
+                  Attendance History
+                  <ArrowUpRight className="h-4 w-4 text-[var(--accent-primary)] opacity-0 group-hover:opacity-100 transition-all" />
                 </CardTitle>
-                <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">7-Day Organizational Velocity</CardDescription>
+                <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">7-Day Organizational Velocity</CardDescription>
               </div>
-              <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl">
-                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-slate-400 hover:text-slate-900 transition-colors"><MoreHorizontal className="h-4 w-4" /></Button>
+              <div className="flex items-center gap-2 bg-[var(--bg-subtle)] p-1 rounded-xl">
+                <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"><MoreHorizontal className="h-4 w-4" /></Button>
               </div>
             </div>
           </CardHeader>
@@ -205,28 +203,28 @@ export default function AdminDashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={attendance_trend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />
                   <XAxis 
                     dataKey="date" 
                     tickFormatter={(val) => format(parseISO(val), 'MMM d')}
                     axisLine={false}
                     tickLine={false}
-                    tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
+                    tick={{fontSize: 10, fill: 'var(--text-muted)', fontWeight: 800}}
                     dy={15}
                   />
                   <YAxis 
                     axisLine={false}
                     tickLine={false}
-                    tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
+                    tick={{fontSize: 10, fill: 'var(--text-muted)', fontWeight: 800}}
                     dx={-10}
                   />
                   <RechartsTooltip 
-                    contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px'}}
-                    labelStyle={{fontWeight: 900, color: '#0f172a', marginBottom: '8px', fontSize: '12px'}}
+                    contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.15)', padding: '16px', background: 'var(--bg-surface)'}}
+                    labelStyle={{fontWeight: 900, color: 'var(--text-primary)', marginBottom: '8px', fontSize: '12px'}}
                     itemStyle={{fontSize: '11px', fontWeight: 700}}
                   />
                   <Legend iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', paddingTop: '30px'}} />
-                  <Line type="monotone" name="Present" dataKey="checked_in" stroke="#4f46e5" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
+                  <Line type="monotone" name="Present" dataKey="checked_in" stroke="var(--accent-primary)" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
                   <Line type="monotone" name="Late" dataKey="late" stroke="#f59e0b" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
                   <Line type="monotone" name="Absent" dataKey="absent" stroke="#ef4444" strokeWidth={4} dot={{r: 4, strokeWidth: 3, fill: '#fff'}} activeDot={{r: 6, strokeWidth: 0}} />
                 </LineChart>
@@ -236,10 +234,10 @@ export default function AdminDashboardPage() {
         </Card>
 
         {/* Right: Task Donut */}
-        <Card className="lg:col-span-4 border-none shadow-premium bg-white rounded-[2.5rem] flex flex-col group">
-          <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
-            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Execution Hub</CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aggregate Task Distribution</CardDescription>
+        <Card className="lg:col-span-4 border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] flex flex-col group">
+          <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
+            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Task Overview</CardTitle>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Aggregate Task Distribution</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 min-h-[380px] p-8 pt-10 relative">
             {taskData.length === 0 ? (
@@ -247,8 +245,8 @@ export default function AdminDashboardPage() {
             ) : (
               <>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-12">
-                  <span className="text-5xl font-black text-slate-900 tracking-tighter">{task_statistics?.total || 0}</span>
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Total Unit Focus</span>
+                  <span className="text-5xl font-black text-[var(--text-primary)] tracking-tighter">{task_statistics?.total || 0}</span>
+                  <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mt-1">Total Active Focus</span>
                 </div>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -267,7 +265,7 @@ export default function AdminDashboardPage() {
                       ))}
                     </Pie>
                     <RechartsTooltip 
-                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px'}}
+                      contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', padding: '12px', background: 'var(--bg-surface)'}}
                     />
                     <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: '20px'}} />
                   </PieChart>
@@ -282,11 +280,11 @@ export default function AdminDashboardPage() {
       <div className="grid gap-8 lg:grid-cols-12">
         
         {/* Left: People Exceptions */}
-        <Card className="lg:col-span-5 border-none shadow-premium bg-white rounded-[2.5rem] flex flex-col">
-          <CardHeader className="px-8 pt-8 pb-6 border-b border-slate-50/50 flex flex-row items-center justify-between">
+        <Card className="lg:col-span-5 border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] flex flex-col">
+          <CardHeader className="px-8 pt-8 pb-6 border-b border-[var(--border-subtle)] flex flex-row items-center justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Focus Protocol</CardTitle>
-              <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Late or Absent Intelligence</CardDescription>
+              <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Task Focus</CardTitle>
+              <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Late or Absent Employees</CardDescription>
             </div>
             {people_exceptions?.length > 0 && (
               <div className="h-8 w-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-black text-xs ring-4 ring-rose-50/50">
@@ -301,14 +299,14 @@ export default function AdminDashboardPage() {
                   <CheckCircle2 className="h-8 w-8" />
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-black text-slate-900 uppercase tracking-tight">Full Compliance</p>
-                  <p className="text-xs font-bold text-slate-400 tracking-wide">All active units are accounted for today.</p>
+                  <p className="text-sm font-black text-[var(--text-primary)] uppercase tracking-tight">Full Compliance</p>
+                  <p className="text-xs font-bold text-[var(--text-muted)] tracking-wide">All active employees are accounted for today.</p>
                 </div>
               </div>
             ) : (
-              <div className="divide-y divide-slate-50/50">
+              <div className="divide-y divide-[var(--border-subtle)]">
                 {people_exceptions.map((person: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between px-8 py-5 hover:bg-slate-50/30 transition-all duration-300 group">
+                  <div key={idx} className="flex items-center justify-between px-8 py-5 hover:bg-[var(--bg-subtle)] transition-all duration-300 group">
                     <div className="flex items-center gap-4">
                       <div className={cn(
                         "flex h-12 w-12 items-center justify-center rounded-2xl text-white shadow-lg group-hover:scale-105 transition-transform",
@@ -317,8 +315,8 @@ export default function AdminDashboardPage() {
                         {person.status === 'Absent' ? <CalendarX className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
                       </div>
                       <div className="space-y-0.5">
-                        <p className="text-sm font-black text-slate-900 tracking-tight">{person.employee_name}</p>
-                        <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1.5 uppercase tracking-wider">
+                        <p className="text-sm font-black text-[var(--text-primary)] tracking-tight">{person.employee_name}</p>
+                        <p className="text-[10px] font-bold text-[var(--text-muted)] flex items-center gap-1.5 uppercase tracking-wider">
                           <Building className="h-3 w-3" /> {person.department_name || 'Organization'}
                         </p>
                       </div>
@@ -330,7 +328,7 @@ export default function AdminDashboardPage() {
                       )}>
                         {person.status}
                       </Badge>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter leading-none opacity-80">{person.details}</p>
+                      <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter leading-none opacity-80">{person.details}</p>
                     </div>
                   </div>
                 ))}
@@ -340,10 +338,10 @@ export default function AdminDashboardPage() {
         </Card>
 
         {/* Right: Department Performance */}
-        <Card className="lg:col-span-7 border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden group">
-          <CardHeader className="px-8 pt-8 pb-4 border-b border-slate-50/50">
-            <CardTitle className="text-xl font-black text-slate-900 tracking-tight">Unit Comparison</CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Attendance Efficiency by Department</CardDescription>
+        <Card className="lg:col-span-7 border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden group">
+          <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
+            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Department Comparison</CardTitle>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Attendance Efficiency by Department</CardDescription>
           </CardHeader>
           <CardContent className="h-[460px] p-8 pt-10">
             {department_comparison?.length === 0 ? (
@@ -351,32 +349,32 @@ export default function AdminDashboardPage() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={department_comparison} margin={{ top: 0, right: 30, left: -10, bottom: 0 }} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="var(--border-subtle)" />
                   <XAxis 
                     type="number"
                     domain={[0, 100]}
                     axisLine={false}
                     tickLine={false}
-                    tick={{fontSize: 10, fill: '#94a3b8', fontWeight: 800}}
+                    tick={{fontSize: 10, fill: 'var(--text-muted)', fontWeight: 800}}
                   />
                   <YAxis 
                     type="category"
                     dataKey="department_name" 
                     axisLine={false}
                     tickLine={false}
-                    tick={{fontSize: 11, fill: '#475569', fontWeight: 800}}
+                    tick={{fontSize: 11, fill: 'var(--text-secondary)', fontWeight: 800}}
                     width={110}
                   />
                   <RechartsTooltip 
-                    cursor={{fill: '#f8fafc', radius: 12}}
-                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px'}}
+                    cursor={{fill: 'var(--bg-subtle)', radius: 12}}
+                    contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)', fontSize: '12px', background: 'var(--bg-surface)'}}
                     formatter={(value: number) => [`${value}%`, 'Attendance Rate']}
                   />
                   <Bar dataKey="attendance_rate" radius={[0, 10, 10, 0]} barSize={28}>
                     {department_comparison.map((entry: any, index: number) => (
                       <Cell 
                         key={`cell-${index}`} 
-                        fill={entry.attendance_rate < 80 ? '#f43f5e' : entry.attendance_rate < 95 ? '#4f46e5' : '#10b981'} 
+                        fill={entry.attendance_rate < 80 ? '#f43f5e' : entry.attendance_rate < 95 ? 'var(--accent-primary)' : '#10b981'} 
                         fillOpacity={0.9}
                       />
                     ))}
@@ -389,23 +387,23 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Bottom Row: Recent Activity Feed */}
-      <Card className="border-none shadow-premium bg-white rounded-[3rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-slate-50/50 flex flex-row items-center justify-between">
+      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[3rem] overflow-hidden">
+        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)] flex flex-row items-center justify-between">
           <div className="space-y-1">
-            <CardTitle className="text-2xl font-black text-slate-900 tracking-tight">Organizational Ledger</CardTitle>
-            <CardDescription className="text-xs font-bold text-slate-400 uppercase tracking-widest">Latest System Events & Broadcasts</CardDescription>
+            <CardTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tight">System Logs</CardTitle>
+            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Latest Organizational Events & Updates</CardDescription>
           </div>
-          <Button variant="ghost" size="sm" className="font-black text-[10px] uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 px-4 h-9 rounded-xl transition-all">View All Logs</Button>
+          <Button variant="ghost" size="sm" className="font-black text-[10px] uppercase tracking-widest text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] px-4 h-9 rounded-xl transition-all">View All Logs</Button>
         </CardHeader>
         <CardContent className="p-0">
           {recent_activity?.length === 0 ? (
-            <div className="p-20 text-center text-sm font-bold text-slate-400 uppercase tracking-widest">No recent system activity.</div>
+            <div className="p-20 text-center text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest">No recent system activity.</div>
           ) : (
-            <div className="divide-y divide-slate-50/50">
+            <div className="divide-y divide-[var(--border-subtle)]">
               {recent_activity.map((act: any, idx: number) => {
                 const isAlert = act.title.toLowerCase().includes('alert');
                 return (
-                  <div key={idx} className="px-10 py-7 hover:bg-slate-50/30 transition-all duration-500 flex gap-6 items-start group">
+                  <div key={idx} className="px-10 py-7 hover:bg-[var(--bg-subtle)] transition-all duration-500 flex gap-6 items-start group">
                     <div className="mt-1 flex-shrink-0">
                       {isAlert ? (
                         <div className="p-3 bg-rose-50 text-rose-500 rounded-2xl shadow-sm ring-1 ring-rose-100 group-hover:scale-110 transition-transform"><AlertTriangle className="h-5 w-5" /></div>
@@ -415,12 +413,12 @@ export default function AdminDashboardPage() {
                     </div>
                     <div className="space-y-1.5 flex-1">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-base font-black text-slate-900 tracking-tight">{act.title.replace('Alert: ', '').replace('Announcement: ', '')}</h4>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 opacity-80">
-                          {act.created_at ? format(parseISO(act.created_at), 'MMM d, yyyy • h:mm a') : 'Temporal Stamp Missing'}
+                        <h4 className="text-base font-black text-[var(--text-primary)] tracking-tight">{act.title.replace('Alert: ', '').replace('Announcement: ', '')}</h4>
+                        <span className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] opacity-80">
+                          {act.created_at ? format(parseISO(act.created_at), 'MMM d, yyyy • h:mm a') : 'Date Stamp Missing'}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-500 font-medium leading-relaxed max-w-4xl">{act.description}</p>
+                      <p className="text-sm text-[var(--text-secondary)] font-medium leading-relaxed max-w-4xl">{act.description}</p>
                     </div>
                   </div>
                 );
@@ -436,10 +434,10 @@ export default function AdminDashboardPage() {
 function EmptyState({ message }: { message: string }) {
   return (
     <div className="h-full flex flex-col items-center justify-center gap-3 text-center animate-in fade-in zoom-in duration-500">
-      <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300">
+      <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)]">
         <Info className="h-6 w-6" />
       </div>
-      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-[200px] leading-relaxed">{message}</p>
+      <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest max-w-[200px] leading-relaxed">{message}</p>
     </div>
   );
 }

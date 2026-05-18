@@ -40,12 +40,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/60 bg-white/70 backdrop-blur-xl px-4 sm:px-8">
+      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-surface)]/80 backdrop-blur-xl px-4 sm:px-8 transition-colors duration-300">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
             size="icon" 
-            className="md:hidden text-slate-500 hover:text-slate-900 hover:bg-slate-100" 
+            className="md:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)]" 
             onClick={onMenuToggle}
           >
             <Menu className="h-5 w-5" />
@@ -57,53 +57,53 @@ export function Header({ onMenuToggle }: HeaderProps) {
           </div>
 
           <div className="flex items-center md:hidden gap-2">
-            <div className="flex items-center justify-center h-8 w-8 rounded-lg overflow-hidden shrink-0 bg-white border border-slate-200 shadow-sm">
-              <img src="/logo.png" alt="Logo" className="h-full w-full object-contain p-1" />
+            <div className="flex items-center justify-center h-8 w-8 rounded-lg overflow-hidden shrink-0 bg-[var(--bg-elevated)] border border-[var(--border-default)] shadow-[var(--shadow-soft)]">
+              <img src="/logo.png" alt="PIMS Logo" className="h-full w-full object-contain p-1" />
             </div>
-            <span className="font-bold text-slate-900 tracking-tight text-sm">Paramount</span>
+            <span className="font-extrabold text-[var(--text-primary)] tracking-tight text-sm">PIMS</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-8">
+        <div className="flex items-center gap-4 sm:gap-6">
           <HeaderTimer />
 
-          <div className="h-6 w-px bg-slate-200/60 hidden sm:block" />
+          <div className="h-6 w-px bg-[var(--border-default)] hidden sm:block" />
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="group relative flex items-center gap-3 rounded-full py-1 pl-1 pr-3 hover:bg-slate-100/80 transition-all focus:outline-none ring-1 ring-transparent hover:ring-slate-200">
-                <Avatar className="h-8 w-8 border-2 border-white shadow-sm ring-1 ring-slate-200 group-hover:ring-indigo-300 transition-all">
-                  <AvatarFallback className="bg-slate-900 text-[10px] font-black text-white">
+            <DropdownMenuTrigger className="group relative flex items-center gap-3 rounded-full py-1 pl-1 pr-3 hover:bg-[var(--bg-subtle)] transition-all focus:outline-none ring-1 ring-transparent hover:ring-[var(--border-default)]">
+                <Avatar className="h-8 w-8 border-2 border-[var(--bg-elevated)] shadow-sm ring-1 ring-[var(--border-default)] group-hover:ring-[var(--accent-primary)] transition-all">
+                  <AvatarFallback className="bg-[var(--text-secondary)] text-[10px] font-black text-white">
                     {user ? getInitials(user.full_name) : 'U'}
                   </AvatarFallback>
                 </Avatar>
                 <div className="hidden sm:flex flex-col items-start leading-none">
-                  <span className="text-xs font-bold text-slate-900 truncate max-w-[100px]">
+                  <span className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[100px]">
                     {user?.full_name?.split(' ')[0]}
                   </span>
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                  <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest mt-0.5">
                     {user?.role?.replace('_', ' ')}
                   </span>
                 </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64 mt-2 p-1.5 rounded-2xl shadow-premium-lg border-slate-200/60 backdrop-blur-xl bg-white/95" align="end">
+            <DropdownMenuContent className="w-64 mt-2 p-1.5 rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border-default)] backdrop-blur-xl bg-[var(--bg-elevated)] text-[var(--text-primary)]" align="end">
               <DropdownMenuGroup>
                 <DropdownMenuLabel className="font-normal p-3">
                   <div className="flex flex-col space-y-1.5">
-                    <p className="text-sm font-bold leading-none text-slate-900">{user?.full_name}</p>
-                    <p className="text-[11px] font-medium text-slate-500 truncate flex items-center gap-1.5">
-                      <span className="h-1 w-1 rounded-full bg-emerald-500" />
+                    <p className="text-sm font-bold leading-none text-[var(--text-primary)]">{user?.full_name}</p>
+                    <p className="text-[11px] font-semibold text-[var(--text-secondary)] truncate flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--status-success-text)] animate-pulse" />
                       {user?.email || 'Active Session'}
                     </p>
                   </div>
                 </DropdownMenuLabel>
               </DropdownMenuGroup>
-              <DropdownMenuSeparator className="bg-slate-100" />
+              <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
 
               <DropdownMenuItem 
                 onClick={() => setShowLogoutDialog(true)} 
-                className="text-rose-600 focus:text-rose-600 focus:bg-rose-50 m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3 group"
+                className="text-[var(--status-danger-text)] focus:text-[var(--status-danger-text)] focus:bg-[var(--status-danger-bg)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3 group flex items-center gap-2 transition-colors duration-150"
               >
-                <LogOut className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+                <LogOut className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
                 <span>Sign Out Account</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

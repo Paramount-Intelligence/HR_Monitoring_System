@@ -41,68 +41,68 @@ export default function ManagerLeavesPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'APPROVED': return <Badge className="bg-emerald-100 text-emerald-800">Approved</Badge>;
-      case 'REJECTED': return <Badge variant="destructive">Rejected</Badge>;
-      case 'PENDING': return <Badge className="bg-amber-100 text-amber-800">Pending</Badge>;
-      default: return <Badge variant="secondary">{status}</Badge>;
+      case 'APPROVED': return <Badge className="bg-emerald-50 text-emerald-600 border-emerald-100 font-bold text-[10px] uppercase tracking-wider">Approved</Badge>;
+      case 'REJECTED': return <Badge variant="destructive" className="font-bold text-[10px] uppercase tracking-wider">Rejected</Badge>;
+      case 'PENDING': return <Badge className="bg-amber-50 text-amber-600 border-amber-100 font-bold text-[10px] uppercase tracking-wider">Pending</Badge>;
+      default: return <Badge variant="secondary" className="font-bold text-[10px] uppercase tracking-wider">{status}</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[var(--text-primary)]">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Leave Approvals</h1>
-        <p className="text-sm text-slate-500">Review and manage your team's time-off requests.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Leave Requests</h1>
+        <p className="text-sm text-[var(--text-secondary)]">Review and resolve employee leave and time-off requests</p>
       </div>
 
-      <Card className="border-none shadow-sm">
+      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-xl overflow-hidden text-[var(--text-primary)]">
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
             </div>
           ) : (
             <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Dates</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+              <TableHeader className="bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+                <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)]">
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Employee</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Type</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Dates</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Reason</TableHead>
+                  <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Status</TableHead>
+                  <TableHead className="text-right font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {leaves.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-slate-500 italic">
+                    <TableCell colSpan={6} className="text-center py-12 text-[var(--text-muted)] italic font-medium">
                       No leave requests to review.
                     </TableCell>
                   </TableRow>
                 ) : (
                   leaves.map((leave) => (
-                    <TableRow key={leave.id}>
-                      <TableCell className="font-medium text-slate-900">{leave.user_name || 'Team Member'}</TableCell>
-                      <TableCell className="capitalize text-slate-600">{leave.leave_type.replace('_', ' ')}</TableCell>
-                      <TableCell className="text-slate-600 text-xs">
+                    <TableRow key={leave.id} className="hover:bg-[var(--bg-subtle)]/50 border-b border-[var(--border-subtle)] last:border-0 text-[var(--text-primary)]">
+                      <TableCell className="font-bold text-[var(--text-primary)] px-6 py-4">{leave.user_name || 'Team Member'}</TableCell>
+                      <TableCell className="capitalize text-[var(--text-secondary)] font-medium px-6 py-4">{leave.leave_type.replace('_', ' ')}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)] font-medium text-xs px-6 py-4">
                         {format(new Date(leave.start_date), 'MMM d')} - {format(new Date(leave.end_date), 'MMM d, yyyy')}
                       </TableCell>
-                      <TableCell className="text-slate-600 max-w-[200px] truncate">{leave.reason}</TableCell>
-                      <TableCell>{getStatusBadge(leave.status)}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-[var(--text-secondary)] font-medium max-w-[200px] truncate px-6 py-4">{leave.reason}</TableCell>
+                      <TableCell className="px-6 py-4">{getStatusBadge(leave.status)}</TableCell>
+                      <TableCell className="text-right px-6 py-4">
                         {leave.status === 'PENDING' && (
                           <div className="flex justify-end gap-1">
                             <Button 
                               variant="ghost" size="icon" 
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8"
+                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8 rounded-lg"
                               onClick={() => handleAction(leave.id, 'APPROVED')}
                             >
                               <Check className="h-4 w-4" />
                             </Button>
                             <Button 
                               variant="ghost" size="icon" 
-                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8"
+                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 h-8 w-8 rounded-lg"
                               onClick={() => handleAction(leave.id, 'REJECTED')}
                             >
                               <X className="h-4 w-4" />

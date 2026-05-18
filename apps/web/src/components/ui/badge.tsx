@@ -9,16 +9,16 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/90",
+        default: "bg-[var(--accent-primary)] text-white",
         secondary:
-          "bg-slate-100 text-slate-900 border-slate-200 [a]:hover:bg-slate-200",
+          "app-badge-neutral",
         destructive:
-          "bg-rose-50 text-rose-700 border-rose-100 [a]:hover:bg-rose-100",
+          "app-badge-danger",
         outline:
-          "border-slate-200 text-slate-600 [a]:hover:bg-slate-50",
-        success: "bg-emerald-50 text-emerald-700 border-emerald-100",
-        warning: "bg-amber-50 text-amber-700 border-amber-100",
-        info: "bg-indigo-50 text-indigo-700 border-indigo-100",
+          "border border-[var(--border-default)] text-[var(--text-secondary)] bg-transparent",
+        success: "app-badge-success",
+        warning: "app-badge-warning",
+        info: "app-badge-info",
       },
     },
     defaultVariants: {

@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Body
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, get_db
@@ -30,7 +30,7 @@ def check_in(payload: CheckInRequest, db: Session = Depends(get_db), actor: User
 
 
 @router.post("/check-out", response_model=AttendanceSessionRead, summary="Check out of active session")
-def check_out(payload: CheckOutRequest | None = None, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> AttendanceSessionRead:
+def check_out(payload: CheckOutRequest | None = Body(default=None), db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> AttendanceSessionRead:
     return AttendanceService(db).check_out(actor, payload)
 
 

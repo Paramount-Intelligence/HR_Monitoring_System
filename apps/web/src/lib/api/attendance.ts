@@ -56,8 +56,8 @@ export const attendanceApi = {
     return response.data;
   },
 
-  checkOut: async (justification?: { checkout_after_shift_reason: string; checkout_after_shift_note: string }) => {
-    const response = await apiClient.post<AttendanceSession>('/attendance/check-out', justification);
+  checkOut: async (justification?: { checkout_after_shift_reason?: string; checkout_after_shift_note?: string; early_checkout_reason?: string }) => {
+    const response = await apiClient.post<AttendanceSession>('/attendance/check-out', justification || {});
     return response.data;
   },
 

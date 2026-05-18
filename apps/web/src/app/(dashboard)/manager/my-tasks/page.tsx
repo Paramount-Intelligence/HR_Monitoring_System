@@ -98,107 +98,107 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Personal Task Queue</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">Manage and track your management-level execution units.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">My Tasks</h1>
+          <p className="text-sm font-medium text-[var(--text-secondary)] mt-1">Manage and track your daily tasks</p>
         </div>
 
         <div className="flex items-center gap-3">
           <Link 
             href="/manager/time-logs" 
-            className={cn(buttonVariants({ variant: "outline" }), "rounded-xl border-slate-200 h-11 px-6 font-bold text-xs uppercase tracking-widest")}
+            className={cn(buttonVariants({ variant: "outline" }), "rounded-xl border-[var(--border-default)] h-11 px-6 font-bold text-xs uppercase tracking-widest text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]")}
           >
-            <Clock className="mr-2 h-4 w-4 text-indigo-600" />
+            <Clock className="mr-2 h-4 w-4 text-[var(--accent-primary)]" />
             Time Logs
           </Link>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-indigo-600 hover:bg-indigo-700 h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-widest shadow-premium">
-                <Plus className="mr-2 h-4 w-4" />
-                Initialize Task
+              <Button className="bg-[var(--accent-primary)] hover:opacity-90 h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-widest border-none text-white shadow-sm">
+                <Plus className="mr-2 h-4 w-4 text-white" />
+                Create Task
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] rounded-2xl border-none shadow-premium-lg">
+            <DialogContent className="sm:max-w-[500px] rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-10">
               <DialogHeader>
-                <DialogTitle className="text-xl font-bold text-slate-900">Initialize New Task</DialogTitle>
-                <DialogDescription className="text-sm font-medium text-slate-500">
-                  Add a professional execution unit to your active pipeline.
+                <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">Create Task</DialogTitle>
+                <DialogDescription className="text-sm font-medium text-[var(--text-muted)]">
+                  Add a new task to your active pipeline.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
                   <FormField control={form.control} name="project_id" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Project</FormLabel>
+                      <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Project</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger className="rounded-xl border-slate-200 h-11 font-medium bg-slate-50/50">
-                            <SelectValue placeholder="Select target project..." />
+                          <SelectTrigger className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)]">
+                            <SelectValue placeholder="Select project..." />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent className="rounded-xl border-slate-100 shadow-premium-lg">
+                        <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                           {projects.map(p => (
                             <SelectItem key={p.id} value={p.id} className="font-medium text-sm">{p.title}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormMessage className="text-[10px] font-bold uppercase tracking-tight" />
+                      <FormMessage className="text-[10px] font-bold uppercase tracking-tight text-rose-500" />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="title" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Task Heading</FormLabel>
+                      <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Task Title</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. System Architecture Audit" className="rounded-xl border-slate-200 h-11 font-medium bg-slate-50/50" {...field} />
+                        <Input placeholder="e.g. System Architecture Audit" className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)] focus:bg-[var(--bg-surface)]" {...field} />
                       </FormControl>
-                      <FormMessage className="text-[10px] font-bold uppercase tracking-tight" />
+                      <FormMessage className="text-[10px] font-bold uppercase tracking-tight text-rose-500" />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Detailed Context</FormLabel>
+                      <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Description</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Define execution parameters..." className="resize-none rounded-xl border-slate-200 min-h-[100px] font-medium bg-slate-50/50" {...field} />
+                        <Textarea placeholder="Details or scope of this task..." className="resize-none rounded-xl border-[var(--border-default)] min-h-[100px] font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)] focus:bg-[var(--bg-surface)]" {...field} />
                       </FormControl>
-                      <FormMessage className="text-[10px] font-bold uppercase tracking-tight" />
+                      <FormMessage className="text-[10px] font-bold uppercase tracking-tight text-rose-500" />
                     </FormItem>
                   )} />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="priority" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Priority Index</FormLabel>
+                        <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Priority</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger className="rounded-xl border-slate-200 h-11 font-medium bg-slate-50/50">
-                              <SelectValue placeholder="Priority..." />
+                            <SelectTrigger className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)]">
+                              <SelectValue placeholder="Select priority..." />
                             </SelectTrigger>
                           </FormControl>
-                          <SelectContent className="rounded-xl border-slate-100 shadow-premium-lg">
+                          <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                             <SelectItem value="low" className="font-medium text-sm">Low</SelectItem>
                             <SelectItem value="medium" className="font-medium text-sm">Medium</SelectItem>
                             <SelectItem value="high" className="font-medium text-sm">High</SelectItem>
-                            <SelectItem value="critical" className="font-medium text-sm">Critical</SelectItem>
+                            <SelectItem value="critical" className="font-medium text-sm text-rose-600">Critical</SelectItem>
                           </SelectContent>
                         </Select>
-                        <FormMessage className="text-[10px] font-bold uppercase tracking-tight" />
+                        <FormMessage className="text-[10px] font-bold uppercase tracking-tight text-rose-500" />
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="due_date" render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Deadline (Optional)</FormLabel>
+                        <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Due Date (Optional)</FormLabel>
                         <FormControl>
-                          <Input type="date" className="rounded-xl border-slate-200 h-11 font-medium bg-slate-50/50" {...field} />
+                          <Input type="date" className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)] focus:bg-[var(--bg-surface)]" {...field} />
                         </FormControl>
-                        <FormMessage className="text-[10px] font-bold uppercase tracking-tight" />
+                        <FormMessage className="text-[10px] font-bold uppercase tracking-tight text-rose-500" />
                       </FormItem>
                     )} />
                   </div>
                   <DialogFooter className="pt-4">
-                    <Button type="submit" disabled={form.formState.isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 h-12 rounded-xl font-bold uppercase tracking-widest text-xs shadow-premium">
-                      {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      COMMIT TO QUEUE
+                    <Button type="submit" disabled={form.formState.isSubmitting} className="w-full bg-[var(--accent-primary)] hover:opacity-90 h-12 rounded-xl font-bold uppercase tracking-widest text-xs border-none text-white shadow-sm">
+                      {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
+                      Create Task
                     </Button>
                   </DialogFooter>
                 </form>
@@ -208,40 +208,40 @@ export default function TasksPage() {
         </div>
       </div>
 
-      <Card className="rounded-xl shadow-premium border-slate-100 overflow-hidden">
+      <Card className="rounded-xl shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] border-[var(--border-subtle)] overflow-hidden text-[var(--text-primary)]">
         <CardContent className="p-0">
           {isLoading ? (
             <TableSkeleton rows={8} cols={5} />
           ) : tasks.length === 0 ? (
             <EmptyState 
-                title="Your queue is empty"
-                description="Initialize your first management task to begin execution tracking."
+                title="No tasks found"
+                description="Create your first task to start tracking your work."
                 icon={CheckSquare}
                 action={{
-                    label: "Initialize Task",
+                    label: "Create Task",
                     onClick: () => setIsDialogOpen(true)
                 }}
             />
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader className="bg-slate-50/50 border-b border-slate-100">
+                <TableHeader className="bg-[var(--bg-subtle)] text-[var(--text-muted)] border-b border-[var(--border-subtle)]">
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[380px] px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-slate-500">Execution Unit</TableHead>
-                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-slate-500">Lifecycle Status</TableHead>
-                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-slate-500">Priority Index</TableHead>
-                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-slate-500">Utilization</TableHead>
-                    <TableHead className="text-right px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-slate-500">Lifecycle Shift</TableHead>
+                    <TableHead className="w-[380px] px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Task Title</TableHead>
+                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Priority</TableHead>
+                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actual Hours</TableHead>
+                    <TableHead className="text-right px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Change Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {tasks.map((task) => (
-                    <TableRow key={task.id} className="hover:bg-slate-50/30 transition-colors border-b border-slate-50 last:border-0">
+                    <TableRow key={task.id} className="hover:bg-[var(--bg-subtle)]/30 transition-colors border-b border-[var(--border-subtle)] last:border-0 text-[var(--text-primary)]">
                       <TableCell className="px-6 py-5">
-                        <div className="font-bold text-slate-900 text-sm leading-tight mb-1.5">{task.title}</div>
+                        <div className="font-bold text-[var(--text-primary)] text-sm leading-tight mb-1.5">{task.title}</div>
                         <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <Briefcase className="h-3 w-3 text-indigo-400" />
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
+                                <Briefcase className="h-3 w-3 text-[var(--accent-primary)]" />
                                 {projects.find(p => p.id === task.project_id)?.title || 'Unlinked Project'}
                             </div>
                             {task.due_date && (
@@ -260,11 +260,11 @@ export default function TasksPage() {
                       </TableCell>
                       <TableCell className="px-6 py-5">
                         <div className="flex flex-col gap-1">
-                            <div className="text-sm font-black text-slate-700">
+                            <div className="text-sm font-black text-[var(--text-secondary)]">
                                 {task.actual_duration_minutes > 0 ? `${(task.actual_duration_minutes / 60).toFixed(1)}h` : '0.0h'}
                             </div>
                             {task.expected_duration_minutes > 0 && (
-                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Budget: {(task.expected_duration_minutes / 60).toFixed(1)}h</div>
+                                <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tighter">Budget: {(task.expected_duration_minutes / 60).toFixed(1)}h</div>
                             )}
                         </div>
                       </TableCell>
@@ -273,12 +273,12 @@ export default function TasksPage() {
                           value={task.status} 
                           onValueChange={(val: any) => updateTaskStatus(task.id, val)}
                         >
-                          <SelectTrigger className="w-[140px] h-9 rounded-lg border-slate-200 bg-white text-[10px] font-bold uppercase tracking-widest shadow-sm inline-flex">
-                            <SelectValue placeholder="Shift..." />
+                          <SelectTrigger className="w-[140px] h-9 rounded-lg border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] text-[10px] font-bold uppercase tracking-widest shadow-sm inline-flex">
+                            <SelectValue placeholder="Select status..." />
                           </SelectTrigger>
-                          <SelectContent className="rounded-xl border-slate-100 shadow-premium-lg">
-                            <SelectItem value="created" className="text-[10px] font-bold uppercase tracking-widest">Created</SelectItem>
-                            <SelectItem value="in_progress" className="text-[10px] font-bold uppercase tracking-widest text-indigo-600">Active</SelectItem>
+                          <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
+                            <SelectItem value="created" className="text-[10px] font-bold uppercase tracking-widest">Pending</SelectItem>
+                            <SelectItem value="in_progress" className="text-[10px] font-bold uppercase tracking-widest text-[var(--accent-primary)]">In Progress</SelectItem>
                             <SelectItem value="blocked" className="text-[10px] font-bold uppercase tracking-widest text-rose-600">Blocked</SelectItem>
                             <SelectItem value="completed" className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Completed</SelectItem>
                           </SelectContent>

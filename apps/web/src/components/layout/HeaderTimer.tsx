@@ -42,8 +42,8 @@ export function HeaderTimer() {
     <div className="flex items-center gap-3">
       {/* Break Indicator */}
       {activeBreak && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-full text-amber-600 animate-pulse shadow-sm">
-          <Coffee className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--status-warning-bg)] border border-[var(--status-warning-border)] rounded-full text-[var(--status-warning-text)] animate-pulse shadow-[var(--shadow-soft)]">
+          <Coffee className="h-3.5 w-3.5 shrink-0" />
           <span className="text-[10px] font-black uppercase tracking-[0.1em]">On Break</span>
         </div>
       )}
@@ -53,26 +53,35 @@ export function HeaderTimer() {
         <Link 
           href="/employee/tasks"
           className={cn(
-            "flex items-center gap-2.5 px-3 py-1.5 border rounded-full transition-all shadow-sm group hover:shadow-md",
+            "flex items-center gap-2.5 px-3 py-1.5 border rounded-full transition-all shadow-[var(--shadow-soft)] group hover:shadow-md",
             activeTimer.status === 'running' 
-              ? "bg-slate-50 border-slate-200/60 text-slate-600 hover:bg-white hover:border-indigo-200" 
-              : "bg-slate-100/50 border-slate-200 text-slate-400 hover:bg-slate-50"
+              ? "bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] hover:border-[var(--accent-primary)]/50" 
+              : "bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-muted)] hover:bg-[var(--bg-surface)]"
           )}
         >
           <div className={cn(
-            "flex items-center justify-center h-5 w-5 rounded-full text-white group-hover:scale-110 transition-transform shadow-lg",
-            activeTimer.status === 'running' ? "bg-indigo-600 shadow-indigo-100" : "bg-slate-400 shadow-slate-100"
+            "flex items-center justify-center h-5 w-5 rounded-full text-white group-hover:scale-110 transition-transform shadow-[var(--shadow-soft)]",
+            activeTimer.status === 'running' ? "bg-[var(--accent-primary)]" : "bg-[var(--text-muted)]"
           )}>
-            {activeTimer.status === 'running' ? <Play className="h-2 w-2 fill-current" /> : <Clock className="h-2 w-2" />}
+            {activeTimer.status === 'running' ? <Play className="h-2 w-2 fill-current shrink-0" /> : <Clock className="h-2 w-2 shrink-0" />}
           </div>
           <div className="flex items-center gap-2 overflow-hidden">
             <span className={cn(
               "text-xs font-bold truncate max-w-[140px]",
-              activeTimer.status === 'running' ? "text-slate-700" : "text-slate-500"
+              activeTimer.status === 'running' ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
             )}>
               {activeTimer.task_title || 'Active Task'}
             </span>
-            <div className="h-3 w-px bg-slate-200" />
+            {activeTimer.status === 'paused' && (
+              <>
+                <div className="h-3 w-px bg-[var(--border-default)]" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-500">
+                  {activeTimer.pause_reason === 'attendance_checkout' ? 'Paused after checkout' : 
+                   activeTimer.pause_reason === 'break_started' ? 'Paused for break' : 'Paused'}
+                </span>
+              </>
+            )}
+            <div className="h-3 w-px bg-[var(--border-default)]" />
             <TaskTimer 
               startedAt={activeTimer.started_at} 
               lastResumedAt={activeTimer.last_resumed_at}
@@ -80,11 +89,11 @@ export function HeaderTimer() {
               status={activeTimer.status}
               className={cn(
                 "text-xs font-mono font-black",
-                activeTimer.status === 'running' ? "text-indigo-600" : "text-slate-400"
+                activeTimer.status === 'running' ? "text-[var(--accent-primary)]" : "text-[var(--text-muted)]"
               )} 
             />
           </div>
-          <ChevronRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+          <ChevronRight className="h-3.5 w-3.5 text-[var(--text-muted)] group-hover:text-[var(--accent-primary)] group-hover:translate-x-0.5 transition-all shrink-0" />
         </Link>
       )}
     </div>

@@ -58,29 +58,29 @@ export default function ManagerWorkloadPage() {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-slate-300" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--text-muted)]" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[var(--text-primary)]">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Team Workload</h1>
-        <p className="text-sm text-slate-500">Distribution of active tasks and estimated hours across the team.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Team Workload</h1>
+        <p className="text-sm text-[var(--text-secondary)]">Distribution of active tasks and estimated hours across team members</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="shadow-sm md:col-span-2">
+        <Card className="shadow-[var(--shadow-soft)] md:col-span-2 border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
           <CardHeader>
-            <CardTitle>Workload Hours by Employee</CardTitle>
-            <CardDescription>Estimated remaining hours vs actual logged hours on active tasks.</CardDescription>
+            <CardTitle className="text-lg font-bold text-[var(--text-primary)]">Workload Hours by Employee</CardTitle>
+            <CardDescription className="text-xs text-[var(--text-muted)] font-medium">Estimated remaining hours vs actual logged hours on active tasks</CardDescription>
           </CardHeader>
           <CardContent>
             {workloadData.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-                <BarChart3 className="h-12 w-12 text-slate-200 mb-4" />
-                <p>No workload data available.</p>
+              <div className="flex flex-col items-center justify-center py-12 text-[var(--text-muted)]">
+                <BarChart3 className="h-12 w-12 text-[var(--text-muted)] mb-4 opacity-40" />
+                <p className="font-bold text-sm">No workload data available.</p>
               </div>
             ) : (
               <div className="h-[400px] w-full">
@@ -89,16 +89,16 @@ export default function ManagerWorkloadPage() {
                     data={workloadData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b'}} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b'}} />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-subtle)" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: 'var(--text-muted)', fontSize: 10, fontWeight: 'bold'}} />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: 'var(--text-muted)', fontSize: 10, fontWeight: 'bold'}} />
                     <RechartsTooltip 
-                      cursor={{fill: '#f8fafc'}}
-                      contentStyle={{borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
+                      cursor={{fill: 'var(--bg-subtle)'}}
+                      contentStyle={{borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'var(--bg-surface)', color: 'var(--text-primary)', boxShadow: 'var(--shadow-card)'}}
                     />
-                    <Legend iconType="circle" />
-                    <Bar dataKey="expectedHours" name="Expected Hours" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="loggedHours" name="Logged Hours" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                    <Legend iconType="circle" wrapperStyle={{fontSize: 10, fontWeight: 'bold'}} />
+                    <Bar dataKey="expectedHours" name="Expected Hours" fill="var(--accent-primary)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="loggedHours" name="Logged Hours" fill="var(--text-muted)" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -107,23 +107,23 @@ export default function ManagerWorkloadPage() {
         </Card>
 
         {workloadData.map((data, index) => (
-          <Card key={index} className="shadow-sm">
+          <Card key={index} className="shadow-[var(--shadow-soft)] border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
             <CardHeader className="pb-2">
-              <CardTitle className="text-lg">{data.fullName}</CardTitle>
+              <CardTitle className="text-lg font-bold text-[var(--text-primary)]">{data.fullName}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex items-center justify-between mt-2">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-slate-900">{data.activeTasks}</div>
-                  <div className="text-xs text-slate-500 font-medium">Active Tasks</div>
+                  <div className="text-2xl font-black text-[var(--text-primary)]">{data.activeTasks}</div>
+                  <div className="text-xs text-[var(--text-muted)] font-black uppercase tracking-wider">Active Tasks</div>
                 </div>
-                <div className="text-center border-l px-4">
-                  <div className="text-2xl font-bold text-blue-600">{data.expectedHours}h</div>
-                  <div className="text-xs text-slate-500 font-medium">Expected</div>
+                <div className="text-center border-l border-[var(--border-subtle)] px-4">
+                  <div className="text-2xl font-black text-[var(--accent-primary)]">{data.expectedHours}h</div>
+                  <div className="text-xs text-[var(--text-muted)] font-black uppercase tracking-wider">Expected</div>
                 </div>
-                <div className="text-center border-l pl-4">
-                  <div className="text-2xl font-bold text-slate-600">{data.loggedHours}h</div>
-                  <div className="text-xs text-slate-500 font-medium">Logged</div>
+                <div className="text-center border-l border-[var(--border-subtle)] pl-4">
+                  <div className="text-2xl font-black text-[var(--text-secondary)]">{data.loggedHours}h</div>
+                  <div className="text-xs text-[var(--text-muted)] font-black uppercase tracking-wider">Logged</div>
                 </div>
               </div>
             </CardContent>

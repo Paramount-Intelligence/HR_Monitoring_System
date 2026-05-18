@@ -64,7 +64,7 @@ export default function ManagerAnalyticsPage() {
           variant={burnoutRisks.length > 0 ? "warning" : "default"}
         />
         <KPICard 
-          title="Execution Units" 
+          title="Completed Tasks" 
           value="142" 
           change={-4.1} 
           icon={CheckCircle2} 
@@ -86,7 +86,7 @@ export default function ManagerAnalyticsPage() {
               <Activity className="h-4 w-4 text-indigo-600" />
               Efficiency Vectors
             </CardTitle>
-            <CardDescription className="text-xs font-medium">Daily performance aggregate across all operational units.</CardDescription>
+            <CardDescription className="text-xs font-medium">Daily performance aggregate across all teams.</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="h-[320px] w-full">

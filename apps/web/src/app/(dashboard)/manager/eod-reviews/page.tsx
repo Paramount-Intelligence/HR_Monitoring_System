@@ -76,18 +76,22 @@ export default function EODReviewsPage() {
   const pastEods = eods.filter(e => e.status !== 'Pending Approval' && e.status !== 'Generated' && e.status !== 'Draft');
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">EOD Command Center</h1>
-          <p className="text-sm font-medium text-slate-500 mt-1">Review and verify operational daily summaries from your team.</p>
+    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
+            <ShieldCheck className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Management</span>
+          </div>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">EOD Review</h1>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Review and verify daily EOD reports from your team.</p>
         </div>
       </div>
 
       {isLoading ? (
         <div className="space-y-8">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {[1, 2, 3].map(i => <Card key={i} className="h-48 animate-pulse bg-slate-50 border-none" />)}
+                {[1, 2, 3].map(i => <Card key={i} className="h-48 animate-pulse bg-[var(--bg-subtle)] border-none" />)}
             </div>
             <TableSkeleton rows={8} cols={5} />
         </div>
@@ -97,20 +101,20 @@ export default function EODReviewsPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Verification Queue</h2>
+                <h2 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-[0.2em]">Pending EOD Reports</h2>
               </div>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {pendingEods.map((eod) => (
-                  <Card key={eod.id} className="group rounded-xl shadow-premium hover:shadow-premium-lg border-slate-100 transition-all cursor-pointer overflow-hidden" onClick={() => openReview(eod)}>
-                    <CardContent className="p-5 flex flex-col h-full">
+                  <Card key={eod.id} className="group rounded-[2rem] shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] hover:shadow-[var(--shadow-hard)] border-[var(--border-subtle)] transition-all cursor-pointer overflow-hidden text-[var(--text-primary)]" onClick={() => openReview(eod)}>
+                    <CardContent className="p-6 flex flex-col h-full">
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="bg-indigo-50 text-indigo-700 h-10 w-10 rounded-xl flex items-center justify-center font-bold text-xs ring-1 ring-indigo-100 uppercase">
+                          <div className="bg-[var(--bg-subtle)] text-[var(--text-secondary)] h-10 w-10 rounded-xl flex items-center justify-center font-bold text-xs uppercase">
                             {eod.user_name.split(' ').map(n => n[0]).join('')}
                           </div>
                           <div>
-                            <h3 className="font-bold text-slate-900 text-sm leading-none mb-1">{eod.user_name}</h3>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{formatPKDate(eod.date)}</p>
+                            <h3 className="font-bold text-[var(--text-primary)] text-sm leading-none mb-1">{eod.user_name}</h3>
+                            <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-tighter">{formatPKDate(eod.date)}</p>
                           </div>
                         </div>
                         {eod.blocked_tasks > 0 && (
@@ -121,19 +125,19 @@ export default function EODReviewsPage() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-3 mb-5">
-                        <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100/50">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter leading-none mb-1 text-center">UTILIZATION</p>
-                            <p className="text-sm font-bold text-slate-900 text-center">{eods.find(e => e.id === eod.id)?.total_hours}h</p>
+                        <div className="bg-[var(--bg-subtle)]/50 rounded-lg p-2 border border-[var(--border-subtle)]">
+                            <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter leading-none mb-1 text-center">TRACKED HOURS</p>
+                            <p className="text-sm font-bold text-[var(--text-primary)] text-center">{eod.total_hours}h</p>
                         </div>
-                        <div className="bg-slate-50/80 rounded-lg p-2 border border-slate-100/50">
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter leading-none mb-1 text-center">COMPLETIONS</p>
-                            <p className="text-sm font-bold text-slate-900 text-center">{eod.completed_tasks} Tasks</p>
+                        <div className="bg-[var(--bg-subtle)]/50 rounded-lg p-2 border border-[var(--border-subtle)]">
+                            <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter leading-none mb-1 text-center">COMPLETED TASKS</p>
+                            <p className="text-sm font-bold text-[var(--text-primary)] text-center">{eod.completed_tasks}</p>
                         </div>
                       </div>
                       
                       <div className="mt-auto">
-                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg shadow-indigo-100" size="sm">
-                          OPEN INVESTIGATION
+                        <Button className="w-full bg-[var(--accent-primary)] hover:opacity-90 rounded-xl font-bold text-[10px] uppercase tracking-widest shadow-lg border-none text-white" size="sm">
+                          REVIEW REPORT
                         </Button>
                       </div>
                     </CardContent>
@@ -145,37 +149,37 @@ export default function EODReviewsPage() {
 
           {pastEods.length > 0 && (
             <div className="space-y-4 pt-4">
-              <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">Verification History</h2>
-              <Card className="rounded-xl shadow-premium border-slate-100 overflow-hidden">
+              <h2 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-[0.2em]">EOD Review History</h2>
+              <Card className="rounded-[2rem] shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] border-[var(--border-subtle)] overflow-hidden text-[var(--text-primary)]">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50/50 text-slate-500 uppercase text-[10px] tracking-widest font-bold">
-                      <tr className="border-b border-slate-100">
-                        <th className="px-6 py-4">Employee Identity</th>
-                        <th className="px-6 py-4">Filing Date</th>
-                        <th className="px-6 py-4">Time Log</th>
-                        <th className="px-6 py-4">Integrity Status</th>
-                        <th className="px-6 py-4 text-right">Audit</th>
+                    <thead className="bg-[var(--bg-subtle)] text-[var(--text-muted)] uppercase text-[10px] tracking-widest font-bold">
+                      <tr className="border-b border-[var(--border-subtle)]">
+                        <th className="px-6 py-4 pl-10">Employee</th>
+                        <th className="px-6 py-4">Date</th>
+                        <th className="px-6 py-4">Logged Hours</th>
+                        <th className="px-6 py-4">Status</th>
+                        <th className="px-6 py-4 pr-10 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-50">
+                    <tbody className="divide-y divide-[var(--border-subtle)]">
                       {pastEods.map((eod) => (
-                        <tr key={eod.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4">
-                            <span className="font-bold text-slate-900">{eod.user_name}</span>
+                        <tr key={eod.id} className="hover:bg-[var(--bg-subtle)]/50 transition-colors">
+                          <td className="px-6 py-4 pl-10">
+                            <span className="font-bold text-[var(--text-primary)]">{eod.user_name}</span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-xs font-bold text-slate-600">{formatPKDate(eod.date)}</span>
+                            <span className="text-xs font-bold text-[var(--text-secondary)]">{formatPKDate(eod.date)}</span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className="text-xs font-bold text-indigo-600">{eod.total_hours}h Tracked</span>
+                            <span className="text-xs font-bold text-[var(--accent-primary)]">{eod.total_hours}h Tracked</span>
                           </td>
                           <td className="px-6 py-4">
                             <StatusBadge status={eod.status} />
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <Button variant="ghost" size="sm" onClick={() => openReview(eod)} className="text-indigo-600 hover:text-indigo-700 font-bold text-[10px] uppercase tracking-widest">
-                              VIEW REPORT
+                          <td className="px-6 py-4 pr-10 text-right">
+                            <Button variant="ghost" size="sm" onClick={() => openReview(eod)} className="text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] font-bold text-[10px] uppercase tracking-widest">
+                              VIEW
                             </Button>
                           </td>
                         </tr>
@@ -199,107 +203,107 @@ export default function EODReviewsPage() {
 
       {selectedEod && (
         <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-          <DialogContent className="max-w-2xl rounded-2xl border-none shadow-premium-lg">
+          <DialogContent className="max-w-2xl rounded-[2.5rem] border-none bg-[var(--bg-surface)] shadow-[var(--shadow-hard)] text-[var(--text-primary)] p-10">
             <DialogHeader>
-              <DialogTitle className="text-xl font-bold text-slate-900">EOD Review: {selectedEod.user_name}</DialogTitle>
-              <DialogDescription className="text-sm font-medium text-slate-500">
-                Verifying operational filing for {formatPKDate(selectedEod.date)}.
+              <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">EOD Review: {selectedEod.user_name}</DialogTitle>
+              <DialogDescription className="text-sm font-medium text-[var(--text-muted)] mt-1">
+                Reviewing EOD report for {formatPKDate(selectedEod.date)}.
               </DialogDescription>
             </DialogHeader>
 
             <div className="grid grid-cols-2 gap-4 my-6">
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="p-4 bg-[var(--bg-subtle)]/50 rounded-xl border border-[var(--border-subtle)] flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                     <Clock className="h-3.5 w-3.5" />
-                    Attendance Metrics
+                    Attendance
                 </div>
-                <p className="font-bold text-slate-900 mt-1">{selectedEod.login_time} - {selectedEod.logout_time || 'ACTIVE'}</p>
+                <p className="font-bold text-[var(--text-primary)] mt-1">{selectedEod.login_time} - {selectedEod.logout_time || 'ACTIVE SESSION'}</p>
                 <div className="mt-2 inline-flex items-center gap-2">
-                    <span className="bg-indigo-600 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold">{selectedEod.total_hours}h LOGGED</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{selectedEod.work_mode}</span>
+                    <span className="bg-[var(--accent-primary)] text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold border-none">{selectedEod.total_hours}h HOURS LOGGED</span>
+                    <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase">{selectedEod.work_mode}</span>
                 </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <div className="p-4 bg-[var(--bg-subtle)]/50 rounded-xl border border-[var(--border-subtle)] flex flex-col gap-1">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                     <TrendingUp className="h-3.5 w-3.5" />
-                    Productivity Audit
+                    Productivity Index
                 </div>
-                <p className="font-bold text-slate-900 mt-1">{selectedEod.productivity_score}% Efficiency Score</p>
+                <p className="font-bold text-[var(--text-primary)] mt-1">{selectedEod.productivity_score} score</p>
                 <div className="mt-2 inline-flex items-center gap-2">
-                    <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold">{selectedEod.duties_performed} DUTIES</span>
+                    <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold border-none">{selectedEod.duties_performed} KEY ACTIONS</span>
                 </div>
               </div>
-              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 col-span-2">
-                <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+              <div className="p-4 bg-[var(--bg-subtle)]/50 rounded-xl border border-[var(--border-subtle)] col-span-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest mb-3">
                     <CheckSquare className="h-3.5 w-3.5" />
-                    Task Execution Breakdown
+                    Tasks Status
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                     <div className="flex flex-col">
                         <span className="text-xs font-bold text-emerald-600 uppercase tracking-tighter">Completed</span>
-                        <span className="text-lg font-bold text-slate-900">{selectedEod.completed_tasks}</span>
+                        <span className="text-lg font-bold text-[var(--text-primary)]">{selectedEod.completed_tasks}</span>
                     </div>
-                    <div className="flex flex-col border-x border-slate-200 px-4">
+                    <div className="flex flex-col border-x border-[var(--border-subtle)] px-4">
                         <span className="text-xs font-bold text-amber-600 uppercase tracking-tighter">Pending</span>
-                        <span className="text-lg font-bold text-slate-900">{selectedEod.pending_tasks}</span>
+                        <span className="text-lg font-bold text-[var(--text-primary)]">{selectedEod.pending_tasks}</span>
                     </div>
                     <div className="flex flex-col">
                         <span className="text-xs font-bold text-rose-600 uppercase tracking-tighter">Blocked</span>
-                        <span className="text-lg font-bold text-slate-900">{selectedEod.blocked_tasks}</span>
+                        <span className="text-lg font-bold text-[var(--text-primary)]">{selectedEod.blocked_tasks}</span>
                     </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 pt-6 border-t border-slate-100">
+            <div className="space-y-4 pt-6 border-t border-[var(--border-subtle)]">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Manager Verification Feedback</Label>
+                <Label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Manager Feedback</Label>
                 <Textarea 
-                  placeholder="Annotate review with professional feedback or revision instructions..." 
+                  placeholder="Add review comments or revision instructions..." 
                   value={comments}
                   onChange={e => setComments(e.target.value)}
-                  className="min-h-[100px] rounded-xl border-slate-200 focus:border-indigo-500 focus:ring-indigo-500"
+                  className="min-h-[100px] rounded-xl border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:ring-[var(--accent-primary)] focus:border-[var(--accent-primary)] font-semibold p-4"
                 />
               </div>
 
               {selectedEod.status === 'Pending Approval' ? (
                 <div className="flex gap-3 pt-2">
                   <Button 
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold h-11 shadow-sm" 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold h-11 border-none shadow-sm text-white" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Approved'); setTimeout(submitReview, 0); }}
                   >
-                    {isSubmitting && reviewAction === 'Approved' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
-                    APPROVE REPORT
+                    {isSubmitting && reviewAction === 'Approved' ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <ShieldCheck className="mr-2 h-4 w-4 text-white" />}
+                    Approve
                   </Button>
                   <Button 
                     variant="outline"
-                    className="flex-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl font-bold h-11 shadow-sm" 
+                    className="flex-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl font-bold h-11 border-none shadow-sm" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Needs Revision'); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting && reviewAction === 'Needs Revision' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                    REQUEST REVISION
+                    Request Revision
                   </Button>
                   <Button 
                     variant="outline"
-                    className="flex-1 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl font-bold h-11 shadow-sm" 
+                    className="flex-1 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl font-bold h-11 border-none shadow-sm" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Rejected'); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting && reviewAction === 'Rejected' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                    REJECT REPORT
+                    Reject
                   </Button>
                 </div>
               ) : (
                 <div className="flex gap-3 pt-2">
                   <Button 
-                    className="w-full bg-slate-900 hover:bg-slate-800 rounded-xl font-bold h-11 shadow-sm uppercase tracking-widest text-xs" 
+                    className="w-full bg-[var(--text-primary)] hover:opacity-90 rounded-xl font-bold h-11 border-none shadow-sm text-white uppercase tracking-widest text-xs" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction(selectedEod.status as any); setTimeout(submitReview, 0); }}
                   >
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    UPDATE AUDIT COMMENTS
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : null}
+                    Update Comments
                   </Button>
                 </div>
               )}

@@ -132,54 +132,73 @@ export default function TimeLogsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[var(--text-primary)]">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Time Tracking</h1>
-          <p className="text-sm text-slate-500">Record your time against specific tasks.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Time Logs</h1>
+          <p className="text-sm text-[var(--text-secondary)]">Track and manage your project time logs</p>
         </div>
 
         <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
-          <DialogTrigger render={<Button variant="outline" className="bg-white" />}>
-            <Plus className="mr-2 h-4 w-4" />
-            Manual Entry
+          <DialogTrigger asChild>
+            <Button variant="outline" className="bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--bg-subtle)] font-bold rounded-xl h-11 px-6 text-xs uppercase tracking-widest">
+              <Plus className="mr-2 h-4 w-4 text-[var(--accent-primary)]" />
+              Manual Entry
+            </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] p-8 text-[var(--text-primary)]">
             <DialogHeader>
-              <DialogTitle>Manual Time Log</DialogTitle>
-              <DialogDescription>
-                Fallback entry if you forgot to start your timer.
+              <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">Manual Time Log</DialogTitle>
+              <DialogDescription className="text-sm font-medium text-[var(--text-muted)]">
+                Add a manual time log entry
               </DialogDescription>
             </DialogHeader>
             <Form {...manualForm}>
               <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className="space-y-4 pt-4">
                 <FormField control={manualForm.control} name="task_id" render={({ field }) => (
-                  <FormItem><FormLabel>Task</FormLabel>
+                  <FormItem>
+                    <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Task</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Select a task" /></SelectTrigger></FormControl>
-                      <SelectContent>
+                      <FormControl>
+                        <SelectTrigger className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)]">
+                          <SelectValue placeholder="Select a task" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                         {tasks.filter(t => t.status !== 'completed').map(t => (
                           <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase tracking-tight" />
                   </FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={manualForm.control} name="started_at" render={({ field }) => (
-                    <FormItem><FormLabel>Start Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Start Time</FormLabel>
+                      <FormControl><Input type="datetime-local" className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)] focus:bg-[var(--bg-surface)]" {...field} /></FormControl>
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase tracking-tight" />
+                    </FormItem>
                   )} />
                   <FormField control={manualForm.control} name="ended_at" render={({ field }) => (
-                    <FormItem><FormLabel>End Time</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">End Time</FormLabel>
+                      <FormControl><Input type="datetime-local" className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)] focus:bg-[var(--bg-surface)]" {...field} /></FormControl>
+                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase tracking-tight" />
+                    </FormItem>
                   )} />
                 </div>
                 <FormField control={manualForm.control} name="notes" render={({ field }) => (
-                  <FormItem><FormLabel>Notes (Optional)</FormLabel><FormControl><Textarea placeholder="What did you work on?" className="resize-none" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Notes (Optional)</FormLabel>
+                    <FormControl><Textarea placeholder="What did you work on?" className="resize-none rounded-xl border-[var(--border-default)] min-h-[100px] font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)] focus:bg-[var(--bg-surface)]" {...field} /></FormControl>
+                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase tracking-tight" />
+                  </FormItem>
                 )} />
                 <div className="flex justify-end pt-4">
-                  <Button type="submit" disabled={manualForm.formState.isSubmitting} className="bg-blue-600 hover:bg-blue-700">
-                    {manualForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Button type="submit" disabled={manualForm.formState.isSubmitting} className="bg-[var(--accent-primary)] hover:opacity-90 border-none text-white font-bold h-11 px-6 rounded-xl shadow-sm">
+                    {manualForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
                     Save Log
                   </Button>
                 </div>
@@ -189,37 +208,37 @@ export default function TimeLogsPage() {
         </Dialog>
       </div>
 
-      <Card className="shadow-sm border-blue-100 overflow-hidden relative">
+      <Card className="shadow-[var(--shadow-soft)] border-[var(--border-subtle)] overflow-hidden bg-[var(--bg-surface)] text-[var(--text-primary)] relative rounded-xl">
         {activeLog && (
-          <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 animate-pulse" />
+          <div className="absolute top-0 left-0 w-1 h-full bg-[var(--accent-primary)] animate-pulse" />
         )}
-        <CardHeader className="bg-slate-50/50">
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-blue-600" />
+        <CardHeader className="bg-[var(--bg-subtle)]/30 border-b border-[var(--border-subtle)]">
+          <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-widest text-[var(--text-muted)]">
+            <Clock className="h-5 w-5 text-[var(--accent-primary)]" />
             Active Timer
           </CardTitle>
-          <CardDescription>Select a task and start tracking your time.</CardDescription>
+          <CardDescription className="text-xs text-[var(--text-muted)] font-medium">Select a task and start tracking your time.</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
             <div className="flex-1 w-full">
               {activeLog ? (
-                <div className="p-3 bg-white border rounded-md">
-                  <span className="text-sm text-slate-500 block mb-1">Currently Tracking:</span>
-                  <span className="font-medium text-slate-900">
+                <div className="p-4 bg-[var(--bg-subtle)]/40 border border-[var(--border-subtle)] rounded-xl">
+                  <span className="text-xs text-[var(--text-muted)] block mb-1 font-bold">Currently Tracking:</span>
+                  <span className="font-bold text-[var(--text-primary)] text-base">
                     {tasks.find(t => t.id === activeLog.task_id)?.title || 'Unknown Task'}
                   </span>
-                  <div className="text-xs text-blue-600 mt-2 flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+                  <div className="text-xs text-[var(--accent-primary)] mt-2 flex items-center gap-1 font-bold">
+                    <span className="h-2 w-2 rounded-full bg-[var(--accent-primary)] animate-pulse" />
                     Started at {formatDateTime(activeLog.started_at)}
                   </div>
                 </div>
               ) : (
                 <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-                  <SelectTrigger className="w-full bg-white">
+                  <SelectTrigger className="w-full bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-primary)] font-bold rounded-xl h-12">
                     <SelectValue placeholder="Select a task to track..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
                     {tasks.filter(t => t.status !== 'completed').map(t => (
                       <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
                     ))}
@@ -235,19 +254,19 @@ export default function TimeLogsPage() {
                   variant="destructive" 
                   onClick={handleStopTimer}
                   disabled={isTimerActionLoading}
-                  className="w-full md:w-auto shadow-md"
+                  className="w-full md:w-auto h-12 px-8 rounded-xl font-bold uppercase tracking-wider text-xs border-none shadow-sm"
                 >
-                  {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <StopCircle className="mr-2 h-5 w-5" />}
+                  {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" /> : <StopCircle className="mr-2 h-5 w-5 text-white" />}
                   Stop Timer
                 </Button>
               ) : (
                 <Button 
                   size="lg" 
-                  className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 shadow-md"
+                  className="w-full md:w-auto h-12 px-8 rounded-xl bg-[var(--accent-primary)] hover:opacity-90 font-bold uppercase tracking-wider text-xs border-none text-white shadow-sm"
                   onClick={handleStartTimer}
                   disabled={isTimerActionLoading || !selectedTaskId}
                 >
-                  {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
+                  {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin text-white" /> : <PlayCircle className="mr-2 h-5 w-5 text-white" />}
                   Start Timer
                 </Button>
               )}
@@ -256,52 +275,52 @@ export default function TimeLogsPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle>Recent Logs</CardTitle>
+      <Card className="shadow-[var(--shadow-soft)] border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] rounded-xl overflow-hidden">
+        <CardHeader className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/30">
+          <CardTitle className="text-sm font-black uppercase tracking-widest text-[var(--text-muted)]">Recent Time Logs</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
             </div>
           ) : logs.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-[var(--text-muted)] italic font-bold">
               No time logs found.
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/50">
-                    <TableHead className="w-[300px]">Task</TableHead>
-                    <TableHead>Start Time</TableHead>
-                    <TableHead>End Time</TableHead>
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Source</TableHead>
+                <TableHeader className="bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)]">
+                    <TableHead className="w-[300px] font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Task</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Start Time</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">End Time</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Duration</TableHead>
+                    <TableHead className="font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-6 py-4">Source</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
-                    <TableRow key={log.id} className={log.status === 'active' ? 'bg-blue-50/50' : ''}>
-                      <TableCell>
-                        <div className="font-medium text-slate-900 truncate max-w-[280px]">
+                    <TableRow key={log.id} className={cn("hover:bg-[var(--bg-subtle)]/50 border-b border-[var(--border-subtle)] last:border-0 text-[var(--text-primary)]", log.status === 'active' && 'bg-[var(--bg-subtle)]/40')}>
+                      <TableCell className="px-6 py-4">
+                        <div className="font-bold text-[var(--text-primary)] truncate max-w-[280px]">
                           {tasks.find(t => t.id === log.task_id)?.title || 'Unknown Task'}
                         </div>
                       </TableCell>
-                      <TableCell className="text-slate-500">{formatDateTime(log.started_at)}</TableCell>
-                      <TableCell className="text-slate-500">
+                      <TableCell className="text-[var(--text-secondary)] font-medium px-6 py-4">{formatDateTime(log.started_at)}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)] font-medium px-6 py-4">
                         {log.status === 'active' ? (
-                          <span className="text-blue-600 italic">Running...</span>
+                          <span className="text-[var(--accent-primary)] italic font-bold">Running...</span>
                         ) : (
                           formatDateTime(log.ended_at)
                         )}
                       </TableCell>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-bold px-6 py-4">
                         {log.status === 'active' ? '-' : formatDurationString(log.duration_minutes)}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize text-slate-500">
+                      <TableCell className="px-6 py-4">
+                        <Badge variant="outline" className="capitalize text-[var(--text-muted)] border-[var(--border-subtle)] font-bold text-[10px]">
                           {log.source_type}
                         </Badge>
                       </TableCell>

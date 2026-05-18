@@ -55,13 +55,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const role = user?.role || 'employee';
 
   const ROLE_CONFIG: Record<string, { label: string, color: string }> = {
-    admin: { label: 'Admin', color: 'bg-violet-500/10 text-violet-400 border-violet-500/20' },
-    hr_operations: { label: 'HR & Ops', color: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
-    manager: { label: 'Manager', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
-    team_lead: { label: 'Team Lead', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    employee: { label: 'Employee', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    intern: { label: 'Intern', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
-    junior_employee: { label: 'Junior', color: 'bg-slate-500/10 text-slate-400 border-slate-500/20' },
+    admin: { label: 'Admin', color: 'bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] border-[var(--status-danger-border)]' },
+    hr_operations: { label: 'HR & Ops', color: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border-[var(--status-warning-border)]' },
+    manager: { label: 'Manager', color: 'bg-[var(--bg-subtle)] text-[var(--accent-primary)] border-[var(--border-strong)]/30' },
+    team_lead: { label: 'Team Lead', color: 'bg-[var(--bg-subtle)] text-[var(--accent-primary)] border-[var(--border-strong)]/20' },
+    employee: { label: 'Employee', color: 'bg-[var(--status-success-bg)] text-[var(--status-success-text)] border-[var(--status-success-border)]' },
+    intern: { label: 'Intern', color: 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-default)]' },
+    junior_employee: { label: 'Junior', color: 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-default)]' },
   };
 
   const getNavLinks = (): NavItem[] => {
@@ -138,23 +138,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const roleConfig = ROLE_CONFIG[role] || ROLE_CONFIG.employee;
 
   const SidebarContent = ({ collapsed = false }) => (
-    <div className="flex h-full flex-col bg-[#0f172a] text-slate-400">
+    <div className="flex h-full flex-col bg-[var(--bg-sidebar)] text-[var(--text-secondary)] transition-all duration-300">
       {/* Sidebar Header */}
-      <div className="flex h-16 items-center justify-between px-6 bg-[#0f172a] border-b border-slate-800/40">
+      <div className="flex h-16 items-center justify-between px-6 bg-[var(--bg-sidebar)] border-b border-[var(--border-default)] transition-all duration-300">
         <Link href="/" className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white shadow-[0_0_15px_rgba(255,255,255,0.1)] ring-1 ring-slate-700 overflow-hidden shrink-0">
-            <img src="/logo.png" alt="Paramount" className="h-full w-full object-contain p-1" />
+          <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-[var(--bg-elevated)] shadow-[var(--shadow-soft)] ring-1 ring-[var(--border-default)] overflow-hidden shrink-0">
+            <img src="/logo.png" alt="Paramount Logo" className="h-full w-full object-contain p-1" />
           </div>
           {!collapsed && (
-            <span className="text-lg font-bold tracking-tight text-white">Paramount</span>
+            <span className="text-base font-extrabold tracking-tight text-[var(--text-primary)]">PIMS</span>
           )}
         </Link>
         {!collapsed && (
           <Button 
             variant="ghost" 
             size="icon" 
-            className="hidden md:flex text-slate-500 hover:text-white hover:bg-slate-800/50 h-8 w-8"
+            className="hidden md:flex text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)] h-8 w-8 rounded-lg transition-colors"
             onClick={() => setIsCollapsed(true)}
+            aria-label="Collapse Sidebar"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -163,7 +164,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       
       {/* Navigation */}
       <div className="flex-1 overflow-y-auto py-6 px-4 custom-scrollbar">
-        <nav className="space-y-1.5">
+        <nav className="space-y-1">
           {navLinks.map((item) => {
             const isActive = pathname?.startsWith(item.href);
             const Icon = item.icon;
@@ -172,24 +173,24 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 group relative",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 group relative",
                   isActive 
-                    ? "bg-slate-800/50 text-white shadow-sm ring-1 ring-slate-700/50" 
-                    : "text-slate-400 hover:bg-slate-800/30 hover:text-slate-200"
+                    ? "bg-[var(--bg-sidebar-active)] text-[var(--text-primary)] shadow-[var(--shadow-soft)] border border-[var(--border-default)]" 
+                    : "text-[var(--text-secondary)] hover:bg-[var(--bg-sidebar-hover)] hover:text-[var(--text-primary)]"
                 )}
                 title={collapsed ? item.title : undefined}
               >
                 <Icon className={cn(
                   "h-5 w-5 shrink-0 transition-colors", 
-                  isActive ? "text-indigo-400" : "text-slate-500 group-hover:text-slate-300"
+                  isActive ? "text-[var(--accent-primary)]" : "text-[var(--text-muted)] group-hover:text-[var(--text-secondary)]"
                 )} />
                 {!collapsed && <span>{item.title}</span>}
                 {isActive && (
                   <>
                     {!collapsed && (
-                      <div className="ml-auto h-1.5 w-1.5 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
+                      <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)] shadow-[0_0_8px_rgba(79,195,247,0.6)]" />
                     )}
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.4)]" />
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[var(--accent-primary)] rounded-r-full shadow-[0_0_10px_rgba(79,195,247,0.4)]" />
                   </>
                 )}
               </Link>
@@ -199,15 +200,15 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
       
       {/* Footer / User Area */}
-      <div className="mt-auto border-t border-slate-800/40 bg-slate-900/40 p-4">
+      <div className="mt-auto border-t border-[var(--border-default)] bg-[var(--bg-surface)]/30 p-4 transition-all duration-300">
         {!collapsed ? (
           <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-800/30 ring-1 ring-slate-700/30">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white ring-2 ring-[#0f172a] shadow-lg shrink-0">
-                {user?.full_name?.charAt(0)}
+            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] shadow-[var(--shadow-soft)]">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] flex items-center justify-center text-xs font-black text-white ring-2 ring-[var(--bg-surface)] shadow-lg shrink-0">
+                {user?.full_name?.charAt(0).toUpperCase()}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-white truncate leading-none mb-1">
+                <span className="text-sm font-bold text-[var(--text-primary)] truncate leading-none mb-1.5">
                   {user?.full_name}
                 </span>
                 <span className={cn(
@@ -221,9 +222,9 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             
             <button
               onClick={() => setShowLogoutDialog(true)}
-              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-all duration-200 w-full border border-slate-800/50 hover:border-rose-500/20 group"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--status-danger-bg)] hover:text-[var(--status-danger-text)] transition-all duration-200 w-full border border-[var(--border-default)] hover:border-[var(--status-danger-border)] group bg-[var(--bg-elevated)] shadow-[var(--shadow-soft)]"
             >
-              <LogOut className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+              <LogOut className="h-4 w-4 transition-transform group-hover:-translate-x-0.5 shrink-0" />
               LOGOUT SESSION
             </button>
           </div>
@@ -232,14 +233,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-slate-500 hover:text-white hover:bg-slate-800/50"
+              className="text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)]"
               onClick={() => setIsCollapsed(false)}
+              aria-label="Expand Sidebar"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
             <button 
               onClick={() => setShowLogoutDialog(true)}
-              className="p-2 text-slate-500 hover:text-rose-400 transition-all hover:bg-rose-500/10 rounded-lg"
+              className="p-2 text-[var(--text-muted)] hover:text-[var(--status-danger-text)] transition-all hover:bg-[var(--status-danger-bg)] rounded-lg"
+              aria-label="Logout Session"
+              title="Logout"
             >
               <LogOut className="h-5 w-5" />
             </button>
@@ -276,7 +280,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col h-screen transition-all duration-300 ease-in-out border-r border-slate-800/40 bg-[#0f172a]",
+          "hidden md:flex flex-col h-screen transition-all duration-300 ease-in-out border-r border-[var(--border-default)] bg-[var(--bg-sidebar)]",
           isCollapsed ? "w-20" : "w-64"
         )}
       >
