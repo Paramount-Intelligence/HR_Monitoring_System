@@ -124,3 +124,14 @@ Detailed technical specifications can be found in the `docs/` directory:
 
 ## 🤝 Contributing
 Please read the [Project Index](./docs/00_PROJECT_INDEX.md) before making any major changes.
+
+
+cd "D:\Paramount Intelligence\Paramount Intelligence\HR_Monitoring_System\apps\api"
+.\venv\Scripts\Activate.ps1
+python -m alembic upgrade head
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8080
+
+
+
+cd "D:\Paramount Intelligence\Paramount Intelligence\HR_Monitoring_System"
+npm.cmd run dev:web

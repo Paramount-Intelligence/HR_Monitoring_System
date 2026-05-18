@@ -111,17 +111,28 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
+default_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
+    "https://aware-harmony-production-b1c1.up.railway.app",
+    "https://workforce-intelligence-os.up.railway.app",
+    "https://pims-os.up.railway.app",
+]
+configured_cors_origins = [
+    *default_cors_origins,
+    settings.frontend_base_url,
+    *(origin for origin in settings.cors_origins if origin != "*"),
+]
+
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "https://workforce-intelligence-os.up.railway.app",
-        "https://pims-os.up.railway.app",
-    ],
+    allow_origins=list(dict.fromkeys(origin for origin in configured_cors_origins if origin)),
+    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

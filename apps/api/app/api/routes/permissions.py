@@ -20,6 +20,7 @@ class UserPermissionOverrideCreate(BaseModel):
     granted: bool = True
 
 
+@router.get("", include_in_schema=False)
 @router.get("/", summary="List all permission keys (admin only)")
 def list_permissions(
     db: Session = Depends(get_db),

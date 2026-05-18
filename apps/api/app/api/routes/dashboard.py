@@ -236,7 +236,7 @@ def admin_analytics_dashboard(db: Session = Depends(get_db), actor: User = Depen
     
     today_sessions = (
         db.query(AttendanceSession)
-        .options(joinedload(AttendanceSession.user).joinedload("department"))
+        .options(joinedload(AttendanceSession.user).joinedload(User.dept))
         .filter(AttendanceSession.check_in_at >= today_start)
         .all()
     )
@@ -330,10 +330,7 @@ def admin_analytics_dashboard(db: Session = Depends(get_db), actor: User = Depen
     # Add late
     for s in late_sessions:
         if s.user:
-            try:
-                dept_name = s.user.department.name if s.user.department else "No Department"
-            except Exception:
-                dept_name = "No Department"
+            dept_name = s.user.department_name or "No Department"
             exceptions.append(AdminAnalyticsPeopleException(
                 employee_name=s.user.full_name,
                 department_name=dept_name,
@@ -344,16 +341,13 @@ def admin_analytics_dashboard(db: Session = Depends(get_db), actor: User = Depen
     # Add absent (active users not in today_sessions)
     active_users_list = (
         db.query(User)
-        .options(joinedload(User.department))
+        .options(joinedload(User.dept))
         .filter(User.status == UserStatus.ACTIVE)
         .all()
     )
     for u in active_users_list:
         if u.id not in checked_in_user_ids:
-            try:
-                dept_name = u.department.name if u.department else "No Department"
-            except Exception:
-                dept_name = "No Department"
+            dept_name = u.department_name or "No Department"
             exceptions.append(AdminAnalyticsPeopleException(
                 employee_name=u.full_name,
                 department_name=dept_name,

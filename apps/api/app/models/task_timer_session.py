@@ -36,3 +36,11 @@ class TaskTimerSession(Base, TimestampMixin):
     # Relationships
     task = relationship("Task", lazy="select")
     user = relationship("User", lazy="select")
+
+    @property
+    def task_title(self) -> str | None:
+        return self.task.title if self.task else None
+
+    @property
+    def project_title(self) -> str | None:
+        return self.task.project_title if self.task else None

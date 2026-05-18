@@ -67,8 +67,8 @@ Follow this guide to set up the Workforce Intelligence & Execution OS on your lo
 
 ## 6. Initial Seed & Admin
 The system is configured to automatically seed permissions and bootstrap a default admin user on startup.
-*   **Default Admin**: `hr.picentral@gmail.com`
-*   **Default Password**: `aliazzam1995`
+*   **Default Admin**: set with `BOOTSTRAP_ADMIN_EMAIL`
+*   **Default Password**: set with `BOOTSTRAP_ADMIN_PASSWORD`
 
 ## 7. Common Local Errors
 *   **`ChunkLoadError`**: Usually caused by a stale Next.js cache. Run `rm -rf .next` in `apps/web` and restart.
