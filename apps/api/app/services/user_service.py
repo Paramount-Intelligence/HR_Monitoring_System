@@ -342,3 +342,136 @@ class UserService:
             new_value=new_value,
         )
         self.db.add(log)
+
+    def get_admin_user_profile(
+        self,
+        user_id: uuid.UUID,
+        actor: User,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        limit: int = 50,
+    ) -> dict:
+        if actor.role != UserRole.ADMIN:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can view full profile")
+
+        user = self.get_by_id(user_id)
+        from datetime import datetime, timedelta, timezone
+        
+        now = datetime.now(timezone.utc)
+        if start_date:
+            try:
+                s_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+            except:
+                s_date = now - timedelta(days=30)
+        else:
+            s_date = now - timedelta(days=30)
+            
+        if end_date:
+            try:
+                e_date = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+            except:
+                e_date = now
+        else:
+            e_date = now
+
+        if s_date.tzinfo is None: s_date = s_date.replace(tzinfo=timezone.utc)
+        if e_date.tzinfo is None: e_date = e_date.replace(tzinfo=timezone.utc)
+
+        from app.models.attendance_session import AttendanceSession
+        from app.models.attendance_break import AttendanceBreak
+        from app.models.leave_request import LeaveRequest
+        from app.models.eod_report import EODReport
+        from app.models.task import Task
+        from app.models.time_log import TimeLog
+        from app.models.project import Project
+        from app.models.goal import Goal
+        from app.models.personal_note import PersonalNote
+        
+        # Attendance
+        att_sessions = self.db.query(AttendanceSession).filter(
+            AttendanceSession.user_id == user_id,
+            AttendanceSession.check_in_at >= s_date,
+            AttendanceSession.check_in_at <= e_date
+        ).order_by(AttendanceSession.check_in_at.desc()).all()
+        
+        att_session_ids = [s.id for s in att_sessions]
+        breaks = []
+        if att_session_ids:
+            breaks = self.db.query(AttendanceBreak).filter(
+                AttendanceBreak.attendance_session_id.in_(att_session_ids)
+            ).order_by(AttendanceBreak.started_at.desc()).all()
+        
+        summary = {
+            "total_check_ins": len(att_sessions),
+            "late_check_ins": sum(1 for s in att_sessions if s.is_late_login),
+            "early_checkouts": sum(1 for s in att_sessions if s.is_early_logout),
+            "absences": 0,
+            "total_worked_hours": sum((s.worked_minutes or 0) for s in att_sessions) / 60.0,
+            "current_attendance_status": att_sessions[0].session_status.value if att_sessions else "inactive"
+        }
+
+        # Leaves
+        leaves = self.db.query(LeaveRequest).filter(
+            LeaveRequest.user_id == user_id,
+            LeaveRequest.start_date >= s_date.date()
+        ).order_by(LeaveRequest.start_date.desc()).all()
+
+        # EODs
+        eods = self.db.query(EODReport).filter(
+            EODReport.user_id == user_id,
+            EODReport.report_date >= s_date.date()
+        ).order_by(EODReport.report_date.desc()).all()
+
+        # Tasks
+        tasks = self.db.query(Task).filter(Task.assigned_to == user_id).order_by(Task.created_at.desc()).limit(limit).all()
+
+        # Time Logs
+        time_logs = self.db.query(TimeLog).filter(
+            TimeLog.user_id == user_id,
+            TimeLog.started_at >= s_date
+        ).order_by(TimeLog.started_at.desc()).limit(limit).all()
+
+        # Projects
+        from sqlalchemy import or_
+        project_ids_from_tasks = list({t.project_id for t in tasks if t.project_id})
+        if project_ids_from_tasks:
+            projects = self.db.query(Project).filter(or_(Project.owner_id == user_id, Project.id.in_(project_ids_from_tasks))).order_by(Project.created_at.desc()).limit(limit).all()
+        else:
+            projects = self.db.query(Project).filter(Project.owner_id == user_id).order_by(Project.created_at.desc()).limit(limit).all()
+
+        # Goals & Notes
+        goals = self.db.query(Goal).filter(Goal.user_id == user_id).order_by(Goal.created_at.desc()).limit(limit).all()
+        notes = self.db.query(PersonalNote).filter(PersonalNote.user_id == user_id).order_by(PersonalNote.note_date.desc()).limit(limit).all()
+        
+        timeline = []
+        for a in att_sessions[:10]:
+            timeline.append({"type": "attendance", "date": a.check_in_at.isoformat(), "title": f"Checked in ({a.work_mode.value})"})
+            if a.check_out_at:
+                timeline.append({"type": "attendance", "date": a.check_out_at.isoformat(), "title": "Checked out"})
+        for b in breaks[:5]:
+            timeline.append({"type": "break", "date": b.started_at.isoformat(), "title": f"Started break ({b.break_type.value})"})
+        for l in leaves[:5]:
+            timeline.append({"type": "leave", "date": l.created_at.isoformat(), "title": f"Leave requested ({l.leave_type.value})"})
+        for e in eods[:5]:
+            timeline.append({"type": "eod", "date": e.created_at.isoformat(), "title": "EOD Submitted"})
+        for t in tasks[:5]:
+            timeline.append({"type": "task", "date": t.created_at.isoformat(), "title": f"Assigned task: {t.title}"})
+        for tl in time_logs[:5]:
+            timeline.append({"type": "time_log", "date": tl.started_at.isoformat(), "title": f"Logged {tl.duration_minutes}m time"})
+            
+        timeline.sort(key=lambda x: x["date"], reverse=True)
+
+        return {
+            "profile": user,
+            "attendance_summary": summary,
+            "attendance_sessions": att_sessions,
+            "breaks": breaks,
+            "leave_requests": leaves,
+            "eod_submissions": eods,
+            "tasks": tasks,
+            "time_logs": time_logs,
+            "projects": projects,
+            "goals": goals,
+            "notes": notes,
+            "activity_timeline": timeline[:limit]
+        }

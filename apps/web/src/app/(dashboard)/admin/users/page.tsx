@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
@@ -368,6 +369,11 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
+                          <Link href={`/admin/users/${user.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
+                              View Profile
+                            </Button>
+                          </Link>
                           {user.status !== 'active' && (
                             <Button
                               variant="ghost" size="sm"

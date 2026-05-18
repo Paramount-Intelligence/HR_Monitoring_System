@@ -139,3 +139,27 @@ def resend_invitation(
 ):
     UserService(db).resend_invitation(user_id, actor=actor)
     return {"message": "Invitation email resent successfully"}
+
+from app.schemas.user import AdminUserProfileAggregate
+from typing import Optional
+
+@router.get(
+    "/{user_id}/admin-profile",
+    response_model=AdminUserProfileAggregate,
+    summary="Get aggregated 360 profile for an employee (admin only)"
+)
+def get_admin_user_profile(
+    user_id: uuid.UUID,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    limit: int = Query(50),
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin),
+) -> dict:
+    return UserService(db).get_admin_user_profile(
+        user_id=user_id, 
+        actor=actor, 
+        start_date=start_date, 
+        end_date=end_date, 
+        limit=limit
+    )

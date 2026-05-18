@@ -51,5 +51,10 @@ export const usersApi = {
     const response = await apiClient.get<{ permissions: string[] }>('/auth/me/permissions');
     return response.data;
   },
+
+  getAdminUserProfile: async (id: string, params?: { start_date?: string; end_date?: string; limit?: number }) => {
+    const response = await apiClient.get(`/users/${id}/admin-profile`, { params });
+    return response.data;
+  },
 };
 

@@ -154,35 +154,50 @@ export default function AttendancePage() {
   const handleCheckOutClick = () => {
     if (!activeSession) return;
 
-    // Check if current time in PKT is relative to shift end
+    // Use current time to check against expected shift end
     const now = new Date();
+    
     if (activeSession.expected_shift_end_at) {
       const shiftEnd = new Date(activeSession.expected_shift_end_at);
-      if (now < shiftEnd) {
+      // We add a 2-minute buffer for clock skew
+      const bufferMs = 2 * 60 * 1000;
+      
+      if (now.getTime() < shiftEnd.getTime() - bufferMs) {
         setEarlyCheckoutDialog({ isOpen: true });
         return;
       }
-      if (now > shiftEnd) {
+      if (now.getTime() > shiftEnd.getTime() + bufferMs) {
         setCheckoutDialog({ isOpen: true });
         return;
       }
     } else {
-      // standard fallback logic for early checkout if expected_shift_end_at is missing for some reason
-      const shiftEndFallback = new Date();
-      shiftEndFallback.setHours(2, 0, 0, 0); // Assuming standard 5pm-2am shift end
-      if (now.getHours() >= 10) shiftEndFallback.setDate(shiftEndFallback.getDate() + 1);
+      // Fallback: 5:00 PM to 2:00 AM PKT
+      // Convert current time to PKT to evaluate correctly
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const pkt = new Date(utc + (3600000 * 5)); // PKT is UTC+5
       
-      if (now < shiftEndFallback) {
+      const pktHour = pkt.getHours();
+      
+      // If the PKT time is between 5 PM (17) and 2 AM (2), it's before the end of the shift
+      // Specifically: 17, 18, 19, 20, 21, 22, 23, 0, 1
+      const isEarly = (pktHour >= 17 || pktHour < 2);
+      const isOvertime = (pktHour >= 2 && pktHour < 10); // Between 2 AM and 10 AM PKT
+      
+      if (isEarly) {
          setEarlyCheckoutDialog({ isOpen: true });
+         return;
+      }
+      if (isOvertime) {
+         setCheckoutDialog({ isOpen: true });
          return;
       }
     }
 
     // Normal checkout
-    performCheckOut();
+    performCheckOut({});
   };
 
-  const performCheckOut = async (justification?: { checkout_after_shift_reason?: string, checkout_after_shift_note?: string, early_checkout_reason?: string }) => {
+  const performCheckOut = async (justification: { checkout_after_shift_reason?: string, checkout_after_shift_note?: string, early_checkout_reason?: string } = {}) => {
     setIsActionLoading(true);
     try {
       await attendanceApi.checkOut(justification);
@@ -194,7 +209,15 @@ export default function AttendancePage() {
       setEarlyCheckoutReason('');
       await fetchData();
     } catch (error: any) {
-      toast.error(getErrorMessage(error) || 'Check-out failed');
+      const msg = getErrorMessage(error) || 'Check-out failed';
+      toast.error(msg);
+      
+      // If the backend says it's early but frontend missed it, open the modal
+      if (msg.toLowerCase().includes('before your shift ends') || msg.toLowerCase().includes('early checkout')) {
+        setEarlyCheckoutDialog({ isOpen: true });
+      } else if (msg.toLowerCase().includes('after shift end') || msg.toLowerCase().includes('overtime')) {
+        setCheckoutDialog({ isOpen: true });
+      }
     } finally {
       setIsActionLoading(false);
     }

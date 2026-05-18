@@ -56,3 +56,27 @@ class UserRead(BaseModel):
     shift_timing: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+from typing import Any
+from app.schemas.attendance import AttendanceSessionRead, AttendanceBreakRead
+from app.schemas.leave import LeaveRequestRead
+from app.schemas.ops import EODReportRead
+from app.schemas.task import TaskRead
+from app.schemas.time_log import TimeLogRead
+from app.schemas.project import ProjectRead
+from app.schemas.growth import GoalRead, PersonalNoteRead
+
+class AdminUserProfileAggregate(BaseModel):
+    profile: UserRead
+    attendance_summary: dict[str, Any]
+    attendance_sessions: list[AttendanceSessionRead]
+    breaks: list[AttendanceBreakRead]
+    leave_requests: list[LeaveRequestRead]
+    eod_submissions: list[EODReportRead]
+    tasks: list[TaskRead]
+    time_logs: list[TimeLogRead]
+    projects: list[ProjectRead]
+    goals: list[GoalRead]
+    notes: list[PersonalNoteRead]
+    activity_timeline: list[dict[str, Any]]

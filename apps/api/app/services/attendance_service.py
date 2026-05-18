@@ -139,7 +139,7 @@ class AttendanceService:
         if is_early:
             if not payload or not payload.early_checkout_reason or len(payload.early_checkout_reason.strip()) < 5:
                 raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    status_code=status.HTTP_400_BAD_REQUEST,
                     detail="A reason of at least 5 characters is required for checking out before your shift ends."
                 )
             session.early_checkout_reason = payload.early_checkout_reason
