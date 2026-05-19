@@ -28,6 +28,7 @@ interface AuthContextType {
   logout: (redirect?: boolean) => Promise<void>;
   hasPermission: (key: string) => boolean;
   getDashboardPath: () => string;
+  updateUser: (userData: Partial<TokenUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -136,6 +137,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const updateUser = useCallback((userData: Partial<TokenUser>) => {
+    setUser(prev => {
+      if (!prev) return null;
+      const updated = { ...prev, ...userData };
+      localStorage.setItem('user', JSON.stringify(updated));
+      return updated;
+    });
+  }, []);
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -146,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       hasPermission,
       getDashboardPath,
+      updateUser,
     }}>
       {children}
     </AuthContext.Provider>

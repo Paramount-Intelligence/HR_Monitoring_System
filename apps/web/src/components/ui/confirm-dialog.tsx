@@ -40,16 +40,16 @@ export function ConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-[400px] rounded-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-xl font-semibold text-slate-900">
+          <AlertDialogTitle className="text-xl font-semibold text-[var(--text-primary)]">
             {title}
           </AlertDialogTitle>
-          <AlertDialogDescription className="text-sm text-slate-500">
+          <AlertDialogDescription className="text-sm text-[var(--text-secondary)]">
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-6 flex gap-2">
           <AlertDialogCancel 
-            className="rounded-lg border-slate-200 text-slate-600 hover:bg-slate-50 font-medium"
+            className="rounded-lg border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] font-medium bg-[var(--bg-elevated)]"
             disabled={isLoading}
           >
             {cancelLabel}
@@ -62,8 +62,10 @@ export function ConfirmDialog({
             disabled={isLoading}
             className={cn(
               buttonVariants({ variant: confirmVariant }),
-              "rounded-lg font-medium min-w-[100px]",
-              confirmVariant === "destructive" ? "bg-rose-600 hover:bg-rose-700 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
+              "rounded-lg font-medium min-w-[100px] border",
+              confirmVariant === "destructive" 
+                ? "bg-[var(--status-danger-text)] hover:opacity-90 text-white border-[var(--status-danger-border)]" 
+                : "bg-[var(--accent-primary)] hover:opacity-90 text-white border-[var(--border-strong)]"
             )}
           >
             {isLoading ? "Processing..." : confirmLabel}

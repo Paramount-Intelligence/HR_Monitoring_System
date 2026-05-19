@@ -19,6 +19,7 @@
        PIMS CANONICAL THEME TOKENS (LIGHT MODE)
        ========================================== */
     --accent-primary: #1565C0;
+    --accent-secondary: #4FC3F7;
     --bg-base: #BFE0F5;
     --bg-surface: #EAF4FD;
     --bg-elevated: #FFFFFF;
@@ -26,7 +27,7 @@
     
     --text-primary: #0D1B3E;
     --text-secondary: #2E5090;
-    --text-muted: #90CAF9;
+    --text-muted: #5A738E;
 
     --border-default: rgba(30, 60, 120, 0.15);
     --border-subtle: rgba(30, 60, 120, 0.08);
@@ -105,6 +106,7 @@
        PIMS CANONICAL THEME TOKENS (DARK MODE)
        ========================================== */
     --accent-primary: #4FC3F7;
+    --accent-secondary: #1565C0;
     --bg-base: #0D1B3E;
     --bg-surface: #162447;
     --bg-elevated: rgba(20, 45, 95, 0.85);
@@ -206,6 +208,10 @@
     @apply text-[var(--text-secondary)] font-normal leading-relaxed text-sm;
   }
 
+  .app-copy-weak {
+    @apply text-[var(--text-muted)] font-normal leading-normal text-xs;
+  }
+
   /* Surfaces & Containers */
   .app-surface {
     @apply bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl shadow-premium transition-all duration-200;
@@ -213,6 +219,10 @@
 
   .app-surface-elevated {
     @apply bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl shadow-premium-lg transition-all duration-200;
+  }
+
+  .app-surface-subtle {
+    @apply bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded-xl transition-all duration-200;
   }
 
   /* Alerts */

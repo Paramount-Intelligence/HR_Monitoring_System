@@ -13,7 +13,7 @@ from app.core.deps import (
 )
 from app.models.enums import UserRole, UserStatus
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse
+from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse, UserProfileUpdate, UserPasswordChange
 from app.services.user_service import UserService
 
 router = APIRouter()
@@ -57,6 +57,51 @@ def list_users(
 @router.get("/me", response_model=UserRead, summary="Get current user profile")
 def get_me(current_user: User = Depends(get_current_user)) -> UserRead:
     return current_user
+
+
+@router.patch("/me/profile", response_model=UserRead, summary="Update current user profile details")
+def update_my_profile(
+    payload: UserProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserRead:
+    if payload.full_name is not None:
+        current_user.full_name = payload.full_name
+    if payload.phone is not None:
+        current_user.phone = payload.phone
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/me/change-password", summary="Change current user password")
+def change_my_password(
+    payload: UserPasswordChange,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.core.security import verify_password, hash_password
+    from fastapi import HTTPException
+    
+    if not verify_password(payload.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect."
+        )
+    if payload.new_password != payload.confirm_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New passwords do not match."
+        )
+    if payload.new_password == payload.current_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="New password must be different from the current password."
+        )
+    
+    current_user.password_hash = hash_password(payload.new_password)
+    db.commit()
+    return {"message": "Password updated successfully."}
 
 
 @router.get("/{user_id}", response_model=UserRead, summary="Get user by ID")

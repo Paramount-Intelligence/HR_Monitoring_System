@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Breadcrumbs } from './Breadcrumbs';
 import { HeaderTimer } from './HeaderTimer';
@@ -12,7 +13,7 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Menu, LogOut } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon } from 'lucide-react';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -97,6 +98,15 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   </div>
                 </DropdownMenuLabel>
               </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
+
+              <DropdownMenuItem asChild className="focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3 group flex items-center gap-2 transition-colors duration-150 text-[var(--text-primary)]">
+                <Link href="/profile">
+                  <UserIcon className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
+                  <span>My Profile</span>
+                </Link>
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
 
               <DropdownMenuItem 

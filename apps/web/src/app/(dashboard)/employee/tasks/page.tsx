@@ -384,12 +384,16 @@ export default function EmployeeTasksPage() {
             <div className="p-20">
               <EmptyState 
                   title="Task queue empty"
-                  message="No tasks found. Create a new task to get started."
+                  description="No tasks found. Create a new task to get started."
                   icon={Briefcase}
-                  action={{
-                      label: "New Task",
-                      onClick: () => setIsDialogOpen(true)
-                  }}
+                  action={
+                    <Button 
+                      onClick={() => setIsDialogOpen(true)}
+                      className="h-11 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-6 rounded-xl border-none shadow-md"
+                    >
+                      New Task
+                    </Button>
+                  }
               />
             </div>
           ) : (

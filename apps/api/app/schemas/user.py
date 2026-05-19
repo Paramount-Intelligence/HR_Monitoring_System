@@ -14,6 +14,7 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str | None = Field(None, min_length=8)
     role: UserRole
+    phone: str | None = None
     department: str | None = None
     department_id: uuid.UUID | None = None
     shift_id: uuid.UUID | None = None
@@ -28,6 +29,7 @@ class UserCreateResponse(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
+    phone: str | None = None
     department: str | None = None
     department_id: uuid.UUID | None = None
     shift_id: uuid.UUID | None = None
@@ -37,11 +39,23 @@ class UserUpdate(BaseModel):
     role: UserRole | None = None
 
 
+class UserProfileUpdate(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+
+
+class UserPasswordChange(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8)
+    confirm_password: str = Field(..., min_length=8)
+
+
 class UserRead(BaseModel):
     model_config = {"from_attributes": True}
 
     id: uuid.UUID
     full_name: str
+    phone: str | None = None
     email: str
     role: UserRole
     status: UserStatus

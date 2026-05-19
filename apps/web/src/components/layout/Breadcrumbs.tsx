@@ -4,9 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 export function Breadcrumbs() {
   const pathname = usePathname();
+  const [customLabel, setCustomLabel] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      if (typeof window !== 'undefined') {
+        setCustomLabel((window as any).__BREADCRUMB_LABEL__ || null);
+      }
+    };
+    
+    handleUpdate();
+    window.addEventListener('breadcrumb-update', handleUpdate);
+    return () => {
+      window.removeEventListener('breadcrumb-update', handleUpdate);
+    };
+  }, [pathname]);
+
   if (pathname === '/' || pathname === '/login') return null;
 
   const paths = pathname.split('/').filter(Boolean);
@@ -14,32 +31,38 @@ export function Breadcrumbs() {
   // Skip the first part if it's a role (admin, employee, etc.) for display but keep for links
   const breadcrumbItems = paths.map((path, index) => {
     const href = `/${paths.slice(0, index + 1).join('/')}`;
-    const label = path.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+    
+    // Check if the current path segment is a UUID
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path);
+    const label = isUuid 
+      ? (customLabel || 'Employee Profile')
+      : path.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+      
     const isLast = index === paths.length - 1;
 
     return { href, label, isLast };
   });
 
   return (
-    <nav className="flex items-center space-x-1 text-sm text-slate-500 font-medium">
+    <nav className="flex items-center space-x-1 text-sm text-[var(--text-secondary)] font-medium">
       <Link 
         href="/" 
-        className="flex items-center hover:text-slate-900 transition-colors"
+        className="flex items-center hover:text-[var(--text-primary)] transition-colors"
       >
         <Home className="h-4 w-4" />
       </Link>
       
       {breadcrumbItems.map((item, index) => (
         <div key={item.href} className="flex items-center space-x-1">
-          <ChevronRight className="h-4 w-4 text-slate-300" />
+          <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" />
           {item.isLast ? (
-            <span className="text-slate-900 font-semibold truncate max-w-[150px]">
+            <span className="text-[var(--text-primary)] font-semibold truncate max-w-[200px]" title={item.label}>
               {item.label}
             </span>
           ) : (
             <Link 
               href={item.href}
-              className="hover:text-slate-900 transition-colors"
+              className="hover:text-[var(--text-primary)] transition-colors truncate max-w-[150px]"
             >
               {item.label}
             </Link>

@@ -118,6 +118,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           { title: 'Org Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
           { title: 'Users & Teams', href: '/admin/users', icon: Users },
           { title: 'All Projects', href: '/admin/projects', icon: Briefcase },
+          { title: 'Tasks', href: '/admin/tasks', icon: CheckSquare },
           { title: 'Organization', href: '/admin/organization', icon: Building },
           { title: 'Holidays', href: '/admin/holidays', icon: Calendar },
           { title: 'Announcements', href: '/admin/announcements', icon: Megaphone },

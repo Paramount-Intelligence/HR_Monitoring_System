@@ -56,5 +56,15 @@ export const usersApi = {
     const response = await apiClient.get(`/users/${id}/admin-profile`, { params });
     return response.data;
   },
+
+  updateMyProfile: async (data: { full_name: string; phone?: string | null }) => {
+    const response = await apiClient.patch<User>('/users/me/profile', data);
+    return response.data;
+  },
+
+  changePassword: async (data: any) => {
+    const response = await apiClient.post<{ message: string }>('/users/me/change-password', data);
+    return response.data;
+  },
 };
 

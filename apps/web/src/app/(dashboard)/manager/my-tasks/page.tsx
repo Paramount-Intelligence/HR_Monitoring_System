@@ -207,7 +207,6 @@ export default function TasksPage() {
           </Dialog>
         </div>
       </div>
-
       <Card className="rounded-xl shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] border-[var(--border-subtle)] overflow-hidden text-[var(--text-primary)]">
         <CardContent className="p-0">
           {isLoading ? (
@@ -217,10 +216,14 @@ export default function TasksPage() {
                 title="No tasks found"
                 description="Create your first task to start tracking your work."
                 icon={CheckSquare}
-                action={{
-                    label: "Create Task",
-                    onClick: () => setIsDialogOpen(true)
-                }}
+                action={
+                  <Button 
+                    onClick={() => setIsDialogOpen(true)}
+                    className="bg-[var(--accent-primary)] hover:opacity-90 h-11 px-6 rounded-xl font-bold text-xs uppercase tracking-widest border-none text-white shadow-sm"
+                  >
+                    Create Task
+                  </Button>
+                }
             />
           ) : (
             <div className="overflow-x-auto">

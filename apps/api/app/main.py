@@ -25,6 +25,13 @@ async def lifespan(app: FastAPI):
     """Seed permissions and bootstrap admin on startup."""
     db = SessionLocal()
     try:
+        from sqlalchemy import text
+        try:
+            db.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(50) DEFAULT NULL;"))
+            db.commit()
+            logger.info("Database evolved successfully: added users.phone column.")
+        except Exception:
+            pass
         seed_permissions(db)
         bootstrap_admin(db)
     finally:

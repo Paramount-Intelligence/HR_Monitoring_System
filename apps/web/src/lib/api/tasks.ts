@@ -32,7 +32,7 @@ export const tasksApi = {
     return response.data;
   },
 
-  createTask: async (data: { project_id: string; assigned_to: string; title: string; description: string; priority: string; due_date?: string }) => {
+  createTask: async (data: { project_id: string; assigned_to: string; title: string; description: string; priority: string; due_date?: string | null }) => {
     const response = await apiClient.post<Task>('/tasks', data);
     return response.data;
   },
@@ -48,5 +48,38 @@ export const tasksApi = {
       expected_duration_minutes: expectedDuration
     });
     return response.data;
-  }
+  },
+
+  getAdminTaskOverview: async (params?: Record<string, any>) => {
+    const response = await apiClient.get<{
+      summary: {
+        total_tasks: number;
+        active_tasks: number;
+        in_progress: number;
+        completed: number;
+        overdue: number;
+        currently_working: number;
+      };
+      total_count: number;
+      tasks: (Task & {
+        timer_state: 'not_started' | 'running' | 'paused';
+        timer_duration_seconds: number;
+        timer_pause_reason: string | null;
+      })[];
+      active_work: {
+        id: string;
+        task_id: string;
+        task_title: string;
+        project_title: string;
+        employee_id: string;
+        employee_name: string;
+        employee_role: string;
+        timer_state: 'running' | 'paused';
+        started_at: string | null;
+        current_duration_seconds: number;
+        pause_reason: string | null;
+      }[];
+    }>('/tasks/admin/overview', { params });
+    return response.data;
+  },
 };
