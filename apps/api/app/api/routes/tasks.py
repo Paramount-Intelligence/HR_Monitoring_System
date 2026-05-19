@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -123,13 +124,13 @@ def get_admin_task_overview(
     
     # 3. Aggregate statistics (overall dashboard health)
     total_tasks = db.query(Task).count()
-    active_tasks = db.query(Task).filter(~Task.status.in_([TaskStatus.COMPLETED, TaskStatus.REVIEWED, TaskStatus.CANCELLED])).count()
+    active_tasks = db.query(Task).filter(~Task.status.in_([TaskStatus.COMPLETED, TaskStatus.REVIEWED])).count()
     in_progress = db.query(Task).filter(Task.status == TaskStatus.IN_PROGRESS).count()
     completed = db.query(Task).filter(Task.status.in_([TaskStatus.COMPLETED, TaskStatus.REVIEWED])).count()
     
     overdue = db.query(Task).filter(
         Task.due_date < date.today(),
-        ~Task.status.in_([TaskStatus.COMPLETED, TaskStatus.REVIEWED, TaskStatus.CANCELLED])
+        ~Task.status.in_([TaskStatus.COMPLETED, TaskStatus.REVIEWED])
     ).count()
     
     currently_working = db.query(TaskTimerSession).filter(

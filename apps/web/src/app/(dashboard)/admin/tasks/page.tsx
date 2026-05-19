@@ -6,6 +6,7 @@ import { usersApi } from '@/lib/api/users';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { getErrorMessage } from '@/lib/api/client';
 import { User } from '@/types';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -155,7 +156,14 @@ export default function AdminTasksPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (!newTitle.trim() || !newProjectId || !newAssignedTo) {
+    const titleVal = newTitle.trim();
+    const descriptionVal = newDescription.trim() || null;
+    const projectIdVal = newProjectId;
+    const assignedToVal = newAssignedTo;
+    const priorityVal = newPriority.toLowerCase();
+    const dueDateVal = newDueDate && newDueDate.trim() !== '' ? newDueDate : null;
+
+    if (!titleVal || !projectIdVal || !assignedToVal) {
       setErrorMsg('Task Title, Project, and Assignee are required.');
       return;
     }
@@ -163,15 +171,15 @@ export default function AdminTasksPage() {
     try {
       setActionLoading(true);
       await tasksApi.createTask({
-        title: newTitle.trim(),
-        description: newDescription.trim(),
-        project_id: newProjectId,
-        assigned_to: newAssignedTo,
-        priority: newPriority,
-        due_date: newDueDate ? newDueDate : null
+        title: titleVal,
+        description: descriptionVal,
+        project_id: projectIdVal,
+        assigned_to: assignedToVal,
+        priority: priorityVal,
+        due_date: dueDateVal
       });
       
-      setSuccessMsg('Task assigned and scheduled successfully.');
+      toast.success('Task assigned successfully.');
       setNewTitle('');
       setNewDescription('');
       setNewProjectId('');
@@ -181,7 +189,9 @@ export default function AdminTasksPage() {
       setShowAssignModal(false);
       fetchOverview();
     } catch (err: any) {
-      setErrorMsg(getErrorMessage(err));
+      const msg = getErrorMessage(err);
+      setErrorMsg(msg || 'Unable to create task. Please try again.');
+      toast.error(msg || 'Failed to create task.');
     } finally {
       setActionLoading(false);
     }
