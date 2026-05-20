@@ -61,31 +61,42 @@ class Settings(BaseSettings):
     @field_validator("database_url", mode="before")
     @classmethod
     def fix_postgres_scheme(cls, v: str | None, info) -> str:
+        url = None
         # 1. If DATABASE_URL is provided, normalize the scheme
         if v and isinstance(v, str):
             if is_unresolved_template(v):
                 public_url = info.data.get("database_public_url")
                 if public_url and not is_unresolved_template(public_url):
-                    return normalize_postgres_url(public_url)
+                    url = normalize_postgres_url(public_url)
             elif v:
-                return normalize_postgres_url(v)
+                url = normalize_postgres_url(v)
             
         # 2. Fallback: Try to construct from individual PG variables
-        # We access values via info.data (pydantic v2)
-        data = info.data
-        pghost = data.get("pghost")
-        pguser = data.get("pguser")
-        pgpass = data.get("pgpassword")
-        pgdb = data.get("pgdatabase")
-        pgport = data.get("pgport", "5432")
-        
-        if all([pghost, pguser, pgpass, pgdb]) and not any(
-            is_unresolved_template(value) for value in [pghost, pguser, pgpass, pgdb, pgport]
-        ):
-            return f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
+        if not url:
+            data = info.data
+            pghost = data.get("pghost")
+            pguser = data.get("pguser")
+            pgpass = data.get("pgpassword")
+            pgdb = data.get("pgdatabase")
+            pgport = data.get("pgport", "5432")
             
-        # 3. Default fallback to SQLite
-        return "sqlite:///./workforce_intelligence.db"
+            if all([pghost, pguser, pgpass, pgdb]) and not any(
+                is_unresolved_template(value) for value in [pghost, pguser, pgpass, pgdb, pgport]
+            ):
+                url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
+            
+        # 3. Validations
+        if not url or url.strip() == "":
+            raise ValueError(
+                "DATABASE_URL is missing. Please configure a PostgreSQL DATABASE_URL in your environment."
+            )
+            
+        if url.startswith("sqlite"):
+            raise ValueError(
+                "SQLite is no longer supported. Please configure PostgreSQL DATABASE_URL."
+            )
+            
+        return url
 
 
 settings = Settings()

@@ -6,6 +6,8 @@ export interface Department {
   description?: string;
   admin_id?: string;
   admin_name?: string;
+  head_id?: string | null;
+  head_name?: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -20,11 +22,11 @@ export const departmentsApi = {
     const response = await apiClient.get<Department[]>('/departments/active');
     return response.data;
   },
-  createDepartment: async (data: { name: string; description?: string; admin_id?: string; is_active?: boolean }) => {
+  createDepartment: async (data: { name: string; description?: string; admin_id?: string; head_id?: string | null; is_active?: boolean }) => {
     const response = await apiClient.post<Department>('/departments', data);
     return response.data;
   },
-  updateDepartment: async (id: string, data: Partial<Department>) => {
+  updateDepartment: async (id: string, data: Partial<Department> & { head_id?: string | null }) => {
     const response = await apiClient.patch<Department>(`/departments/${id}`, data);
     return response.data;
   },

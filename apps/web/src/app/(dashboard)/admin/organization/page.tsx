@@ -24,6 +24,7 @@ import { holidaysApi } from '@/lib/api/holidays';
 import { announcementsApi } from '@/lib/api/announcements';
 import { departmentsApi } from '@/lib/api/departments';
 import { shiftsApi } from '@/lib/api/shifts';
+import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatPKDate } from '@/lib/time';
@@ -39,6 +40,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 const deptSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   description: z.string().optional(),
+  head_id: z.string().nullable().optional(),
+});
+
+const editDeptSchema = z.object({
+  name: z.string().min(2, 'Name is required'),
+  description: z.string().optional(),
+  head_id: z.string().nullable().optional(),
+  is_active: z.boolean(),
 });
 
 const shiftSchema = z.object({
@@ -69,6 +78,9 @@ export default function AdminOrgPage() {
   const [shifts, setShifts] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<any[]>([]);
   const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [selectedDept, setSelectedDept] = useState<any | null>(null);
+  const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
   const [activeTab, setActiveTab] = useState('departments');
@@ -80,16 +92,21 @@ export default function AdminOrgPage() {
   const fetchOrgData = async () => {
     setIsLoading(true);
     try {
-      const [depts, shiftsData, hols, ann] = await Promise.all([
+      const [depts, shiftsData, hols, ann, usersData] = await Promise.all([
         departmentsApi.getDepartments(),
         shiftsApi.getShifts(),
         holidaysApi.getHolidays(),
-        announcementsApi.getAllAnnouncements()
+        announcementsApi.getAllAnnouncements(),
+        usersApi.getUsers({ status: 'active' }).catch((err) => {
+          toast.error("Unable to load eligible department heads.");
+          return [];
+        })
       ]);
       setDepartments(depts);
       setShifts(shiftsData);
       setHolidays(hols);
       setAnnouncements(ann);
+      setUsers(usersData);
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -103,8 +120,49 @@ export default function AdminOrgPage() {
 
   const deptForm = useForm<z.infer<typeof deptSchema>>({
     resolver: zodResolver(deptSchema),
-    defaultValues: { name: '', description: '' }
+    defaultValues: { name: '', description: '', head_id: '' }
   });
+
+  const editDeptForm = useForm<z.infer<typeof editDeptSchema>>({
+    resolver: zodResolver(editDeptSchema),
+    defaultValues: { name: '', description: '', head_id: '', is_active: true }
+  });
+
+  const handleOpenEditDept = (dept: any, focusHead: boolean = false) => {
+    setSelectedDept(dept);
+    editDeptForm.reset({
+      name: dept.name,
+      description: dept.description || '',
+      head_id: dept.head_id || dept.admin_id || '',
+      is_active: dept.is_active,
+    });
+    setIsEditDeptOpen(true);
+  };
+
+  const onEditDeptSubmit = async (data: z.infer<typeof editDeptSchema>) => {
+    if (!selectedDept) return;
+    try {
+      const payload = {
+        name: data.name,
+        description: data.description || '',
+        head_id: (data.head_id === '' || data.head_id === 'none') ? null : data.head_id,
+        is_active: data.is_active,
+      };
+      await departmentsApi.updateDepartment(selectedDept.id, payload);
+      toast.success('Department updated successfully');
+      setIsEditDeptOpen(false);
+      fetchOrgData();
+    } catch (e) {
+      const errorMsg = getErrorMessage(e);
+      if (errorMsg.includes("Selected department head is not eligible")) {
+        toast.error("Selected department head is not eligible.");
+      } else if (errorMsg.includes("Department head must be Admin, HR, Manager, or Team Lead")) {
+        toast.error("Department head must be Admin, HR, Manager, or Team Lead.");
+      } else {
+        toast.error("Unable to update department. Please try again.");
+      }
+    }
+  };
 
   const shiftForm = useForm<z.infer<typeof shiftSchema>>({
     resolver: zodResolver(shiftSchema),
@@ -125,14 +183,28 @@ export default function AdminOrgPage() {
     defaultValues: { title: '', content: '', audience: 'all', start_date: '', end_date: '' }
   });
 
-  const onDeptSubmit = async (data: any) => {
+  const onDeptSubmit = async (data: z.infer<typeof deptSchema>) => {
     try {
-      await departmentsApi.createDepartment(data);
+      const payload = {
+        name: data.name,
+        description: data.description || '',
+        head_id: (data.head_id === '' || data.head_id === 'none') ? null : data.head_id,
+      };
+      await departmentsApi.createDepartment(payload);
       toast.success('Department established');
       setIsDeptDialogOpen(false);
-      deptForm.reset();
+      deptForm.reset({ name: '', description: '', head_id: '' });
       fetchOrgData();
-    } catch (e) { toast.error(getErrorMessage(e)); }
+    } catch (e) { 
+      const errorMsg = getErrorMessage(e);
+      if (errorMsg.includes("Selected department head is not eligible")) {
+        toast.error("Selected department head is not eligible.");
+      } else if (errorMsg.includes("Department head must be Admin, HR, Manager, or Team Lead")) {
+        toast.error("Department head must be Admin, HR, Manager, or Team Lead.");
+      } else {
+        toast.error("Unable to create department. Please try again.");
+      }
+    }
   };
 
   const onShiftSubmit = async (data: any) => {
@@ -226,13 +298,44 @@ export default function AdminOrgPage() {
                       <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">Establish Department</DialogTitle>
                     </DialogHeader>
                     <Form {...deptForm}>
-                      <form onSubmit={deptForm.handleSubmit(onDeptSubmit)} className="space-y-6 pt-6">
+                      <form onSubmit={deptForm.handleSubmit(onDeptSubmit)} className="space-y-5 pt-6">
                         <FormField control={deptForm.control} name="name" render={({ field }) => (
                           <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Department Name</FormLabel><FormControl><Input placeholder="e.g. Engineering" className="h-12 rounded-xl bg-[var(--bg-subtle)] text-[var(--text-primary)] border-[var(--border-default)]" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
                         <FormField control={deptForm.control} name="description" render={({ field }) => (
                           <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Description (Optional)</FormLabel><FormControl><Textarea className="resize-none rounded-xl bg-[var(--bg-subtle)] text-[var(--text-primary)] border-[var(--border-default)]" {...field} /></FormControl><FormMessage /></FormItem>
                         )} />
+                        
+                        <FormField control={deptForm.control} name="head_id" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Department Head</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                              <FormControl>
+                                <SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] text-left text-xs text-[var(--text-primary)]">
+                                  <SelectValue placeholder="Select Department Head" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent className="rounded-2xl shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-default)] max-h-[250px] overflow-y-auto">
+                                <SelectItem value="none" className="text-xs font-bold text-[var(--text-muted)]">Not Assigned (Clear Head)</SelectItem>
+                                {users.filter((u: any) => ['admin', 'hr_operations', 'manager', 'team_lead'].includes(u.role)).length === 0 ? (
+                                  <div className="p-4 text-center text-xs font-bold text-[var(--text-muted)]">
+                                    No eligible department heads found.
+                                  </div>
+                                ) : (
+                                  users
+                                    .filter((u: any) => ['admin', 'hr_operations', 'manager', 'team_lead'].includes(u.role))
+                                    .map((u: any) => (
+                                      <SelectItem key={u.id} value={u.id} className="text-xs">
+                                        {u.full_name} — {u.role.replace(/_/g, ' ').toUpperCase()} — {u.email}
+                                      </SelectItem>
+                                    ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )} />
+
                         <Button type="submit" className="w-full h-14 bg-[var(--accent-primary)] text-white font-black text-[10px] uppercase rounded-2xl shadow-xl hover:opacity-90">Create Department</Button>
                       </form>
                     </Form>
@@ -240,14 +343,15 @@ export default function AdminOrgPage() {
                 </Dialog>
               </CardHeader>
               <CardContent className="p-0">
-                {isLoading ? <div className="p-10"><TableSkeleton rows={5} cols={4} /></div> : (
+                {isLoading ? <div className="p-10"><TableSkeleton rows={5} cols={5} /></div> : (
                   <Table>
                     <TableHeader className="bg-[var(--bg-subtle)]">
                       <TableRow className="h-16 border-b border-[var(--border-subtle)]">
                         <TableHead className="pl-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Department Name</TableHead>
                         <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Department Head</TableHead>
                         <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Established</TableHead>
-                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -257,23 +361,130 @@ export default function AdminOrgPage() {
                           <TableCell>
                               <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-secondary)]">
                                   <Users className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
-                                  {dept.admin_name || 'Not Assigned'}
+                                  {dept.head_name || dept.admin_name || 'Not Assigned'}
                               </div>
                           </TableCell>
                           <TableCell className="text-xs font-bold text-[var(--text-muted)]">{formatPKDate(dept.created_at)}</TableCell>
-                          <TableCell className="text-right pr-10">
+                          <TableCell>
                               <Badge className={cn("rounded-lg text-[8px] font-black uppercase tracking-widest border-none text-white", dept.is_active ? "bg-emerald-500" : "bg-slate-400")}>
                                   {dept.is_active ? 'Active' : 'Inactive'}
                               </Badge>
                           </TableCell>
+                          <TableCell className="text-right pr-10">
+                            <div className="flex justify-end items-center gap-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-9 px-3 rounded-lg text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] hover:border-none focus:outline-none"
+                                onClick={() => handleOpenEditDept(dept, false)}
+                              >
+                                <Edit className="mr-1 h-3.5 w-3.5" /> Edit
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-9 px-3 rounded-lg text-xs font-bold text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/10 hover:border-none focus:outline-none"
+                                onClick={() => handleOpenEditDept(dept, true)}
+                              >
+                                <Users className="mr-1 h-3.5 w-3.5" />
+                                {dept.head_name || dept.admin_name ? 'Change Head' : 'Assign Head'}
+                              </Button>
+                            </div>
+                          </TableCell>
                         </TableRow>
                       ))}
-                      {departments.length === 0 && <TableRow><TableCell colSpan={4} className="p-20"><EmptyState title="No Departments" icon={Building} /></TableCell></TableRow>}
+                      {departments.length === 0 && <TableRow><TableCell colSpan={5} className="p-20"><EmptyState title="No Departments" icon={Building} /></TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 )}
               </CardContent>
             </Card>
+
+            {/* Edit Department Dialog */}
+            <Dialog open={isEditDeptOpen} onOpenChange={setIsEditDeptOpen}>
+              <DialogContent className="sm:max-w-[500px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)] animate-in fade-in zoom-in-95 duration-200">
+                <DialogHeader className="space-y-3">
+                  <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">Edit Department</DialogTitle>
+                  <DialogDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">Modify department configuration and assignments</DialogDescription>
+                </DialogHeader>
+                <Form {...editDeptForm}>
+                  <form onSubmit={editDeptForm.handleSubmit(onEditDeptSubmit)} className="space-y-5 pt-6">
+                    <FormField control={editDeptForm.control} name="name" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Department Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Engineering" className="h-12 rounded-xl bg-[var(--bg-subtle)] text-[var(--text-primary)] border-[var(--border-default)]" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    
+                    <FormField control={editDeptForm.control} name="description" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Description (Optional)</FormLabel>
+                        <FormControl>
+                          <Textarea className="resize-none rounded-xl bg-[var(--bg-subtle)] text-[var(--text-primary)] border-[var(--border-default)]" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    
+                    <FormField control={editDeptForm.control} name="head_id" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Department Head</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                          <FormControl>
+                            <SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] text-left text-xs text-[var(--text-primary)]">
+                              <SelectValue placeholder="Select Department Head" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-2xl shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-default)] max-h-[250px] overflow-y-auto">
+                            <SelectItem value="none" className="text-xs font-bold text-[var(--text-muted)]">Not Assigned (Clear Head)</SelectItem>
+                            {users.filter((u: any) => ['admin', 'hr_operations', 'manager', 'team_lead'].includes(u.role)).length === 0 ? (
+                              <div className="p-4 text-center text-xs font-bold text-[var(--text-muted)]">
+                                No eligible department heads found.
+                              </div>
+                            ) : (
+                              users
+                                .filter((u: any) => ['admin', 'hr_operations', 'manager', 'team_lead'].includes(u.role))
+                                .map((u: any) => (
+                                  <SelectItem key={u.id} value={u.id} className="text-xs">
+                                    {u.full_name} — {u.role.replace(/_/g, ' ').toUpperCase()} — {u.email}
+                                  </SelectItem>
+                                ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <FormField control={editDeptForm.control} name="is_active" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Status</FormLabel>
+                        <Select onValueChange={(val) => field.onChange(val === 'true')} value={field.value ? 'true' : 'false'}>
+                          <FormControl>
+                            <SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] text-left text-xs text-[var(--text-primary)]">
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="rounded-2xl shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-default)]">
+                            <SelectItem value="true" className="text-xs">Active</SelectItem>
+                            <SelectItem value="false" className="text-xs">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+
+                    <div className="flex gap-4 pt-4">
+                      <Button type="button" variant="outline" className="w-1/2 h-14 rounded-2xl border-[var(--border-default)] font-black text-[10px] uppercase hover:bg-[var(--bg-subtle)]" onClick={() => setIsEditDeptOpen(false)}>Cancel</Button>
+                      <Button type="submit" className="w-1/2 h-14 bg-[var(--accent-primary)] text-white font-black text-[10px] uppercase rounded-2xl shadow-xl hover:opacity-90">Save Changes</Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="shifts" className="w-full animate-in fade-in slide-in-from-bottom-2 duration-400 m-0">

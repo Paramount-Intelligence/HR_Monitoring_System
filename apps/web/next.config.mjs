@@ -10,7 +10,7 @@ const nextConfig = {
     return [
       {
         source: '/api/v1/:path*',
-        destination: 'https://hrmonitoringsystem-production.up.railway.app/api/v1/:path*',
+        destination: `${process.env.API_PROXY_URL || 'https://hrmonitoringsystem-production.up.railway.app/api/v1'}/:path*`,
       },
     ];
   },

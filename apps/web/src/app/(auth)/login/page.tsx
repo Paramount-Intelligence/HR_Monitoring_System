@@ -58,9 +58,19 @@ export default function LoginPage() {
       login(access_token, refresh_token, user);
     } catch (error: any) {
       console.error('Login error', error);
-      toast.error(
-        error.response?.data?.detail || 'Failed to login. Please check your credentials.'
-      );
+      let errorMessage = 'Failed to login. Please check your credentials.';
+      
+      if (!error.response) {
+        errorMessage = 'Unable to connect to server. Please check your network connection.';
+      } else if (error.response.status === 401) {
+        errorMessage = 'Invalid credentials. Please check your email and password.';
+      } else if (error.response.status === 404) {
+        errorMessage = 'API endpoint not found or backend route unavailable.';
+      } else {
+        errorMessage = error.response?.data?.detail || error.response?.data?.error?.message || errorMessage;
+      }
+      
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   }
