@@ -1,13 +1,15 @@
 import uuid
+import os
+import shutil
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy import and_, or_, func
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, get_db
 from app.models.enums import ConversationType, ConversationParticipantRole, MessageType, NotificationType, UserRole
 from app.models.user import User
-from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction
+from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction, MessageAttachment, CallSession, CallParticipant, CallSignal
 from app.models.task import Task
 from app.models.project import Project
 from app.models.meetings import Meeting, MeetingParticipant
@@ -29,6 +31,11 @@ from app.schemas.communication import (
     UpdateParticipantRoleRequest,
     ConversationSettingsUpdate,
     ConversationParticipantRead,
+    MessageAttachmentRead,
+    CallSessionRead,
+    CallStartRequest,
+    CallSignalCreate,
+    CallSignalRead,
 )
 
 router = APIRouter()
@@ -483,6 +490,7 @@ def get_messages(
             joinedload(Message.sender),
             joinedload(Message.mentions).joinedload(MessageMention.mentioned_user),
             joinedload(Message.reactions).joinedload(MessageReaction.user),
+            joinedload(Message.attachments),
         )
         .limit(limit)
         .all()
@@ -540,14 +548,43 @@ def send_message(
                     detail="You do not have permission to send messages here."
                 )
 
+    attachments = []
+    if payload.attachment_ids:
+        for aid in payload.attachment_ids:
+            att = db.get(MessageAttachment, aid)
+            if not att:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Attachment {aid} not found"
+                )
+            if att.uploader_id != current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Attachment {aid} does not belong to you"
+                )
+            if att.conversation_id != conversation_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Attachment {aid} does not belong to this conversation"
+                )
+            if att.message_id is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Attachment {aid} is already attached to another message"
+                )
+            attachments.append(att)
+
     new_msg = Message(
         conversation_id=conversation_id,
         sender_id=current_user.id,
-        body=payload.body,
+        body=payload.body or "",
         message_type=MessageType.TEXT,
     )
     db.add(new_msg)
     db.flush()
+
+    for att in attachments:
+        att.message_id = new_msg.id
 
     # Process mentions with scope validation
     mentionable_users = get_mentionable_users_helper(db, conv)
@@ -600,7 +637,7 @@ def send_message(
         db_notif = Notification(
             user_id=op.user_id,
             title=n_title,
-            message=payload.body[:200],
+            message=(payload.body or "Sent an attachment")[:200],
             notification_type=n_type,
             related_entity_type="conversation",
             related_entity_id=conversation_id,
@@ -617,6 +654,7 @@ def send_message(
             joinedload(Message.sender),
             joinedload(Message.mentions).joinedload(MessageMention.mentioned_user),
             joinedload(Message.reactions).joinedload(MessageReaction.user),
+            joinedload(Message.attachments),
         )
         .first()
     )
@@ -1201,3 +1239,592 @@ def update_conversation_settings(
     conv.participants = _get_participant_list(db, conversation_id)
 
     return conv
+
+
+@router.post("/conversations/{conversation_id}/attachments", response_model=list[MessageAttachmentRead], status_code=status.HTTP_201_CREATED)
+def upload_attachments(
+    conversation_id: uuid.UUID,
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MessageAttachment]:
+    """Upload message attachments."""
+    # Check participant visibility
+    participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to send attachments to this conversation."
+        )
+
+    conv = db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    admin_roles = {ConversationParticipantRole.OWNER, ConversationParticipantRole.ADMIN}
+
+    # --- Channel posting rule ---
+    if conv.type == ConversationType.CHANNEL:
+        if participant.role not in admin_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only channel admins can post in this channel."
+            )
+
+    # --- Group posting rule ---
+    elif conv.type == ConversationType.GROUP:
+        if conv.who_can_send_messages == "admins_only":
+            if participant.role not in admin_roles:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only group admins can send messages in this group."
+                )
+        else:
+            if participant.role == ConversationParticipantRole.VIEWER:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to send messages here."
+                )
+
+    # Validate file count limit: max 5 files
+    if len(files) > 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You can attach up to 5 files."
+        )
+
+    ALLOWED_EXTENSIONS = {
+        # Images
+        "png", "jpg", "jpeg", "webp", "gif",
+        # Documents
+        "pdf", "doc", "docx", "xls", "xlsx", "csv", "txt", "ppt", "pptx"
+    }
+
+    MAX_SIZE = 10 * 1024 * 1024  # 10 MB per file
+
+    attachments = []
+    # Make sure target storage directory exists
+    storage_dir = "storage/message-attachments"
+    os.makedirs(storage_dir, exist_ok=True)
+
+    for file in files:
+        # Determine extension and validate
+        filename = file.filename or ""
+        ext = filename.split(".")[-1].lower() if "." in filename else ""
+        if ext not in ALLOWED_EXTENSIONS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File type not supported: .{ext}"
+            )
+
+        # Validate file size
+        if file.size is not None:
+            size = file.size
+        else:
+            file.file.seek(0, os.SEEK_END)
+            size = file.file.tell()
+            file.file.seek(0)
+
+        if size > MAX_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File is too large. Maximum size is 10 MB. Got {size / (1024*1024):.2f} MB."
+            )
+
+        # Secure file saving to prevent path traversal
+        storage_name = f"{uuid.uuid4()}.{ext}"
+        storage_path = os.path.join(storage_dir, storage_name)
+
+        # Write to disk
+        try:
+            with open(storage_path, "wb") as f:
+                shutil.copyfileobj(file.file, f)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unable to upload attachment. Error saving file: {str(e)}"
+            )
+
+        # Create record in DB
+        new_att = MessageAttachment(
+            conversation_id=conversation_id,
+            uploader_id=current_user.id,
+            file_name=storage_name,
+            original_file_name=filename,
+            mime_type=file.content_type or "application/octet-stream",
+            file_size=size,
+            storage_path=storage_path,
+            storage_name=storage_name,
+        )
+        db.add(new_att)
+        attachments.append(new_att)
+
+    db.commit()
+    for att in attachments:
+        db.refresh(att)
+
+    return attachments
+
+
+@router.get("/attachments/{attachment_id}/download")
+def download_attachment(
+    attachment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Download an attachment file safely."""
+    att = db.get(MessageAttachment, attachment_id)
+    if not att:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found"
+        )
+
+    # Check participant visibility
+    participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=att.conversation_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not participate in this conversation."
+        )
+
+    # Check if file exists on disk
+    if not os.path.exists(att.storage_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment file not found on disk"
+        )
+
+    from fastapi.responses import FileResponse
+    import urllib.parse
+
+    # Safe content-disposition with RFC 5987 / URL-encoded filename
+    encoded_filename = urllib.parse.quote(att.original_file_name)
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
+    }
+
+    return FileResponse(
+        path=att.storage_path,
+        media_type=att.mime_type,
+        headers=headers
+    )
+
+
+# ─── WebRTC Call and Signaling Routes ─────────────────────────────────────────
+
+@router.post("/conversations/{conversation_id}/calls/start", response_model=CallSessionRead)
+def start_call(
+    conversation_id: uuid.UUID,
+    req: CallStartRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Start a new 1-to-1 Voice/Video call session in a direct conversation."""
+    conversation = db.get(Conversation, conversation_id)
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+
+    # Check that current user is a participant of the conversation
+    participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this conversation."
+        )
+
+    # Enforce that calls are restricted to 1-to-1 direct chats
+    if conversation.type != ConversationType.DIRECT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Calls are only supported in 1-to-1 direct chats in the free version."
+        )
+
+    # Transition any orphaned active or ringing call sessions in this conversation to ended
+    stale_calls = db.query(CallSession).filter(
+        CallSession.conversation_id == conversation_id,
+        CallSession.status.in_(["ringing", "active"])
+    ).all()
+    for sc in stale_calls:
+        sc.status = "ended"
+        sc.ended_at = datetime.now(timezone.utc)
+
+    # Create the call session
+    call_session = CallSession(
+        id=uuid.uuid4(),
+        conversation_id=conversation_id,
+        started_by_id=current_user.id,
+        call_type=req.call_type,
+        status="ringing",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(call_session)
+
+    # Add all participants of the conversation to the CallParticipant table
+    other_participants = db.query(ConversationParticipant).filter(
+        ConversationParticipant.conversation_id == conversation_id
+    ).all()
+
+    for p in other_participants:
+        part_status = "joined" if p.user_id == current_user.id else "invited"
+        joined_at = datetime.now(timezone.utc) if p.user_id == current_user.id else None
+        call_part = CallParticipant(
+            id=uuid.uuid4(),
+            call_session_id=call_session.id,
+            user_id=p.user_id,
+            status=part_status,
+            joined_at=joined_at
+        )
+        db.add(call_part)
+
+    # Find the recipient (the participant who is not the current user)
+    recipient = next((p for p in other_participants if p.user_id != current_user.id), None)
+    if recipient:
+        notification = Notification(
+            id=uuid.uuid4(),
+            user_id=recipient.user_id,
+            title="Incoming Call",
+            message=f"{current_user.full_name} is calling you ({req.call_type}).",
+            notification_type=NotificationType.CALL_INCOMING,
+            related_entity_type="user",
+            related_entity_id=current_user.id,
+            is_read=False,
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(notification)
+
+    db.commit()
+    db.refresh(call_session)
+    return call_session
+
+
+@router.post("/calls/{call_id}/accept", response_model=CallSessionRead)
+def accept_call(
+    call_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Accept an incoming call session."""
+    call_session = db.get(CallSession, call_id)
+    if not call_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Call session not found"
+        )
+
+    # Verify participant
+    participant = db.query(CallParticipant).filter_by(
+        call_session_id=call_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this call session."
+        )
+
+    if call_session.status != "ringing":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot accept call session in status '{call_session.status}'."
+        )
+
+    # Update participant status if receiver
+    if call_session.started_by_id != current_user.id:
+        participant.status = "joined"
+        participant.joined_at = datetime.now(timezone.utc)
+
+    # Transition call session to active
+    call_session.status = "active"
+    call_session.started_at = datetime.now(timezone.utc)
+    call_session.accepted_at = datetime.now(timezone.utc)
+
+    # Mark incoming notification as read
+    incoming_notifs = db.query(Notification).filter_by(
+        user_id=current_user.id,
+        notification_type=NotificationType.CALL_INCOMING,
+        related_entity_id=call_session.started_by_id,
+        is_read=False
+    ).all()
+    for n in incoming_notifs:
+        n.is_read = True
+        n.read_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(call_session)
+    return call_session
+
+
+@router.post("/calls/{call_id}/decline", response_model=CallSessionRead)
+def decline_call(
+    call_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Decline an incoming call session."""
+    call_session = db.get(CallSession, call_id)
+    if not call_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Call session not found"
+        )
+
+    # Verify participant
+    participant = db.query(CallParticipant).filter_by(
+        call_session_id=call_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this call session."
+        )
+
+    if call_session.status != "ringing":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot decline call session in status '{call_session.status}'."
+        )
+
+    # Decline participant and session
+    participant.status = "declined"
+    participant.left_at = datetime.now(timezone.utc)
+    
+    call_session.status = "declined"
+    call_session.ended_at = datetime.now(timezone.utc)
+
+    # Mark incoming notification as read
+    incoming_notifs = db.query(Notification).filter_by(
+        user_id=current_user.id,
+        notification_type=NotificationType.CALL_INCOMING,
+        related_entity_id=call_session.started_by_id,
+        is_read=False
+    ).all()
+    for n in incoming_notifs:
+        n.is_read = True
+        n.read_at = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(call_session)
+    return call_session
+
+
+@router.post("/calls/{call_id}/end", response_model=CallSessionRead)
+def end_call(
+    call_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """End a call session (or cancel ringing call, triggering missed call notifications)."""
+    call_session = db.get(CallSession, call_id)
+    if not call_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Call session not found"
+        )
+
+    # Verify participant
+    participant = db.query(CallParticipant).filter_by(
+        call_session_id=call_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this call session."
+        )
+
+    if call_session.status in ["ended", "declined", "missed"]:
+        return call_session
+
+    if call_session.status == "ringing":
+        # Call is cancelled before accepted
+        call_session.status = "missed"
+        call_session.ended_at = datetime.now(timezone.utc)
+
+        # Set caller participant status to left
+        caller_part = db.query(CallParticipant).filter_by(
+            call_session_id=call_id, user_id=call_session.started_by_id
+        ).first()
+        if caller_part:
+            caller_part.status = "left"
+            caller_part.left_at = datetime.now(timezone.utc)
+
+        # Set receiver participant status to missed and write a missed call notification
+        receiver_part = db.query(CallParticipant).filter(
+            CallParticipant.call_session_id == call_id,
+            CallParticipant.user_id != call_session.started_by_id
+        ).first()
+        if receiver_part:
+            receiver_part.status = "missed"
+
+            # Dismiss incoming notification
+            incoming_notifs = db.query(Notification).filter_by(
+                user_id=receiver_part.user_id,
+                notification_type=NotificationType.CALL_INCOMING,
+                is_read=False
+            ).all()
+            for n in incoming_notifs:
+                n.is_read = True
+                n.read_at = datetime.now(timezone.utc)
+
+            # Create missed call notification
+            missed_notif = Notification(
+                id=uuid.uuid4(),
+                user_id=receiver_part.user_id,
+                title="Missed Call",
+                message=f"You missed a {call_session.call_type} call from {current_user.full_name}.",
+                notification_type=NotificationType.CALL_MISSED,
+                related_entity_type="user",
+                related_entity_id=current_user.id,
+                is_read=False,
+                created_at=datetime.now(timezone.utc)
+            )
+            db.add(missed_notif)
+
+    elif call_session.status == "active":
+        # Call was active and is being ended
+        call_session.status = "ended"
+        call_session.ended_at = datetime.now(timezone.utc)
+
+        # Set participant status to left
+        participants = db.query(CallParticipant).filter_by(call_session_id=call_id).all()
+        for p in participants:
+            if p.status == "joined" or p.user_id == current_user.id:
+                p.status = "left"
+                p.left_at = datetime.now(timezone.utc)
+
+        # Create system message inside conversation
+        system_body = "Voice call ended" if call_session.call_type == "voice" else "Video call ended"
+        system_msg = Message(
+            id=uuid.uuid4(),
+            conversation_id=call_session.conversation_id,
+            sender_id=current_user.id,
+            body=system_body,
+            message_type=MessageType.SYSTEM,
+            is_edited=False,
+            is_deleted=False,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc)
+        )
+        db.add(system_msg)
+
+    db.commit()
+    db.refresh(call_session)
+    return call_session
+
+
+@router.post("/calls/{call_id}/signal", response_model=CallSignalRead)
+def send_call_signal(
+    call_id: uuid.UUID,
+    req: CallSignalCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Write offer/answer/ice_candidate signals for a calling session."""
+    call_session = db.get(CallSession, call_id)
+    if not call_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Call session not found"
+        )
+
+    # Verify sender is a participant
+    sender_participant = db.query(CallParticipant).filter_by(
+        call_session_id=call_id, user_id=current_user.id
+    ).first()
+    if not sender_participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this call session."
+        )
+
+    # Verify recipient is a participant
+    recipient_participant = db.query(CallParticipant).filter_by(
+        call_session_id=call_id, user_id=req.recipient_id
+    ).first()
+    if not recipient_participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Recipient is not a participant in this call session."
+        )
+
+    import json
+    signal = CallSignal(
+        id=uuid.uuid4(),
+        call_session_id=call_id,
+        sender_id=current_user.id,
+        recipient_id=req.recipient_id,
+        signal_type=req.signal_type,
+        payload_json=json.dumps(req.payload),
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(signal)
+    db.commit()
+    db.refresh(signal)
+    return signal
+
+
+@router.get("/calls/{call_id}/signals", response_model=list[CallSignalRead])
+def get_call_signals(
+    call_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Pull unconsumed calling signals for the current user."""
+    call_session = db.get(CallSession, call_id)
+    if not call_session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Call session not found"
+        )
+
+    # Verify participant
+    participant = db.query(CallParticipant).filter_by(
+        call_session_id=call_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You are not a participant in this call session."
+        )
+
+    # Pull unconsumed signals for current user
+    signals = db.query(CallSignal).filter(
+        CallSignal.call_session_id == call_id,
+        CallSignal.recipient_id == current_user.id,
+        CallSignal.consumed_at.is_(None)
+    ).order_by(CallSignal.created_at.asc()).all()
+
+    # Mark consumed
+    now = datetime.now(timezone.utc)
+    for s in signals:
+        s.consumed_at = now
+
+    db.commit()
+    return signals
+
+
+@router.get("/calls/incoming", response_model=CallSessionRead | None)
+def get_incoming_call(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Check for active ringing call sessions inviting the current user."""
+    session = db.query(CallSession).join(
+        CallParticipant,
+        CallParticipant.call_session_id == CallSession.id
+    ).filter(
+        CallSession.status == "ringing",
+        CallParticipant.user_id == current_user.id,
+        CallParticipant.status == "invited"
+    ).order_by(CallSession.created_at.desc()).first()
+    return session
+
+

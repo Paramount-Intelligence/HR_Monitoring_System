@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import apiClient from '@/lib/api/client';
 import { Loader2, ArrowLeft, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -30,6 +30,7 @@ export default function ForgotPasswordPage() {
   });
 
   async function onSubmit(data: FormValues) {
+    if (isLoading) return;
     setIsLoading(true);
     try {
       await apiClient.post('/auth/forgot-password', { email: data.email });
@@ -178,17 +179,7 @@ export default function ForgotPasswordPage() {
         </div>
       </div>
 
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-primary)',
-            backdropFilter: 'blur(12px)',
-          },
-        }}
-      />
+
     </div>
   );
 }

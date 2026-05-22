@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import apiClient from '@/lib/api/client';
 import { AuthResponse } from '@/types';
 import { Loader2, Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -45,6 +45,7 @@ export default function LoginPage() {
   });
 
   async function onSubmit(data: LoginFormValues) {
+    if (isLoading) return;
     setIsLoading(true);
     try {
       const payload = {
@@ -230,18 +231,7 @@ export default function LoginPage() {
         </div>
       </div>
       
-      {/* Toast Notifications */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-primary)',
-            backdropFilter: 'blur(12px)',
-          },
-        }}
-      />
+
     </div>
   );
 }

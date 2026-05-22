@@ -130,8 +130,21 @@ export default function AdminUsersPage() {
       
       const createdUser = (response as any).user || response;
       const debugToken = (response as any).debug_token;
+      const emailSent = (response as any).invitation_email_sent;
 
-      toast.success(debugToken ? 'Invitation email triggered' : 'User created successfully');
+      const isInvite = !data.password;
+      if (isInvite) {
+        if (emailSent) {
+          toast.success('User created and invitation email sent.');
+        } else {
+          toast.warning('User created, but invitation email could not be sent. Check SMTP configuration or resend invitation.', {
+            duration: 6000
+          });
+        }
+      } else {
+        toast.success('User created successfully');
+      }
+
       setIsDialogOpen(false);
       form.reset();
       
@@ -148,8 +161,15 @@ export default function AdminUsersPage() {
 
   const handleResendInvite = async (id: string) => {
     try {
-      await (usersApi as any).resendInvitation(id);
-      toast.success('Invitation email resent');
+      const response = await (usersApi as any).resendInvitation(id);
+      const emailSent = (response as any).email_sent;
+      if (emailSent) {
+        toast.success('Invitation email resent successfully');
+      } else {
+        toast.warning('Invitation could not be sent. Check SMTP configuration.', {
+          duration: 6000
+        });
+      }
     } catch (error: any) {
       toast.error(getErrorMessage(error) || 'Failed to resend invitation');
     }

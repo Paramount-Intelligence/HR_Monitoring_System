@@ -31,9 +31,14 @@ def create_user(
     actor: User = Depends(require_admin_or_manager),
 ) -> UserCreateResponse:
     from app.core.config import settings
-    user, token = UserService(db).create_user(payload, actor=actor)
+    user, token, email_sent, email_error = UserService(db).create_user(payload, actor=actor)
     debug_token = token if settings.app_env == "development" else None
-    return UserCreateResponse(user=UserRead.from_orm(user), debug_token=debug_token)
+    return UserCreateResponse(
+        user=UserRead.from_orm(user),
+        debug_token=debug_token,
+        invitation_email_sent=email_sent,
+        email_error=email_error
+    )
 
 
 @router.get("", response_model=list[UserRead], summary="List users (scoped by role)")
@@ -200,8 +205,12 @@ def resend_invitation(
     db: Session = Depends(get_db),
     actor: User = Depends(require_admin_or_manager),
 ):
-    UserService(db).resend_invitation(user_id, actor=actor)
-    return {"message": "Invitation email resent successfully"}
+    token, email_sent, email_error = UserService(db).resend_invitation(user_id, actor=actor)
+    return {
+        "message": "Invitation email resent successfully" if email_sent else "Invitation could not be sent. Check SMTP configuration.",
+        "email_sent": email_sent,
+        "email_error": email_error
+    }
 
 from app.schemas.user import AdminUserProfileAggregate
 from typing import Optional

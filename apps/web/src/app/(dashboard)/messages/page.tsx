@@ -12,14 +12,18 @@ import {
   ConversationParticipant,
   ConversationParticipantRole,
   UserMinimal,
+  MessageAttachment,
 } from '@/lib/api/messages';
 import { getErrorMessage } from '@/lib/api/client';
+import apiClient from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import {
   Send, Search, Plus, Hash, User, Users, Briefcase, CheckSquare,
   Calendar, AlertCircle, Edit2, Trash2, Loader2, Sparkles, Smile, Info,
   MessageSquare, ChevronRight, X, UserCheck, Bell, BellOff,
   UserPlus, Settings, Shield, ShieldCheck, ShieldOff, Crown, Eye, ArrowLeft,
+  Paperclip, FileText, Image, Download, File,
+  Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Volume2, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -62,6 +66,110 @@ function roleBadge(role: ConversationParticipantRole) {
   }
 }
 
+function SecureImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const loadImage = async () => {
+      try {
+        setLoading(true);
+        const relativeUrl = src.startsWith('/api/v1') ? src.slice(7) : src;
+        const response = await apiClient.get(relativeUrl, { responseType: 'blob' });
+        if (active) {
+          const url = URL.createObjectURL(response.data);
+          setObjectUrl(url);
+        }
+      } catch (err) {
+        if (active) setError(true);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadImage();
+    return () => {
+      active = false;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [src]);
+
+  if (loading) {
+    return (
+      <div className={cn("flex items-center justify-center bg-black/5 dark:bg-white/5", className)}>
+        <Loader2 className="h-4 w-4 animate-spin text-[var(--accent-primary)]/40" />
+      </div>
+    );
+  }
+
+  if (error || !objectUrl) {
+    return (
+      <div className={cn("flex items-center justify-center bg-black/5 dark:bg-white/5 text-[var(--text-muted)] text-[10px]", className)}>
+        <span>Failed to load image</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={objectUrl}
+      alt={alt}
+      className={className}
+    />
+  );
+}
+
+function FilePreviewCard({ file, onRemove }: { file: File; onRemove: () => void }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setObjectUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    }
+  }, [file]);
+
+  const isImg = file.type.startsWith('image/') && objectUrl;
+
+  return (
+    <div className="relative flex items-center gap-2 p-1.5 pr-8 bg-[var(--bg-surface)] border border-[var(--border-default)] rounded-lg text-xs max-w-[180px] group shadow-sm">
+      {isImg ? (
+        <img
+          src={objectUrl}
+          alt={file.name}
+          className="h-8 w-8 object-cover rounded border border-[var(--border-default)] shrink-0"
+        />
+      ) : (
+        <div className="h-8 w-8 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-800/30">
+          <FileText className="h-4 w-4" />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="truncate font-black text-[var(--text-primary)] text-[10px] mb-0.5" title={file.name}>
+          {file.name}
+        </p>
+        <p className="text-[8px] text-[var(--text-muted)] font-black uppercase">
+          {(file.size / 1024).toFixed(0)} KB
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-1.5 right-1.5 p-1 rounded-md text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors"
+      >
+        <X className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 function MessagesContent() {
@@ -87,6 +195,46 @@ function MessagesContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [mentionableUsers, setMentionableUsers] = useState<any[]>([]);
+
+  // Attachment upload states
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    
+    // Check total count limit
+    if (selectedFiles.length + files.length > 5) {
+      setError("You can attach up to 5 files.");
+      return;
+    }
+
+    const ALLOWED_EXTENSIONS = [
+      'png', 'jpg', 'jpeg', 'webp', 'gif',
+      'pdf', 'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt', 'ppt', 'pptx'
+    ];
+    const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+
+    for (const file of files) {
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        setError("File type not supported.");
+        return;
+      }
+      if (file.size > MAX_SIZE) {
+        setError("File is too large. Maximum size is 10 MB.");
+        return;
+      }
+    }
+
+    setSelectedFiles(prev => [...prev, ...files]);
+    setError(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   // Browser notifications states
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -143,6 +291,25 @@ function MessagesContent() {
   const canIAddMembers = isMeAdminOrOwner || activeConv?.who_can_add_members === 'all_members';
   const canIManageSettings = isMeAdminOrOwner;
   const isGroupOrChannel = activeConv?.type === 'group' || activeConv?.type === 'channel';
+
+  // WebRTC / Call states
+  const [callSession, setCallSession] = useState<any | null>(null);
+  const [callRole, setCallRole] = useState<'caller' | 'callee' | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [localMuted, setLocalMuted] = useState(false);
+  const [localVideoDisabled, setLocalVideoDisabled] = useState(false);
+  const [iceConnectionState, setIceConnectionState] = useState<string>('new');
+  const [isOutgoingRinging, setIsOutgoingRinging] = useState(false);
+  const [isIncomingRinging, setIsIncomingRinging] = useState(false);
+  const [incomingCallerName, setIncomingCallerName] = useState('');
+  const [showPremiumCallModal, setShowPremiumCallModal] = useState(false);
+
+  // WebRTC refs
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const pendingCandidates = useRef<any[]>([]);
+  const localVideoRef = useRef<HTMLVideoElement | null>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Ref to always hold the latest selected conversation ID for intervals
   const latestSelectedConvId = useRef<string | null>(null);
@@ -316,19 +483,53 @@ function MessagesContent() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedConversationId || !newMessage.trim() || isSending || !canISend) return;
+    if (!selectedConversationId || isSending || !canISend) return;
+    if (!newMessage.trim() && selectedFiles.length === 0) return;
+
     try {
-      setIsSending(true); setError(null);
+      setIsSending(true);
+      setError(null);
+
+      let attachment_ids: string[] = [];
+      if (selectedFiles.length > 0) {
+        try {
+          const uploaded = await messagesApi.uploadConversationAttachments(
+            selectedConversationId,
+            selectedFiles
+          );
+          attachment_ids = uploaded.map(att => att.id);
+        } catch (uploadErr) {
+          setError("Unable to upload attachment.");
+          return;
+        }
+      }
+
       const mentioned_user_ids: string[] = [];
       mentionableUsers.forEach(u => {
         if (newMessage.includes(`@${u.full_name}`) && u.id) mentioned_user_ids.push(u.id);
       });
-      const sentMsg = await messagesApi.sendMessage(selectedConversationId, { body: newMessage, mentioned_user_ids });
+
+      const sentMsg = await messagesApi.sendMessage(selectedConversationId, {
+        body: newMessage,
+        mentioned_user_ids,
+        attachment_ids,
+      });
+
       setMessages(prev => [...prev, sentMsg]);
       setNewMessage('');
-      setConversations(prev => prev.map(c => c.id === selectedConversationId ? { ...c, updated_at: new Date().toISOString() } : c));
-    } catch (err) { setError(getErrorMessage(err)); }
-    finally { setIsSending(false); }
+      setSelectedFiles([]);
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === selectedConversationId
+            ? { ...c, updated_at: new Date().toISOString() }
+            : c
+        )
+      );
+    } catch (err) {
+      setError("Unable to send message.");
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleCreateConversation = async (e: React.FormEvent) => {
@@ -471,6 +672,310 @@ function MessagesContent() {
   const filteredMentionUsers = mentionableUsers.filter(u =>
     u.full_name.toLowerCase().includes(mentionFilter.toLowerCase())
   );
+
+  // ─── WebRTC Call Helpers & Handlers ─────────────────────────────────────
+
+  const getDirectChatRecipient = (conv: Conversation | null) => {
+    if (!conv || conv.type !== 'direct') return null;
+    return conv.participants.find(p => p.user_id !== user?.id)?.user ?? null;
+  };
+
+  const handleTeardownCall = useCallback(() => {
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    setCallSession(null);
+    setCallRole(null);
+    setIsOutgoingRinging(false);
+    setIsIncomingRinging(false);
+    setLocalMuted(false);
+    setLocalVideoDisabled(false);
+    setIceConnectionState('new');
+    setIncomingCallerName('');
+    pendingCandidates.current = [];
+
+    setLocalStream(prev => {
+      if (prev) prev.getTracks().forEach(track => track.stop());
+      return null;
+    });
+    setRemoteStream(prev => {
+      if (prev) prev.getTracks().forEach(track => track.stop());
+      return null;
+    });
+  }, []);
+
+  const handleStartCall = async (callType: 'voice' | 'video') => {
+    if (!activeConv || activeConv.type !== 'direct') return;
+    const recipient = getDirectChatRecipient(activeConv);
+    if (!recipient) return;
+
+    let stream: MediaStream | null = null;
+    try {
+      setError(null);
+      const constraints = {
+        audio: true,
+        video: callType === 'video'
+      };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setLocalStream(stream);
+
+      const session = await messagesApi.startCall(activeConv.id, callType);
+      setCallSession(session);
+      setCallRole('caller');
+      setIsOutgoingRinging(true);
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          messagesApi.sendSignal(session.id, recipient.id, 'ice_candidate', event.candidate);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        setIceConnectionState(pc.iceConnectionState);
+      };
+
+      const remoteMediaStream = new MediaStream();
+      pc.ontrack = (event) => {
+        event.streams[0].getTracks().forEach(track => {
+          remoteMediaStream.addTrack(track);
+        });
+        setRemoteStream(remoteMediaStream);
+      };
+
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream!);
+      });
+
+      peerConnectionRef.current = pc;
+
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      await messagesApi.sendSignal(session.id, recipient.id, 'offer', offer);
+
+    } catch (err: any) {
+      console.error('Failed to start call:', err);
+      setError(getErrorMessage(err) || 'Could not access microphone or camera.');
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      handleTeardownCall();
+    }
+  };
+
+  const handleAcceptCall = async () => {
+    if (!callSession) return;
+    const conv = conversations.find(c => c.id === callSession.conversation_id) || activeConv;
+    const callerPart = conv?.participants.find(p => p.user_id === callSession.started_by_id);
+    const caller = callerPart?.user;
+    if (!caller) return;
+
+    let stream: MediaStream | null = null;
+    try {
+      setIsIncomingRinging(false);
+      setError(null);
+
+      const constraints = {
+        audio: true,
+        video: callSession.call_type === 'video'
+      };
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      setLocalStream(stream);
+
+      const acceptedSession = await messagesApi.acceptCall(callSession.id);
+      setCallSession(acceptedSession);
+
+      const pc = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      });
+
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          messagesApi.sendSignal(callSession.id, caller.id, 'ice_candidate', event.candidate);
+        }
+      };
+
+      pc.oniceconnectionstatechange = () => {
+        setIceConnectionState(pc.iceConnectionState);
+      };
+
+      const remoteMediaStream = new MediaStream();
+      pc.ontrack = (event) => {
+        event.streams[0].getTracks().forEach(track => {
+          remoteMediaStream.addTrack(track);
+        });
+        setRemoteStream(remoteMediaStream);
+      };
+
+      stream.getTracks().forEach(track => {
+        pc.addTrack(track, stream!);
+      });
+
+      peerConnectionRef.current = pc;
+
+    } catch (err: any) {
+      console.error('Failed to accept call:', err);
+      setError(getErrorMessage(err) || 'Could not access microphone or camera.');
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+      handleDeclineCall();
+    }
+  };
+
+  const handleDeclineCall = async () => {
+    if (!callSession) return;
+    const callerId = callSession.started_by_id;
+    try {
+      if (callerId) {
+        await messagesApi.sendSignal(callSession.id, callerId, 'end', {});
+      }
+      await messagesApi.declineCall(callSession.id);
+    } catch (err) {
+      console.error('Failed to decline call:', err);
+    } finally {
+      handleTeardownCall();
+    }
+  };
+
+  const handleEndCall = async () => {
+    if (!callSession) return;
+    const conv = conversations.find(c => c.id === callSession.conversation_id) || activeConv;
+    const otherParticipant = conv?.participants.find(p => p.user_id !== user?.id);
+    const recipientId = callRole === 'caller'
+      ? otherParticipant?.user_id
+      : callSession.started_by_id;
+    try {
+      if (recipientId) {
+        await messagesApi.sendSignal(callSession.id, recipientId, 'end', {});
+      }
+      await messagesApi.endCall(callSession.id);
+    } catch (err) {
+      console.error('Failed to end call:', err);
+    } finally {
+      handleTeardownCall();
+    }
+  };
+
+  const toggleMute = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setLocalMuted(!audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setLocalVideoDisabled(!videoTrack.enabled);
+      }
+    }
+  };
+
+  // Video track assignment refs
+  useEffect(() => {
+    if (localVideoRef.current && localStream) {
+      localVideoRef.current.srcObject = localStream;
+    }
+  }, [localStream]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  // Polling loop 1: Incoming calls (every 5 seconds)
+  useEffect(() => {
+    if (callSession) return;
+    const interval = setInterval(async () => {
+      try {
+        const incoming = await messagesApi.getIncomingCall();
+        if (incoming) {
+          setCallSession(incoming);
+          setCallRole('callee');
+          setIsIncomingRinging(true);
+          const conv = conversations.find(c => c.id === incoming.conversation_id) || activeConv;
+          const callerPart = conv?.participants.find(p => p.user_id === incoming.started_by_id);
+          setIncomingCallerName(callerPart?.user?.full_name || 'Someone');
+        }
+      } catch (err) {
+        console.error('Failed to check incoming calls:', err);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [callSession, conversations, activeConv]);
+
+  // Polling loop 2: Consume signaling messages (every 1 second)
+  useEffect(() => {
+    if (!callSession) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const signals = await messagesApi.getSignals(callSession.id);
+        for (const sig of signals) {
+          const pc = peerConnectionRef.current;
+          if (sig.signal_type === 'offer' && callRole === 'callee' && pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+            const callerId = callSession.started_by_id;
+            await messagesApi.sendSignal(callSession.id, callerId, 'answer', answer);
+            // Drain pending candidates
+            while (pendingCandidates.current.length > 0) {
+              const cand = pendingCandidates.current.shift();
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            }
+          } else if (sig.signal_type === 'answer' && callRole === 'caller' && pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            // Drain pending candidates
+            while (pendingCandidates.current.length > 0) {
+              const cand = pendingCandidates.current.shift();
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            }
+          } else if (sig.signal_type === 'ice_candidate' && pc) {
+            if (pc.remoteDescription) {
+              await pc.addIceCandidate(new RTCIceCandidate(sig.payload));
+            } else {
+              pendingCandidates.current.push(sig.payload);
+            }
+          } else if (sig.signal_type === 'end') {
+            handleTeardownCall();
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching signaling messages:', err);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [callSession, callRole, handleTeardownCall]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+      setLocalStream(prev => {
+        if (prev) prev.getTracks().forEach(t => t.stop());
+        return null;
+      });
+      setRemoteStream(prev => {
+        if (prev) prev.getTracks().forEach(t => t.stop());
+        return null;
+      });
+    };
+  }, []);
 
   // ─── Utility helpers ────────────────────────────────────────────────────
 
@@ -678,33 +1183,79 @@ function MessagesContent() {
                 </div>
               </div>
 
-              {/* Header action buttons — only for group/channel */}
-              {isGroupOrChannel && (
-                <div className="flex items-center gap-2">
-                  {canIAddMembers && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-1.5"
-                      onClick={openManageModal}
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                      Members
-                    </Button>
-                  )}
-                  {canIManageSettings && (
+              {/* Call and settings buttons */}
+              <div className="flex items-center gap-2">
+                {activeConv.type === 'direct' ? (
+                  <>
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)]"
-                      onClick={openSettingsModal}
-                      title="Group/Channel Settings"
+                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] hover:text-emerald-500 transition-colors"
+                      onClick={() => handleStartCall('voice')}
+                      title="Voice Call"
                     >
-                      <Settings className="h-4 w-4" />
+                      <Phone className="h-4 w-4" />
                     </Button>
-                  )}
-                </div>
-              )}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] hover:text-emerald-500 transition-colors"
+                      onClick={() => handleStartCall('video')}
+                      title="Video Call"
+                    >
+                      <Video className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)]/50 cursor-not-allowed"
+                      onClick={() => setShowPremiumCallModal(true)}
+                      title="Group Voice Call (Premium)"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)]/50 cursor-not-allowed"
+                      onClick={() => setShowPremiumCallModal(true)}
+                      title="Group Video Call (Premium)"
+                    >
+                      <Video className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+
+                {isGroupOrChannel && (
+                  <>
+                    {canIAddMembers && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-1.5"
+                        onClick={openManageModal}
+                      >
+                        <Users className="h-3.5 w-3.5" />
+                        Members
+                      </Button>
+                    )}
+                    {canIManageSettings && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)]"
+                        onClick={openSettingsModal}
+                        title="Group/Channel Settings"
+                      >
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Error alert */}
@@ -765,7 +1316,79 @@ function MessagesContent() {
                             ? 'bg-[#1E2E54] text-white border-[#2E3F6E]'
                             : 'bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-default)]'
                         }`}>
-                          <p className="whitespace-pre-wrap">{msg.body}</p>
+                          {msg.body && <p className="whitespace-pre-wrap">{msg.body}</p>}
+                          
+                          {msg.attachments && msg.attachments.length > 0 && (
+                            <div className="space-y-2 mt-2 pt-1 border-t border-white/10">
+                              {/* Separate into images and docs for beautiful grid rendering */}
+                              {msg.attachments.some(att => att.mime_type.startsWith('image/')) && (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {msg.attachments
+                                    .filter(att => att.mime_type.startsWith('image/'))
+                                    .map(att => (
+                                      <div key={att.id} className="relative rounded-lg overflow-hidden group border border-[var(--border-default)] aspect-video bg-black/5">
+                                        <SecureImage
+                                          src={att.download_url}
+                                          alt={att.original_file_name}
+                                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => messagesApi.downloadAttachment(att.id)}
+                                            className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/40 transition-colors"
+                                            title="Download"
+                                          >
+                                            <Download className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+
+                              {msg.attachments.filter(att => !att.mime_type.startsWith('image/')).length > 0 && (
+                                <div className="space-y-1">
+                                  {msg.attachments
+                                    .filter(att => !att.mime_type.startsWith('image/'))
+                                    .map(att => (
+                                      <div
+                                        key={att.id}
+                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs gap-3 shadow-sm ${
+                                          isSelf
+                                            ? 'bg-[#15203b]/40 border-[#2e3f6e]/60 text-white'
+                                            : 'bg-[var(--bg-elevated)]/50 border-[var(--border-default)] text-[var(--text-primary)]'
+                                        }`}
+                                      >
+                                        <div className="h-8 w-8 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-lg flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-800/30">
+                                          <FileText className="h-4 w-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="truncate font-black mb-0.5" title={att.original_file_name}>
+                                            {att.original_file_name}
+                                          </p>
+                                          <p className={`text-[9px] font-black uppercase ${isSelf ? 'text-gray-400' : 'text-[var(--text-muted)]'}`}>
+                                            {(att.file_size / 1024).toFixed(0)} KB
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => messagesApi.downloadAttachment(att.id)}
+                                          className={`p-1.5 rounded-lg border transition-colors ${
+                                            isSelf
+                                              ? 'hover:bg-white/10 text-white border-white/20'
+                                              : 'hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] border-[var(--border-default)]'
+                                          }`}
+                                          title="Download"
+                                        >
+                                          <Download className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         {isSelf && (
                           <div className="flex items-center justify-end gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
@@ -829,7 +1452,38 @@ function MessagesContent() {
                 </div>
               )}
 
-              <div className="flex gap-3">
+              {/* Selected Files Preview Queue */}
+              {selectedFiles.length > 0 && (
+                <div className="flex flex-wrap gap-2 p-2 mb-2 bg-[var(--bg-elevated)]/40 rounded-xl border border-[var(--border-default)]">
+                  {selectedFiles.map((file, idx) => (
+                    <FilePreviewCard
+                      key={idx}
+                      file={file}
+                      onRemove={() => setSelectedFiles(prev => prev.filter((_, i) => i !== idx))}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-3 items-end">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  multiple
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  disabled={!canISend || isSending}
+                  variant="outline"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl border border-[var(--border-strong)]/40 hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] hover:text-[var(--accent-primary)] shrink-0 transition-colors"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Attach Files"
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
                 <textarea
                   placeholder={canISend ? "Discuss work... Type @name to mention a colleague" : sendRestrictionMsg ?? ''}
                   rows={2}
@@ -848,8 +1502,8 @@ function MessagesContent() {
                 />
                 <Button
                   type="submit"
-                  disabled={!newMessage.trim() || isSending || !canISend}
-                  className="px-4 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white rounded-xl shadow-md shrink-0 flex flex-col justify-center items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || isSending || !canISend}
+                  className="h-10 px-4 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white rounded-xl shadow-md shrink-0 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </Button>
@@ -1274,6 +1928,241 @@ function MessagesContent() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Premium Call Limit Modal ═══ */}
+      {showPremiumCallModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-[var(--shadow-card)] text-center space-y-4">
+            <div className="mx-auto h-12 w-12 rounded-2xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center">
+              <AlertTriangle className="h-6 w-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-primary)]">Group Calls Feature</h3>
+              <p className="text-xs text-[var(--text-secondary)] font-semibold leading-relaxed">
+                Group voice and video calls are not available in the free version. Please upgrade to PIMS Premium to enable multi-party calling.
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowPremiumCallModal(false)}
+              className="w-full py-2.5 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider"
+            >
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Incoming Call Overlay ═══ */}
+      {isIncomingRinging && callSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 shadow-[var(--shadow-card)] text-center space-y-6">
+            <div className="relative mx-auto h-20 w-20 rounded-full bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] flex items-center justify-center border border-[var(--accent-primary)]/20 animate-pulse">
+              <Avatar className="h-16 w-16 shadow-lg">
+                <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
+                  {incomingCallerName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Incoming {callSession.call_type} Call</p>
+              <h3 className="text-lg font-black text-[var(--text-primary)]">{incomingCallerName}</h3>
+              <p className="text-xs text-[var(--text-secondary)] font-semibold">is calling you...</p>
+            </div>
+            <div className="flex gap-4">
+              <Button
+                onClick={handleDeclineCall}
+                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                <PhoneOff className="h-4 w-4" /> Decline
+              </Button>
+              <Button
+                onClick={handleAcceptCall}
+                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                <Phone className="h-4 w-4" /> Accept
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Outgoing Call Overlay ═══ */}
+      {isOutgoingRinging && callSession && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 shadow-[var(--shadow-card)] text-center space-y-6">
+            <div className="relative mx-auto h-20 w-20 rounded-full bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] flex items-center justify-center border border-[var(--accent-primary)]/20 animate-pulse">
+              <Avatar className="h-16 w-16 shadow-lg">
+                <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
+                  {getDirectChatRecipient(activeConv)?.full_name.charAt(0).toUpperCase() || 'P'}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Calling...</p>
+              <h3 className="text-lg font-black text-[var(--text-primary)]">
+                {getDirectChatRecipient(activeConv)?.full_name || 'Team Member'}
+              </h3>
+              <p className="text-xs text-[var(--text-secondary)] font-semibold">Ringing...</p>
+            </div>
+            <Button
+              onClick={handleEndCall}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+            >
+              <PhoneOff className="h-4 w-4" /> Cancel Call
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Active Call Overlay ═══ */}
+      {callSession && !isIncomingRinging && !isOutgoingRinging && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-black/95 backdrop-blur-xl p-6 text-white animate-in fade-in duration-300">
+          {/* Call Header */}
+          <div className="flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
+                {callSession.call_type === 'video' ? <Video className="h-5 w-5 animate-pulse" /> : <Phone className="h-5 w-5" />}
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white">
+                  {callRole === 'caller'
+                    ? (getDirectChatRecipient(activeConv)?.full_name || 'Calling...')
+                    : (callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name || 'Direct Call')}
+                </h3>
+                <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                  Call in progress · {callSession.call_type === 'video' ? 'Video' : 'Voice'}
+                </p>
+              </div>
+            </div>
+
+            {/* ICE state warning if failed */}
+            {iceConnectionState === 'failed' && (
+              <div className="px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-black flex items-center gap-2">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                <span>Connectivity issue: Restricted network NAT</span>
+              </div>
+            )}
+          </div>
+
+          {/* Media Stream Layout */}
+          <div className="flex-1 my-6 flex items-center justify-center overflow-hidden relative rounded-2xl bg-white/5 border border-white/10">
+            {callSession.call_type === 'video' ? (
+              <div className="relative w-full h-full flex items-center justify-center">
+                {/* Remote Video */}
+                {remoteStream ? (
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center space-y-4">
+                    <Avatar className="h-20 w-20 mx-auto border border-white/20 shadow-lg animate-pulse">
+                      <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
+                        {callRole === 'caller'
+                          ? getDirectChatRecipient(activeConv)?.full_name.charAt(0).toUpperCase()
+                          : callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name.charAt(0).toUpperCase() || 'P'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="text-xs text-gray-400 font-semibold animate-pulse">Waiting for participant stream...</p>
+                  </div>
+                )}
+
+                {/* Local Video Picture-in-Picture */}
+                <div className="absolute top-4 right-4 w-32 md:w-48 aspect-video rounded-xl overflow-hidden border border-white/20 bg-black/60 shadow-xl z-10">
+                  {localStream && !localVideoDisabled ? (
+                    <video
+                      ref={localVideoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className="w-full h-full object-cover transform -scale-x-100"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] font-black uppercase text-gray-400 bg-white/5">
+                      Camera Off
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* Voice Call Visualizer */
+              <div className="text-center space-y-6">
+                <div className="relative mx-auto h-28 w-28 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-2xl">
+                  <div className="absolute inset-2 rounded-full border border-[var(--accent-primary)]/40 animate-ping duration-1000" />
+                  <Avatar className="h-24 w-24 border border-white/10 shadow-lg">
+                    <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-2xl font-black text-white">
+                      {callRole === 'caller'
+                        ? getDirectChatRecipient(activeConv)?.full_name.charAt(0).toUpperCase()
+                        : callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name.charAt(0).toUpperCase() || 'P'}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div>
+                  <h4 className="text-base font-black">
+                    {callRole === 'caller'
+                      ? (getDirectChatRecipient(activeConv)?.full_name || 'Calling...')
+                      : (callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name || 'Direct Call')}
+                  </h4>
+                  <p className="text-xs text-gray-400 font-semibold mt-1">
+                    {iceConnectionState === 'connected' ? 'Connected' : 'Connecting audio...'}
+                  </p>
+                </div>
+                {/* Audio tag for remote stream */}
+                {remoteStream && (
+                  <audio
+                    ref={el => {
+                      if (el) el.srcObject = remoteStream;
+                    }}
+                    autoPlay
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Controls Panel */}
+          <div className="flex items-center justify-center gap-4 shrink-0 bg-white/5 border border-white/10 py-4 px-6 rounded-2xl backdrop-blur-md">
+            {/* Mute button */}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={toggleMute}
+              className={cn("h-12 w-12 rounded-full border border-white/20 transition-all hover:scale-105",
+                localMuted ? "bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500/30" : "bg-white/10 text-white hover:bg-white/20")}
+              title={localMuted ? "Unmute" : "Mute"}
+            >
+              {localMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
+
+            {/* Video toggle (only for video calls) */}
+            {callSession.call_type === 'video' && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={toggleVideo}
+                className={cn("h-12 w-12 rounded-full border border-white/20 transition-all hover:scale-105",
+                  localVideoDisabled ? "bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500/30" : "bg-white/10 text-white hover:bg-white/20")}
+                title={localVideoDisabled ? "Turn Camera On" : "Turn Camera Off"}
+              >
+                {localVideoDisabled ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+              </Button>
+            )}
+
+            {/* End call button */}
+            <Button
+              type="button"
+              onClick={handleEndCall}
+              className="h-12 w-12 rounded-full bg-red-600 hover:bg-red-700 text-white hover:scale-105 transition-all flex items-center justify-center"
+              title="End Call"
+            >
+              <PhoneOff className="h-5 w-5" />
+            </Button>
           </div>
         </div>
       )}

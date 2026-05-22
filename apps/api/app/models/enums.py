@@ -267,6 +267,8 @@ class NotificationType(str, enum.Enum):
     SUPPORT_REPLY = "support_reply"
     APPROVAL_COMMENT = "approval_comment"
     EOD_FEEDBACK = "eod_feedback"
+    CALL_INCOMING = "call_incoming"
+    CALL_MISSED = "call_missed"
 
 
 class ConversationType(str, enum.Enum):

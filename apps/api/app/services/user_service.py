@@ -66,7 +66,7 @@ class UserService:
     # Write helpers
     # ------------------------------------------------------------------
 
-    def create_user(self, payload: UserCreate, actor: User) -> tuple[User, str | None]:
+    def create_user(self, payload: UserCreate, actor: User) -> tuple[User, str | None, bool, str | None]:
         # Define role hierarchy — who can create whom
         ROLE_CREATION_RULES: dict[UserRole, list[UserRole]] = {
             UserRole.ADMIN: list(UserRole),  # Admin can create any role
@@ -127,18 +127,24 @@ class UserService:
         )
 
         token = None
+        email_sent = True
+        email_error = None
         if is_invite:
-            token = self.send_invitation(user, actor)
+            token, email_sent, email_error = self.send_invitation(user, actor)
 
         self.db.commit()
         self.db.refresh(user)
-        return user, token
+        return user, token, email_sent, email_error
 
-    def send_invitation(self, user: User, actor: User) -> str:
+    def send_invitation(self, user: User, actor: User) -> tuple[str, bool, str | None]:
         """Generate an invitation token and send the email."""
         import secrets
         import hashlib
+        import logging
         from datetime import datetime, timedelta, timezone
+        from app.core.config import settings
+
+        logger = logging.getLogger(__name__)
 
         # Invalidate old tokens
         self.db.query(AccountInvitation).filter(
@@ -150,38 +156,55 @@ class UserService:
         raw_token = secrets.token_urlsafe(48)
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         
+        # Enforce 24-hour expiry limit
         invitation = AccountInvitation(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=datetime.now(timezone.utc) + timedelta(days=7)
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=24)
         )
         self.db.add(invitation)
         self.db.flush()
 
-        try:
-            EmailService.send_account_invitation(
-                user=user,
-                token=raw_token,
-                created_by_name=actor.full_name
-            )
-            self._write_audit(
-                actor=actor,
-                action="INVITE_EMAIL_SENT",
-                entity_id=user.id,
-                new_value={"email": user.email}
-            )
-        except Exception as e:
+        email_sent = True
+        email_error = None
+
+        if not settings.smtp_host:
+            logger.warning("SMTP_HOST not configured. invitation email was mocked (not actually sent).")
+            email_sent = False
+            email_error = "SMTP not configured"
             self._write_audit(
                 actor=actor,
                 action="INVITE_EMAIL_FAILED",
                 entity_id=user.id,
-                new_value={"email": user.email, "error": str(e)}
+                new_value={"email": user.email, "error": "SMTP not configured"}
             )
-            raise e
+        else:
+            try:
+                EmailService.send_account_invitation(
+                    user=user,
+                    token=raw_token,
+                    created_by_name=actor.full_name
+                )
+                self._write_audit(
+                    actor=actor,
+                    action="INVITE_EMAIL_SENT",
+                    entity_id=user.id,
+                    new_value={"email": user.email}
+                )
+            except Exception as e:
+                logger.error(f"Failed to send invitation email: {e}", exc_info=True)
+                self._write_audit(
+                    actor=actor,
+                    action="INVITE_EMAIL_FAILED",
+                    entity_id=user.id,
+                    new_value={"email": user.email, "error": str(e)}
+                )
+                email_sent = False
+                email_error = str(e)
 
-        return raw_token
+        return raw_token, email_sent, email_error
 
-    def resend_invitation(self, user_id: uuid.UUID, actor: User) -> None:
+    def resend_invitation(self, user_id: uuid.UUID, actor: User) -> tuple[str, bool, str | None]:
         """Resend an invitation to a user. Only if status is INVITED."""
         user = self.get_by_id(user_id)
         if user.status != UserStatus.INVITED:
@@ -209,8 +232,9 @@ class UserService:
                     detail="You do not have permission to resend this invitation"
                 )
 
-        self.send_invitation(user, actor)
+        token, email_sent, email_error = self.send_invitation(user, actor)
         self.db.commit()
+        return token, email_sent, email_error
 
     def update_user(self, user_id: uuid.UUID, payload: UserUpdate, actor: User) -> User:
         user = self.get_by_id(user_id)

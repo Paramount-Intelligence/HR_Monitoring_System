@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import apiClient from '@/lib/api/client';
 import { Loader2, ShieldCheck, Eye, EyeOff, CheckCircle2, ArrowRight, Lock, AlertCircle } from 'lucide-react';
-import { toast, Toaster } from 'sonner';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -44,7 +44,7 @@ export default function ResetPasswordContent() {
   });
 
   async function onSubmit(data: FormValues) {
-    if (!token) return;
+    if (!token || isLoading) return;
 
     setIsLoading(true);
     try {
@@ -245,17 +245,7 @@ export default function ResetPasswordContent() {
         </div>
       </div>
 
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          style: {
-            background: 'var(--bg-surface)',
-            border: '1px solid var(--border-default)',
-            color: 'var(--text-primary)',
-            backdropFilter: 'blur(12px)',
-          },
-        }}
-      />
+
     </div>
   );
 }

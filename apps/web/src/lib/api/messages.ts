@@ -49,6 +49,16 @@ export interface MessageMention {
   mentioned_user: UserMinimal;
 }
 
+export interface MessageAttachment {
+  id: string;
+  file_name: string;
+  original_file_name: string;
+  mime_type: string;
+  file_size: number;
+  download_url: string;
+  created_at: string;
+}
+
 export interface Message {
   id: string;
   conversation_id: string;
@@ -64,6 +74,7 @@ export interface Message {
   deleted_at: string | null;
   mentions: MessageMention[];
   reactions: MessageReaction[];
+  attachments?: MessageAttachment[];
 }
 
 export interface LastMessageRead {
@@ -100,8 +111,9 @@ export interface ConversationCreateParams {
 }
 
 export interface MessageCreateParams {
-  body: string;
+  body?: string;
   mentioned_user_ids?: string[];
+  attachment_ids?: string[];
 }
 
 export interface UnreadCountResponse {
@@ -129,6 +141,29 @@ export interface ConversationSettingsUpdateParams {
   who_can_send_messages?: 'all_members' | 'admins_only';
   who_can_edit_group_info?: 'all_members' | 'admins_only';
   who_can_add_members?: 'all_members' | 'admins_only';
+}
+
+export interface CallSession {
+  id: string;
+  conversation_id: string;
+  started_by_id: string;
+  call_type: 'voice' | 'video';
+  status: 'ringing' | 'active' | 'declined' | 'missed' | 'ended';
+  started_at: string | null;
+  accepted_at: string | null;
+  ended_at: string | null;
+  created_at: string;
+}
+
+export interface CallSignal {
+  id: string;
+  call_session_id: string;
+  sender_id: string;
+  recipient_id: string;
+  signal_type: 'offer' | 'answer' | 'ice_candidate' | 'end';
+  payload: any;
+  created_at: string;
+  consumed_at: string | null;
 }
 
 export const messagesApi = {
@@ -249,6 +284,96 @@ export const messagesApi = {
       `/messages/conversations/${conversationId}/settings`,
       payload
     );
+    return response.data;
+  },
+
+  uploadConversationAttachments: async (
+    conversationId: string,
+    files: File[]
+  ): Promise<MessageAttachment[]> => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append('files', file);
+    });
+    const response = await apiClient.post<MessageAttachment[]>(
+      `/messages/conversations/${conversationId}/attachments`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data;
+  },
+
+  downloadAttachment: async (attachmentId: string): Promise<void> => {
+    const response = await apiClient.get(
+      `/messages/attachments/${attachmentId}/download`,
+      { responseType: 'blob' }
+    );
+    const contentDisposition = response.headers['content-disposition'];
+    let filename = 'download';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename\*=UTF-8''(.+)$/i) || contentDisposition.match(/filename="(.+)"/i);
+      if (match && match[1]) {
+        filename = decodeURIComponent(match[1]);
+      }
+    }
+    const blob = new Blob([response.data], { type: response.headers['content-type'] });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(link.href);
+  },
+
+  startCall: async (conversationId: string, callType: 'voice' | 'video'): Promise<CallSession> => {
+    const response = await apiClient.post<CallSession>(
+      `/messages/conversations/${conversationId}/calls/start`,
+      { call_type: callType }
+    );
+    return response.data;
+  },
+
+  acceptCall: async (callId: string): Promise<CallSession> => {
+    const response = await apiClient.post<CallSession>(`/messages/calls/${callId}/accept`);
+    return response.data;
+  },
+
+  declineCall: async (callId: string): Promise<CallSession> => {
+    const response = await apiClient.post<CallSession>(`/messages/calls/${callId}/decline`);
+    return response.data;
+  },
+
+  endCall: async (callId: string): Promise<CallSession> => {
+    const response = await apiClient.post<CallSession>(`/messages/calls/${callId}/end`);
+    return response.data;
+  },
+
+  sendSignal: async (
+    callId: string,
+    recipientId: string,
+    signalType: 'offer' | 'answer' | 'ice_candidate' | 'end',
+    payload: any
+  ): Promise<CallSignal> => {
+    const response = await apiClient.post<CallSignal>(`/messages/calls/${callId}/signal`, {
+      recipient_id: recipientId,
+      signal_type: signalType,
+      payload,
+    });
+    return response.data;
+  },
+
+  getSignals: async (callId: string): Promise<CallSignal[]> => {
+    const response = await apiClient.get<CallSignal[]>(`/messages/calls/${callId}/signals`);
+    return response.data;
+  },
+
+  getIncomingCall: async (): Promise<CallSession | null> => {
+    const response = await apiClient.get<CallSession | null>('/messages/calls/incoming');
     return response.data;
   },
 };

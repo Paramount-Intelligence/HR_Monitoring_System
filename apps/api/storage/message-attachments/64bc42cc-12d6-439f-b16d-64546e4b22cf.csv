@@ -1,0 +1,159 @@
+﻿ticketId,ticketSubject,ticketDescription,response
+12213,Not able to deploy look ups using CSS,"Hi Team,
+We cannot deploy the look ups using CSS. Please find attached the logs. Its erroring out at the below page.
+[cid:image001.png@01DCE934.835577E0]","# This content is AI generated. Please review it for accuracy before using it.
+
+I now have strong, directly relevant results. Here are the top 3 most relevant resources:
+
+---
+
+## Top 3 Most Relevant Resources
+
+---
+
+### 1. 📄 [Migrating Lookups – Form Function is needed](https://flexagon.atlassian.net/wiki/spaces/CMKB/pages/12108464141/Migrating+Lookups-Form+Function+is+needed)
+**Type:** Confluence Documentation
+
+**Why it's relevant:** This article directly addresses the exact problem described — CSS failing to deploy/migrate Lookups — and explains that ConfigSnapshot cannot always derive the Form Function for a Lookups migration step, causing it to error out.
+
+**Key solution to look at:**
+- Navigate to the migration step for Lookups (e.g., Module: *Application Developer*, Step Name: *All Lookups*) and check whether the **Function** field is blank.
+- If blank, log into EBS, navigate to the Lookups form, then go to **Help > Diagnostics > Custom Code > Personalize** to retrieve the Function Name (e.g., `FND_FNDLVMLU`).
+- Select that value from the dropdown in ConfigSnapshot and retry the migration.
+
+---
+
+### 2. 🎫 [Ticket #10997 – Purchasing Forms is freezing in MROPRP](https://support.flexagon.com/a/tickets/10997)
+**Type:** Freshdesk Past Ticket
+
+**Why it's relevant:** This past support ticket contains a real-world application of the exact same Lookups/Form Function fix, where the support team walked a customer through identifying and setting the missing Form Function (`FND_FNDLVMLU`) for an All Lookups migration step in CSS.
+
+**Key solution to look at:**
+- The support response in this ticket mirrors the Confluence doc above — check the **Function** field on the Lookups migration step, use **Help > Diagnostics > Custom Code > Personalize** in EBS to find the correct Function Name, then populate it in ConfigSnapshot before retrying.
+
+---
+
+### 3. 📄 [Migration tables installed, but not up to date – EBS and Cloud](https://flexagon.atlassian.net/wiki/spaces/CMKB/pages/12109021199/Migration+tables+installed+but+not+up+to+date+-+EBS+and+Cloud)
+**Type:** Confluence Documentation
+
+**Why it's relevant:** If the Form Function fix does not resolve the issue, an outdated CSS repository is another common cause of migration failures in CSS, and this article covers both EBS and Cloud scenarios.
+
+**Key solution to look at:**
+- Go to **Administration > CSS Repository** in ConfigSnapshot.
+- Use the **Update** button (requires SYSTEM password) or **Create Script** option to bring the repository up to date, then retry the migration."
+12214,RE: ConfigSnapshot support access,"Support,
+
+I support US airforce  project and we use configsnapshot to do the configurations,plans and migrations. Can you reset my password for configsnapshot support and flexagon support.
+My id [EMAIL_REDACTED]
+
+
+V/R
+
+Syam Pepala | [cid:image001.png@01DCE937.35F67690]
+Sr Oracle Application DBA | MRO PMO, AFLCMC/GBM
+Tel: 412-551-0374(M)
+Email: [EMAIL_REDACTED]    <mailto:[EMAIL_REDACTED]聽聽聽%20>","# This content is AI generated. Please review it for accuracy before using it.
+
+## Top 3 Relevant Resources
+
+---
+
+### 1. 🎫 [Ticket #11213 – FW: Access to ConfigSnapshot Website](https://support.flexagon.com/a/tickets/11213)
+
+- **Why it's relevant:** This ticket directly addresses a ConfigSnapshot support portal access/password reset request, which mirrors the user's need exactly.
+- **Key solution:** Direct the user to the self-service password reset link:
+  👉 **https://www.configsnapshot.com/Account/RequestPasswordReset**
+
+---
+
+### 2. 📄 [Confluence Doc – Forgotten CSS Password](https://flexagon.atlassian.net/wiki/spaces/CMKB/pages/12158599173/Forgotten+CSS+Password)
+
+- **Why it's relevant:** This KB article covers the resolution for users who cannot remember their ConfigSnapshot Security (CSS) password within the application itself.
+- **Key solution:** An admin can reset the password via:
+  `ConfigSnapshot > Administration > ConfigSnapshot Administration > Config Snapshot Security > Manage Security User` — search by username, enter a new password, and click **Update**. *(Note: requires a user with privilege to create users.)*
+
+---
+
+### 3. 🎫 [Ticket #10797 – FW: Hypertherm: ConfigSnapshot EBS Subscription License](https://support.flexagon.com/a/tickets/10797)
+
+- **Why it's relevant:** This ticket also references the ConfigSnapshot customer portal access and password reset process, confirming the standard resolution path for portal login issues.
+- **Key solution:** Use the same self-service reset link (**https://www.configsnapshot.com/Account/RequestPasswordReset**) and direct the user to the customer area at **https://www.configsnapshot.com/Customer/Home** for downloads, how-to guides, and support resources.
+
+---
+
+> ⚠️ **Note on Flexagon Support Portal password reset:** No specific documentation was found for resetting a Flexagon support portal (`support.flexagon.com`) password. This may need to be handled manually by a Flexagon admin or via the portal's own account management options."
+12215,Request for FlexDeploy Enhancement – Support File‑Based Upload/Transfer for Oracle MDS (Similar to JDeveloper),"Please enable support in FlexDeploy for file‑based upload or transfer of Oracle MDS changes instead of only project‑based deployment. Currently, the Oracle MDS plugin operations mdsBuild/mdsDeploy only support project‑based artifact handling. However, Oracle JDeveloper provides a “file‑based upload” option that is required for our use case. Attached screenshots demonstrate the current behavior in FlexDeploy where only project‑based MDS operations are available.","# This content is AI generated. Please review it for accuracy before using it.
+
+---
+
+## Top 3 Most Relevant Resources
+
+---
+
+### 1. 📄 [mdsDeploy – FlexDeploy Oracle MDS Plugin](https://flexagon.atlassian.net/wiki/spaces/FD10/pages/11846028020/mdsDeploy)
+
+- **Why it's relevant:** This is the core operation page for `mdsDeploy`, directly describing the current project/package-based deployment behavior that the ticket is requesting an enhancement to.
+- **Key section to review:** The note that `mdsDeploy` consumes a JAR/ZIP artifact built by `mdsBuild`, deploys to a namespace configured at the project level, and supports **package-based** build and deploy — but does **not** describe a file-based upload mode analogous to JDeveloper's option. This confirms the current limitation and is the starting point for scoping the enhancement request.
+
+---
+
+### 2. 📄 [FlexDeploy – Oracle MDS Plugin Guide](https://flexagon.atlassian.net/wiki/spaces/FD10/pages/11846027976/FlexDeploy+-+Oracle+MDS+Plugin+Guide)
+
+- **Why it's relevant:** This is the top-level plugin guide covering all MDS operations, supported versions, and example workflows, giving full context for what is currently supported vs. what the customer is requesting.
+- **Key section to review:** The **Example Workflows** section — specifically the *""Build MDS""* and *""Deploy MDS with Override""* workflow templates — to understand the current project-centric artifact flow and identify where a file-based transfer step would need to be introduced or added as a new operation.
+
+---
+
+### 3. 📄 [FlexDeploy – Oracle ADF Plugin Guide](https://flexagon.atlassian.net/wiki/spaces/FD10/pages/11845825639/FlexDeploy+-+Oracle+ADF+Plugin+Guide)
+
+- **Why it's relevant:** The ADF plugin explicitly supports both **database-based and file-based MDS repositories**, making it the closest existing reference in FlexDeploy for file-based MDS handling patterns.
+- **Key section to review:** The **Key Features** section noting *""Supports database or file based MDS repository""* — this may provide a design precedent or reusable approach for implementing file-based transfer support within the MDS plugin, and is worth cross-referencing when scoping the enhancement.
+
+---
+
+> **Note:** No past Freshdesk tickets with a direct match to this specific enhancement request (file-based MDS upload akin to JDeveloper) were found in the retrieved results. This appears to be a **novel enhancement request** with no prior ticket precedent. It is recommended to log this as a feature request with the FlexDeploy product team, referencing the `mdsDeploy` operation page as the baseline."
+12216,Configure PingOne SSO,"We are on call with PingOne support to integrate FlexDeploy with PingID for SSO configuration and we need your assistance for configuration. Are you available to join the call now? or let us know your availability, so we can schedule another call with PingOne Support.  Thanks Anup","# This content is AI generated. Please review it for accuracy before using it.
+
+---
+
+## Top 3 Most Relevant Resources for PingOne SSO Configuration
+
+> ⚠️ **Note:** No PingOne/PingID-specific documentation or past tickets were found in the knowledge base. The resources below are the closest matches based on FlexDeploy's general SAML/SSO configuration framework, which applies to any SAML 2.0-compliant identity provider including PingOne.
+
+---
+
+### 1. 📄 [SSO Realm — Confluence Documentation](https://flexagon.atlassian.net/wiki/spaces/FD90/pages/10926698099/SSO+Realm)
+
+**Why it's relevant:** This is the primary guide for configuring any SSO integration in FlexDeploy, covering how to enable, configure, and manage SSO Realms — the mechanism PingOne would integrate through.
+
+**Key sections to review:**
+- **Configuring an SSO Realm** — Enable SSO via the UI switch; a sample SAML or OIDC config is auto-populated to customize for PingOne.
+- Use `${{CREDENTIAL NAME}}` syntax to securely store sensitive PingOne values (client secrets, certificates).
+- If locked out, use `flexdeploy/next/#/login` to log in as `fdadmin`.
+- Note: If an SSO Realm is enabled, LDAP realms are not allowed.
+
+---
+
+### 2. 📄 [Salesforce SAML 2.0 — Confluence Documentation](https://flexagon.atlassian.net/wiki/spaces/FD90/pages/10926698371/Salesforce+SAML+2.0)
+
+**Why it's relevant:** Although written for Salesforce, this guide provides a reusable SAML 2.0 configuration pattern (ACS URL, Name ID format, issuer, certificates) that directly applies to configuring PingOne as a SAML identity provider.
+
+**Key sections to review:**
+- **ACS URL format:** `https://HOST:PORT/flexdeploy/callback?client_name=SAML2Client` — this value will be needed by PingOne support on the call.
+- **Name ID Format:** `urn:oasis:names:tc:SAML:2.0:nameid-format:persistent`
+- **Example fdSSO realm configuration (SAML 2.0)** — reusable template for PingOne.
+- **Restart FlexDeploy** after applying configuration changes.
+
+---
+
+### 3. 🎫 [Ticket #10526 — Verisk: Enabling SSO on FlexDeploy SaaS Dev Environment](https://support.flexagon.com/a/tickets/10526)
+
+**Why it's relevant:** This is the closest past support ticket involving a customer actively working to enable SSO on a FlexDeploy SaaS environment, mirroring the live-call scenario described by Anup.
+
+**Key sections to review:**
+- The support team requested: **Product (FlexDeploy/ConfigSnapshot)** and **Version** — ensure these details are gathered from Anup before or during the call.
+- Running on **FlexDeploy 10.0** — confirm the customer's version to ensure the SSO Realm UI approach applies (available from 7.0+).
+
+---
+
+> 💡 **Recommendation for the Support Team:** Since no PingOne-specific documentation exists in the knowledge base, the SAML 2.0 configuration pattern (ACS URL, Name ID format, IdP metadata) from the Salesforce guide should be used as the reference during the PingOne call. Confirm the customer's FlexDeploy version before joining."

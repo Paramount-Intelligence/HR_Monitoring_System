@@ -112,6 +112,7 @@ class Message(Base, TimestampMixin):
     sender = relationship("User", foreign_keys=[sender_id])
     mentions = relationship("MessageMention", back_populates="message", cascade="all, delete-orphan")
     reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan")
+    attachments = relationship("MessageAttachment", back_populates="message", cascade="all, delete-orphan")
 
 
 class MessageMention(Base):
@@ -156,3 +157,127 @@ class MessageReaction(Base):
     # Relationships
     message = relationship("Message", back_populates="reactions")
     user = relationship("User", foreign_keys=[user_id])
+
+
+class MessageAttachment(Base):
+    __tablename__ = "message_attachments"
+
+    __table_args__ = (
+        Index("ix_message_attachments_message_id", "message_id"),
+        Index("ix_message_attachments_conversation_id", "conversation_id"),
+        Index("ix_message_attachments_uploader_id", "uploader_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    uploader_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    original_file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    file_size: Mapped[int] = mapped_column(nullable=False)
+    storage_path: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    # Relationships
+    message = relationship("Message", back_populates="attachments")
+    conversation = relationship("Conversation", foreign_keys=[conversation_id])
+    uploader = relationship("User", foreign_keys=[uploader_id])
+
+
+class CallSession(Base):
+    __tablename__ = "call_sessions"
+
+    __table_args__ = (
+        Index("ix_call_sessions_conversation_id", "conversation_id"),
+        Index("ix_call_sessions_started_by_id", "started_by_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    started_by_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    call_type: Mapped[str] = mapped_column(String(50), nullable=False)  # voice | video
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="ringing")  # ringing | active | declined | missed | ended
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    # Relationships
+    conversation = relationship("Conversation", foreign_keys=[conversation_id])
+    started_by = relationship("User", foreign_keys=[started_by_id])
+    participants = relationship("CallParticipant", back_populates="call_session", cascade="all, delete-orphan")
+    signals = relationship("CallSignal", back_populates="call_session", cascade="all, delete-orphan")
+
+
+class CallParticipant(Base):
+    __tablename__ = "call_participants"
+
+    __table_args__ = (
+        Index("ix_call_participants_call_session_id", "call_session_id"),
+        Index("ix_call_participants_user_id", "user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    call_session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("call_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="invited")  # invited | joined | declined | missed | left
+    joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    call_session = relationship("CallSession", back_populates="participants")
+    user = relationship("User", foreign_keys=[user_id])
+
+
+class CallSignal(Base):
+    __tablename__ = "call_signals"
+
+    __table_args__ = (
+        Index("ix_call_signals_call_session_id", "call_session_id"),
+        Index("ix_call_signals_sender_id", "sender_id"),
+        Index("ix_call_signals_recipient_id", "recipient_id"),
+        Index("ix_call_signals_consumed_at", "consumed_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    call_session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("call_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    sender_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    recipient_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    signal_type: Mapped[str] = mapped_column(String(50), nullable=False)  # offer | answer | ice_candidate | end
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    call_session = relationship("CallSession", back_populates="signals")
+    sender = relationship("User", foreign_keys=[sender_id])
+    recipient = relationship("User", foreign_keys=[recipient_id])
+

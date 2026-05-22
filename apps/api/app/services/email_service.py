@@ -125,69 +125,51 @@ class EmailService:
 
     @classmethod
     def send_account_invitation(cls, user: User, token: str, created_by_name: str) -> None:
-        subject = "Welcome to Paramount Intelligence: Your account is ready"
+        subject = "Set up your PIMS account"
         activation_url = f"{settings.frontend_base_url}/activate?token={token}"
-        login_url = f"{settings.frontend_base_url}/login"
         
-        # Polished branded template
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: 'Inter', -apple-system, sans-serif; color: #1e293b; line-height: 1.6; margin: 0; padding: 0; }}
-                .container {{ max-width: 600px; margin: 0 auto; padding: 40px 20px; }}
-                .header {{ margin-bottom: 30px; }}
-                .logo {{ font-size: 24px; font-weight: bold; color: #0f172a; text-decoration: none; }}
-                .card {{ background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }}
-                .greeting {{ font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #0f172a; }}
-                .role-badge {{ display: inline-block; padding: 4px 12px; background: #eff6ff; color: #2563eb; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 24px; }}
-                .details {{ background: #f8fafc; border-radius: 8px; padding: 20px; margin-bottom: 24px; }}
-                .detail-row {{ display: flex; margin-bottom: 8px; font-size: 14px; }}
-                .detail-label {{ width: 100px; color: #64748b; font-weight: 500; }}
-                .detail-value {{ color: #1e293b; font-weight: 600; }}
-                .button {{ display: inline-block; background: #0f172a; color: #ffffff !important; padding: 12px 28px; border-radius: 8px; font-weight: 600; text-decoration: none; margin-top: 8px; }}
-                .footer {{ margin-top: 30px; font-size: 13px; color: #94a3b8; text-align: center; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <span class="logo">Paramount Intelligence</span>
-                </div>
-                <div class="card">
-                    <div class="greeting">Welcome, {user.full_name}</div>
-                    <div class="role-badge">{user.role.value.replace('_', ' ').title()}</div>
-                    
-                    <p>An account has been created for you on the <strong>Workforce Intelligence & Execution OS</strong> by {created_by_name}.</p>
-                    
-                    <div class="details">
-                        <div class="detail-row">
-                            <span class="detail-label">Username:</span>
-                            <span class="detail-value">{user.email}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Email:</span>
-                            <span class="detail-value">{user.email}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">Portal:</span>
-                            <span class="detail-value"><a href="{login_url}" style="color: #2563eb;">Login Page</a></span>
-                        </div>
-                    </div>
-
-                    <p>To activate your account and set your password, please click the button below. This link will expire in 7 days.</p>
-                    
-                    <a href="{activation_url}" class="button">Activate Account</a>
-                </div>
-                <div class="footer">
-                    &copy; 2026 Paramount Intelligence. All rights reserved.<br/>
-                    If you did not expect this email, please contact your IT administrator.
-                </div>
-            </div>
-        </body>
-        </html>
-        """
+        # Polished branded template containing the exact required text
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {{ font-family: 'Inter', -apple-system, sans-serif; color: #1e293b; line-height: 1.6; margin: 0; padding: 0; }}
+        .container {{ max-width: 600px; margin: 0 auto; padding: 40px 20px; }}
+        .header {{ margin-bottom: 30px; }}
+        .logo {{ font-size: 24px; font-weight: bold; color: #0f172a; text-decoration: none; }}
+        .card {{ background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }}
+        .greeting {{ font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #0f172a; }}
+        .button {{ display: inline-block; background: #0f172a; color: #ffffff !important; padding: 12px 28px; border-radius: 8px; font-weight: 600; text-decoration: none; margin-top: 16px; margin-bottom: 16px; }}
+        .footer {{ margin-top: 30px; font-size: 13px; color: #94a3b8; text-align: center; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="logo">Paramount Intelligence</span>
+        </div>
+        <div class="card">
+            <div class="greeting">Hello {user.full_name},</div>
+            <p>An account has been created for you in PIMS, the Paramount Intelligence Monitoring System.</p>
+            <p>Please set your password using the secure link below:</p>
+            <p style="text-align: center;">
+                <a href="{activation_url}" class="button">Set Up Password</a>
+            </p>
+            <p style="word-break: break-all; font-size: 13px; color: #64748b;">
+                Or copy and paste this link into your browser:<br/>
+                <a href="{activation_url}" style="color: #2563eb;">{activation_url}</a>
+            </p>
+            <p>This link will expire in 24 hours.</p>
+            <p>If you were not expecting this invitation, please contact your administrator.</p>
+            <p style="margin-top: 24px; font-weight: 600; color: #0f172a;">Paramount Intelligence</p>
+        </div>
+        <div class="footer">
+            &copy; 2026 Paramount Intelligence. All rights reserved.
+        </div>
+    </div>
+</body>
+</html>
+"""
         cls.send_email(user.email, subject, html_content)
 
     @classmethod

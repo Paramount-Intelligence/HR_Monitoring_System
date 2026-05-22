@@ -25,6 +25,8 @@ class UserCreate(BaseModel):
 class UserCreateResponse(BaseModel):
     user: UserRead
     debug_token: str | None = None
+    invitation_email_sent: bool = True
+    email_error: str | None = None
 
 
 class UserUpdate(BaseModel):

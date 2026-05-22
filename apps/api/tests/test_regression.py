@@ -95,3 +95,105 @@ def test_standardized_error_response(admin_token):
     data = response.json()
     assert "error" in data
     assert data["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_user_creation_smtp_mock(admin_token, db):
+    """Verify user creation when SMTP is not configured."""
+    import secrets
+    email = f"test-invited-{secrets.token_hex(4)}@company.com"
+    
+    # We temporarily clear SMTP_HOST to test mock behavior
+    old_smtp_host = settings.smtp_host
+    settings.smtp_host = None
+    try:
+        payload = {
+            "full_name": "SMTP Test User",
+            "email": email,
+            "role": "employee"
+        }
+        response = client.post(
+            f"{settings.api_v1_prefix}/users",
+            json=payload,
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert response.status_code == 201
+        data = response.json()
+        assert data["invitation_email_sent"] is False
+        assert data["email_error"] == "SMTP not configured"
+        assert "user" in data
+        assert data["user"]["email"] == email
+        assert data["user"]["status"] == "invited"
+        
+        # Test resend invitation with mock SMTP
+        user_id = data["user"]["id"]
+        resend_response = client.post(
+            f"{settings.api_v1_prefix}/users/{user_id}/resend-invite",
+            headers={"Authorization": f"Bearer {admin_token}"}
+        )
+        assert resend_response.status_code == 200
+        resend_data = resend_response.json()
+        assert resend_data["email_sent"] is False
+        assert resend_data["email_error"] == "SMTP not configured"
+        
+    finally:
+        settings.smtp_host = old_smtp_host
+
+
+def test_activate_account_flow(admin_token, db):
+    """Verify that an invited user can activate their account and log in."""
+    import secrets
+    from app.services.user_service import UserService
+    
+    email = f"test-active-{secrets.token_hex(4)}@company.com"
+    payload = {
+        "full_name": "Activation Test User",
+        "email": email,
+        "role": "employee"
+    }
+    
+    # Create user as admin
+    response = client.post(
+        f"{settings.api_v1_prefix}/users",
+        json=payload,
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert response.status_code == 201
+    data = response.json()
+    
+    # Retrieve user from db to get the invitation token
+    user_id = data["user"]["id"]
+    raw_token = data["debug_token"]
+    assert raw_token is not None
+    
+    # Now call activate-account
+    new_password = "SecurePassword123!"
+    activate_payload = {
+        "token": raw_token,
+        "password": new_password
+    }
+    activate_response = client.post(
+        f"{settings.api_v1_prefix}/auth/activate-account",
+        json=activate_payload
+    )
+    assert activate_response.status_code == 200
+    assert activate_response.json()["message"] == "Account activated successfully. You can now log in."
+    
+    # Confirm status is now active
+    user_response = client.get(
+        f"{settings.api_v1_prefix}/users/{user_id}",
+        headers={"Authorization": f"Bearer {admin_token}"}
+    )
+    assert user_response.status_code == 200
+    assert user_response.json()["status"] == "active"
+    
+    # Confirm the user can log in with their new password
+    login_response = client.post(
+        f"{settings.api_v1_prefix}/auth/login",
+        json={"email": email, "password": new_password}
+    )
+    assert login_response.status_code == 200
+    login_data = login_response.json()
+    assert "access_token" in login_data
+    assert login_data["user"]["full_name"] == "Activation Test User"
+
+

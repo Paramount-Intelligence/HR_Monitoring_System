@@ -39,7 +39,7 @@ from app.models.daily_stats import DailyStats  # noqa: F401
 from app.models.meetings import Meeting, MeetingParticipant  # noqa: F401
 from app.models.notifications import Notification  # noqa: F401
 from app.models.support import SupportTicket, SupportTicketComment  # noqa: F401
-from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction  # noqa: F401
+from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction, MessageAttachment, CallSession, CallParticipant, CallSignal  # noqa: F401
 
 __all__ = [
     "Base",
@@ -88,4 +88,8 @@ __all__ = [
     "Message",
     "MessageMention",
     "MessageReaction",
+    "MessageAttachment",
+    "CallSession",
+    "CallParticipant",
+    "CallSignal",
 ]

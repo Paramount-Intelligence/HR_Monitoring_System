@@ -1,4 +1,5 @@
-from pydantic import field_validator
+from typing import Any
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from dotenv import load_dotenv
 
@@ -16,6 +17,51 @@ def normalize_postgres_url(value: str) -> str:
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_smtp_and_frontend_defaults(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # SMTP Host
+            if "SMTP_HOST" in data and data["SMTP_HOST"] is not None:
+                data["smtp_host"] = data["SMTP_HOST"]
+            # SMTP Port
+            if "SMTP_PORT" in data and data["SMTP_PORT"] is not None:
+                try:
+                    data["smtp_port"] = int(data["SMTP_PORT"])
+                except ValueError:
+                    pass
+            # SMTP User
+            if "SMTP_USERNAME" in data and data["SMTP_USERNAME"] is not None:
+                data["smtp_user"] = data["SMTP_USERNAME"]
+            elif "SMTP_USER" in data and data["SMTP_USER"] is not None:
+                data["smtp_user"] = data["SMTP_USER"]
+            # SMTP Password
+            if "SMTP_PASSWORD" in data and data["SMTP_PASSWORD"] is not None:
+                data["smtp_password"] = data["SMTP_PASSWORD"]
+            # SMTP TLS
+            if "SMTP_USE_TLS" in data and data["SMTP_USE_TLS"] is not None:
+                val = str(data["SMTP_USE_TLS"]).lower()
+                data["smtp_tls"] = val in ("true", "1", "yes", "t")
+            elif "SMTP_TLS" in data and data["SMTP_TLS"] is not None:
+                val = str(data["SMTP_TLS"]).lower()
+                data["smtp_tls"] = val in ("true", "1", "yes", "t")
+            # Emails From Email
+            if "SMTP_FROM_EMAIL" in data and data["SMTP_FROM_EMAIL"] is not None:
+                data["emails_from_email"] = data["SMTP_FROM_EMAIL"]
+            elif "EMAILS_FROM_EMAIL" in data and data["EMAILS_FROM_EMAIL"] is not None:
+                data["emails_from_email"] = data["EMAILS_FROM_EMAIL"]
+            # Emails From Name
+            if "SMTP_FROM_NAME" in data and data["SMTP_FROM_NAME"] is not None:
+                data["emails_from_name"] = data["SMTP_FROM_NAME"]
+            elif "EMAILS_FROM_NAME" in data and data["EMAILS_FROM_NAME"] is not None:
+                data["emails_from_name"] = data["EMAILS_FROM_NAME"]
+            # Frontend URL
+            if "FRONTEND_URL" in data and data["FRONTEND_URL"] is not None:
+                data["frontend_base_url"] = data["FRONTEND_URL"]
+            elif "FRONTEND_BASE_URL" in data and data["FRONTEND_BASE_URL"] is not None:
+                data["frontend_base_url"] = data["FRONTEND_BASE_URL"]
+        return data
 
     app_env: str = "development"
     app_host: str = "0.0.0.0"
