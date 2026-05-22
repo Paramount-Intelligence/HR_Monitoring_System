@@ -680,6 +680,12 @@ function MessagesContent() {
     return conv.participants.find(p => p.user_id !== user?.id)?.user ?? null;
   };
 
+  // Safe resolved helper values for call participant information to prevent crashes
+  const currentCallConv = conversations.find(c => c.id === callSession?.conversation_id) || activeConv;
+  const otherCallParticipant = getDirectChatRecipient(currentCallConv);
+  const otherCallParticipantName = otherCallParticipant?.full_name || incomingCallerName || 'Direct Call';
+  const otherCallParticipantInitial = otherCallParticipantName.charAt(0).toUpperCase() || 'C';
+
   const handleTeardownCall = useCallback(() => {
     if (peerConnectionRef.current) {
       peerConnectionRef.current.close();
@@ -713,20 +719,35 @@ function MessagesContent() {
     let stream: MediaStream | null = null;
     try {
       setError(null);
+
+      // 1. Device and API compatibility checks
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+        setError("This browser does not support audio/video calls.");
+        return;
+      }
+
       const constraints = {
         audio: true,
         video: callType === 'video'
       };
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setLocalStream(stream);
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        setLocalStream(stream);
+      } catch (permErr: any) {
+        console.warn('Media devices access denied:', permErr);
+        setError("Microphone/camera permission is required to join this call.");
+        return;
+      }
 
       const session = await messagesApi.startCall(activeConv.id, callType);
       setCallSession(session);
       setCallRole('caller');
       setIsOutgoingRinging(true);
 
+      const stunUrl = process.env.NEXT_PUBLIC_WEBRTC_STUN_URL || 'stun:stun.l.google.com:19302';
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [{ urls: stunUrl }]
       });
 
       pc.onicecandidate = (event) => {
@@ -759,7 +780,7 @@ function MessagesContent() {
 
     } catch (err: any) {
       console.error('Failed to start call:', err);
-      setError(getErrorMessage(err) || 'Could not access microphone or camera.');
+      setError(getErrorMessage(err) || 'Could not initiate audio/video call session.');
       if (stream) {
         stream.getTracks().forEach(t => t.stop());
       }
@@ -768,34 +789,59 @@ function MessagesContent() {
   };
 
   const handleAcceptCall = async () => {
-    if (!callSession) return;
-    const conv = conversations.find(c => c.id === callSession.conversation_id) || activeConv;
-    const callerPart = conv?.participants.find(p => p.user_id === callSession.started_by_id);
-    const caller = callerPart?.user;
-    if (!caller) return;
+    if (!callSession?.id) {
+      setError("Invalid call session.");
+      return;
+    }
 
+    const callerId = callSession.started_by_id;
     let stream: MediaStream | null = null;
     try {
       setIsIncomingRinging(false);
       setError(null);
 
+      // 1. Device and API compatibility checks
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+        setError("This browser does not support audio/video calls.");
+        return;
+      }
+
+      // 2. Request media permissions safely
       const constraints = {
         audio: true,
         video: callSession.call_type === 'video'
       };
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      setLocalStream(stream);
 
-      const acceptedSession = await messagesApi.acceptCall(callSession.id);
-      setCallSession(acceptedSession);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        setLocalStream(stream);
+      } catch (permErr: any) {
+        console.warn('Media devices access denied:', permErr);
+        setError("Microphone/camera permission is required to join this call.");
+        return;
+      }
 
+      // 3. Accept call via API
+      let acceptedSession;
+      try {
+        acceptedSession = await messagesApi.acceptCall(callSession.id);
+        setCallSession(acceptedSession);
+      } catch (apiErr: any) {
+        console.error('Accept API call failed:', apiErr);
+        setError("Unable to accept call. Call session expired or no longer available.");
+        if (stream) stream.getTracks().forEach(t => t.stop());
+        return;
+      }
+
+      // 4. Initialize RTCPeerConnection safely with fallback STUN URL
+      const stunUrl = process.env.NEXT_PUBLIC_WEBRTC_STUN_URL || 'stun:stun.l.google.com:19302';
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [{ urls: stunUrl }]
       });
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          messagesApi.sendSignal(callSession.id, caller.id, 'ice_candidate', event.candidate);
+          messagesApi.sendSignal(callSession.id, callerId, 'ice_candidate', event.candidate);
         }
       };
 
@@ -819,7 +865,7 @@ function MessagesContent() {
 
     } catch (err: any) {
       console.error('Failed to accept call:', err);
-      setError(getErrorMessage(err) || 'Could not access microphone or camera.');
+      setError(getErrorMessage(err) || 'Call could not connect. This may happen on restricted networks.');
       if (stream) {
         stream.getTracks().forEach(t => t.stop());
       }
@@ -924,8 +970,16 @@ function MessagesContent() {
         const signals = await messagesApi.getSignals(callSession.id);
         for (const sig of signals) {
           const pc = peerConnectionRef.current;
+          let payload = sig.payload;
+          if (typeof payload === 'string') {
+            try {
+              payload = JSON.parse(payload);
+            } catch (e) {
+              console.warn('Failed to parse signal payload:', e);
+            }
+          }
           if (sig.signal_type === 'offer' && callRole === 'callee' && pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            await pc.setRemoteDescription(new RTCSessionDescription(payload));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             const callerId = callSession.started_by_id;
@@ -936,7 +990,7 @@ function MessagesContent() {
               await pc.addIceCandidate(new RTCIceCandidate(cand));
             }
           } else if (sig.signal_type === 'answer' && callRole === 'caller' && pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(sig.payload));
+            await pc.setRemoteDescription(new RTCSessionDescription(payload));
             // Drain pending candidates
             while (pendingCandidates.current.length > 0) {
               const cand = pendingCandidates.current.shift();
@@ -944,9 +998,9 @@ function MessagesContent() {
             }
           } else if (sig.signal_type === 'ice_candidate' && pc) {
             if (pc.remoteDescription) {
-              await pc.addIceCandidate(new RTCIceCandidate(sig.payload));
+              await pc.addIceCandidate(new RTCIceCandidate(payload));
             } else {
-              pendingCandidates.current.push(sig.payload);
+              pendingCandidates.current.push(payload);
             }
           } else if (sig.signal_type === 'end') {
             handleTeardownCall();
@@ -2021,29 +2075,40 @@ function MessagesContent() {
       {callSession && !isIncomingRinging && !isOutgoingRinging && (
         <div className="fixed inset-0 z-50 flex flex-col justify-between bg-black/95 backdrop-blur-xl p-6 text-white animate-in fade-in duration-300">
           {/* Call Header */}
-          <div className="flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
-                {callSession.call_type === 'video' ? <Video className="h-5 w-5 animate-pulse" /> : <Phone className="h-5 w-5" />}
+          <div className="flex flex-col gap-4 shrink-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
+                  {callSession.call_type === 'video' ? <Video className="h-5 w-5 animate-pulse" /> : <Phone className="h-5 w-5" />}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white">
+                    {otherCallParticipantName}
+                  </h3>
+                  <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    Call in progress · {callSession.call_type === 'video' ? 'Video' : 'Voice'}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-black text-white">
-                  {callRole === 'caller'
-                    ? (getDirectChatRecipient(activeConv)?.full_name || 'Calling...')
-                    : (callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name || 'Direct Call')}
-                </h3>
-                <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                  Call in progress · {callSession.call_type === 'video' ? 'Video' : 'Voice'}
-                </p>
-              </div>
+
+              {/* ICE state warning if failed */}
+              {iceConnectionState === 'failed' && (
+                <div className="px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-black flex items-center gap-2">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  <span>Connectivity issue: Restricted network NAT</span>
+                </div>
+              )}
             </div>
 
-            {/* ICE state warning if failed */}
-            {iceConnectionState === 'failed' && (
-              <div className="px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-black flex items-center gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                <span>Connectivity issue: Restricted network NAT</span>
+            {/* Beautiful, premium error banner for call issues */}
+            {error && (
+              <div className="mx-auto w-full max-w-md p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-200 text-xs font-semibold flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
+                <span className="flex-1">{error}</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-300 hover:text-white hover:bg-white/10 rounded-lg shrink-0" onClick={() => setError(null)}>
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
             )}
           </div>
@@ -2064,9 +2129,7 @@ function MessagesContent() {
                   <div className="text-center space-y-4">
                     <Avatar className="h-20 w-20 mx-auto border border-white/20 shadow-lg animate-pulse">
                       <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
-                        {callRole === 'caller'
-                          ? getDirectChatRecipient(activeConv)?.full_name.charAt(0).toUpperCase()
-                          : callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name.charAt(0).toUpperCase() || 'P'}
+                        {otherCallParticipantInitial}
                       </AvatarFallback>
                     </Avatar>
                     <p className="text-xs text-gray-400 font-semibold animate-pulse">Waiting for participant stream...</p>
@@ -2097,17 +2160,13 @@ function MessagesContent() {
                   <div className="absolute inset-2 rounded-full border border-[var(--accent-primary)]/40 animate-ping duration-1000" />
                   <Avatar className="h-24 w-24 border border-white/10 shadow-lg">
                     <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-2xl font-black text-white">
-                      {callRole === 'caller'
-                        ? getDirectChatRecipient(activeConv)?.full_name.charAt(0).toUpperCase()
-                        : callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name.charAt(0).toUpperCase() || 'P'}
+                      {otherCallParticipantInitial}
                     </AvatarFallback>
                   </Avatar>
                 </div>
                 <div>
                   <h4 className="text-base font-black">
-                    {callRole === 'caller'
-                      ? (getDirectChatRecipient(activeConv)?.full_name || 'Calling...')
-                      : (callSession.participants.find((p: any) => p.user_id === callSession.started_by_id)?.user?.full_name || 'Direct Call')}
+                    {otherCallParticipantName}
                   </h4>
                   <p className="text-xs text-gray-400 font-semibold mt-1">
                     {iceConnectionState === 'connected' ? 'Connected' : 'Connecting audio...'}
