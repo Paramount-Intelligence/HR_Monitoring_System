@@ -76,12 +76,14 @@ const ELIGIBLE_ROLES = ['admin', 'hr_operations', 'manager', 'team_lead', 'emplo
 ───────────────────────────────────────────────────────────────────────────── */
 function StatusPill({ status }: { status: TeamMemberStatus['status'] }) {
   const map = {
-    present:  { label: 'Present',  bg: 'bg-emerald-100', text: 'text-emerald-700', dot: 'bg-emerald-500' },
-    late:     { label: 'Late',     bg: 'bg-amber-100',   text: 'text-amber-700',   dot: 'bg-amber-500'   },
-    on_leave: { label: 'On Leave', bg: 'bg-blue-100',    text: 'text-blue-700',    dot: 'bg-blue-500'    },
-    absent:   { label: 'Absent',   bg: 'bg-red-100',     text: 'text-red-700',     dot: 'bg-red-500'     },
-  };
-  const s = map[status];
+    present:  { label: 'Present',  bg: 'bg-[var(--status-success-bg)]', text: 'text-[var(--status-success-text)]', dot: 'bg-[var(--status-success-text)]' },
+    late:     { label: 'Late',     bg: 'bg-[var(--status-warning-bg)]', text: 'text-[var(--status-warning-text)]', dot: 'bg-[var(--status-warning-text)]' },
+    on_leave: { label: 'On Leave', bg: 'bg-[var(--status-info-bg)]', text: 'text-[var(--status-info-text)]', dot: 'bg-[var(--status-info-text)]' },
+    absent:   { label: 'Absent',   bg: 'bg-[var(--status-danger-bg)]', text: 'text-[var(--status-danger-text)]', dot: 'bg-[var(--status-danger-text)]' },
+  } as const;
+
+  const s = map[status] ?? map.present;
+
   return (
     <span className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest', s.bg, s.text)}>
       <span className={cn('w-1.5 h-1.5 rounded-full', s.dot)} />
@@ -104,16 +106,14 @@ function StitchKPICard({
   accent?: string;
 }) {
   return (
-    <div className="bg-white border-[2.5px] border-[#0D1B3E] rounded-[1.25rem] flex items-center gap-0 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      {/* Navy icon block */}
-      <div className="flex-shrink-0 w-16 h-full min-h-[80px] flex items-center justify-center" style={{ backgroundColor: '#0D1B3E' }}>
-        <Icon className="h-6 w-6 text-white" />
+    <div className="app-surface-elevated rounded-[1.25rem] flex items-center gap-0 overflow-hidden shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex-shrink-0 w-16 h-full min-h-[80px] flex items-center justify-center bg-[var(--bg-subtle)] border-r border-[var(--border-default)]">
+        <Icon className="h-6 w-6 text-[var(--accent-primary)]" />
       </div>
-      {/* Text */}
       <div className="flex-1 px-5 py-4">
-        <p className="text-[10px] font-black text-[#5A738E] uppercase tracking-[0.18em] leading-none mb-1.5">{label}</p>
-        <p className="text-2xl font-black text-[#0D1B3E] leading-none">{value}</p>
-        {sub && <p className="text-[10px] font-bold text-[#5A738E] mt-1.5 uppercase tracking-wider">{sub}</p>}
+        <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.18em] leading-none mb-1.5">{label}</p>
+        <p className="text-2xl font-black text-[var(--text-primary)] leading-none">{value}</p>
+        {sub && <p className="text-[10px] font-bold text-[var(--text-secondary)] mt-1.5 uppercase tracking-wider">{sub}</p>}
       </div>
     </div>
   );
@@ -121,7 +121,7 @@ function StitchKPICard({
 
 function StitchCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('bg-white border-[2px] border-[#0D1B3E] rounded-[1.25rem] overflow-hidden shadow-sm', className)}>
+    <div className={cn('app-surface-elevated rounded-[1.25rem] overflow-hidden shadow-sm', className)}>
       {children}
     </div>
   );
@@ -134,17 +134,17 @@ function StitchCardHeader({ title, badge, link, linkLabel }: {
   linkLabel?: string;
 }) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-[#0D1B3E]/10">
+    <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]">
       <div className="flex items-center gap-2.5">
-        <p className="text-[11px] font-black text-[#0D1B3E] uppercase tracking-[0.18em]">{title}</p>
+        <p className="text-[11px] font-black text-[var(--text-primary)] uppercase tracking-[0.18em]">{title}</p>
         {badge !== undefined && badge !== 0 && (
-          <span className="h-5 min-w-[20px] px-1.5 bg-[#0D1B3E] text-white text-[9px] font-black rounded-full flex items-center justify-center">
+          <span className="h-5 min-w-[20px] px-1.5 bg-[var(--bg-subtle)] text-[var(--text-secondary)] text-[9px] font-black rounded-full flex items-center justify-center border border-[var(--border-default)]">
             {badge}
           </span>
         )}
       </div>
       {link && linkLabel && (
-        <Link href={link} className="text-[10px] font-black text-[#1565C0] uppercase tracking-widest hover:underline flex items-center gap-1">
+        <Link href={link} className="text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-widest hover:underline flex items-center gap-1">
           {linkLabel} <ChevronRight className="h-3 w-3" />
         </Link>
       )}
@@ -233,7 +233,13 @@ export default function ManagerDashboard() {
   const healthDeduction = Math.min(50, (blockedTasks * 10) + (sumData.overdue_tasks * 5));
   const healthScore = Math.max(0, 100 - healthDeduction);
   const healthLabel = healthScore >= 80 ? 'Excellent' : healthScore >= 60 ? 'Good' : healthScore >= 40 ? 'Fair' : 'At Risk';
-  const healthColor = healthScore >= 80 ? '#10B981' : healthScore >= 60 ? '#1565C0' : healthScore >= 40 ? '#F59E0B' : '#E05A5A';
+  const healthColor = healthScore >= 80
+    ? 'var(--status-success-text)'
+    : healthScore >= 60
+      ? 'var(--accent-primary)'
+      : healthScore >= 40
+        ? 'var(--status-warning-text)'
+        : 'var(--status-danger-text)';
 
   // Team attendance snapshot — build from summary data or team sessions
   const teamAttendanceToday: TeamMemberAttendanceItem[] = (sumData.team_attendance_today || []).map((m: any) => {
@@ -264,7 +270,7 @@ export default function ManagerDashboard() {
       person: e.user_name,
       description: 'submitted EOD report',
       time: e.updated_at,
-      color: '#6366F1',
+      color: 'var(--accent-secondary)',
     })),
     ...teamAttendanceToday.filter(m => m.status === 'present' || m.status === 'late').slice(0, 4).map(m => ({
       id: `checkin-${m.id}`,
@@ -272,7 +278,7 @@ export default function ManagerDashboard() {
       person: m.name,
       description: m.status === 'late' ? 'checked in (late)' : 'checked in',
       time: m.checkInTime || new Date().toISOString(),
-      color: m.status === 'late' ? '#F59E0B' : '#10B981',
+      color: m.status === 'late' ? 'var(--status-warning-text)' : 'var(--status-success-text)',
     })),
   ].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 8);
 
@@ -293,19 +299,19 @@ export default function ManagerDashboard() {
   if (isLoading) {
     return (
       <div className="space-y-6 pb-20 animate-pulse">
-        <div className="h-12 bg-[#0D1B3E]/10 rounded-2xl w-64" />
+        <div className="h-12 bg-[var(--bg-subtle)] rounded-2xl w-64" />
         <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
           {[1,2,3,4].map(i => (
-            <div key={i} className="h-24 bg-[#0D1B3E]/10 rounded-[1.25rem] border-[2.5px] border-[#0D1B3E]/20" />
+            <div key={i} className="h-24 bg-[var(--bg-subtle)] rounded-[1.25rem] border border-[var(--border-default)]" />
           ))}
         </div>
         <div className="grid gap-5 lg:grid-cols-12">
-          <div className="lg:col-span-3 h-96 bg-[#0D1B3E]/10 rounded-[1.25rem] border-[2px] border-[#0D1B3E]/20" />
+          <div className="lg:col-span-3 h-96 bg-[var(--bg-subtle)] rounded-[1.25rem] border border-[var(--border-default)]" />
           <div className="lg:col-span-6 space-y-5">
-            <div className="h-44 bg-[#0D1B3E]/10 rounded-[1.25rem] border-[2px] border-[#0D1B3E]/20" />
-            <div className="h-44 bg-[#0D1B3E]/10 rounded-[1.25rem] border-[2px] border-[#0D1B3E]/20" />
+            <div className="h-44 bg-[var(--bg-subtle)] rounded-[1.25rem] border border-[var(--border-default)]" />
+            <div className="h-44 bg-[var(--bg-subtle)] rounded-[1.25rem] border border-[var(--border-default)]" />
           </div>
-          <div className="lg:col-span-3 h-96 bg-[#0D1B3E]/10 rounded-[1.25rem] border-[2px] border-[#0D1B3E]/20" />
+          <div className="lg:col-span-3 h-96 bg-[var(--bg-subtle)] rounded-[1.25rem] border border-[var(--border-default)]" />
         </div>
       </div>
     );
@@ -313,28 +319,28 @@ export default function ManagerDashboard() {
 
   /* ── Render ─────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-6 pb-20 max-w-[1600px] mx-auto text-[#0D1B3E]">
+    <div className="space-y-6 pb-20 max-w-[1600px] mx-auto app-page text-[var(--text-primary)]">
 
       {/* ── Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-[10px] font-black text-[#5A738E] uppercase tracking-[0.2em] mb-1">Manager Portal</p>
-          <h1 className="text-3xl font-black tracking-tight text-[#0D1B3E]">Manager Dashboard</h1>
-          <p className="text-sm font-semibold text-[#5A738E] mt-0.5">
+          <p className="app-copy-weak uppercase tracking-[0.2em] mb-1">Manager Portal</p>
+          <h1 className="app-title">Manager Dashboard</h1>
+          <p className="app-copy mt-0.5">
             Team performance, approvals, and operational overview
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/manager/team"
-            className="inline-flex items-center gap-2 bg-[#0D1B3E] text-white text-[11px] font-black uppercase tracking-[0.15em] px-5 py-2.5 rounded-xl hover:bg-[#1E2E54] transition-colors"
+            className="inline-flex items-center gap-2 btn-primary text-[11px] font-black uppercase tracking-[0.15em] px-5 py-2.5 rounded-xl transition-colors"
           >
             <Users className="h-4 w-4" />
             Team Members
           </Link>
           <Link
             href="/manager/reports"
-            className="inline-flex items-center gap-2 border-[2px] border-[#0D1B3E] text-[#0D1B3E] text-[11px] font-black uppercase tracking-[0.15em] px-5 py-2.5 rounded-xl hover:bg-[#0D1B3E]/5 transition-colors"
+            className="inline-flex items-center gap-2 btn-secondary text-[11px] font-black uppercase tracking-[0.15em] px-5 py-2.5 rounded-xl transition-colors"
           >
             <BarChart3 className="h-4 w-4" />
             Reports
@@ -388,20 +394,20 @@ export default function ManagerDashboard() {
             <div className="p-4 space-y-2.5 max-h-[520px] overflow-y-auto">
               {teamAttendanceToday.length === 0 ? (
                 <div className="py-12 text-center">
-                  <Users className="h-8 w-8 text-[#0D1B3E]/20 mx-auto mb-3" />
-                  <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">No team data</p>
+                  <Users className="h-8 w-8 text-[var(--text-secondary)]/40 mx-auto mb-3" />
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">No team data</p>
                 </div>
               ) : (
                 teamAttendanceToday.map(member => (
-                  <div key={member.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[#0D1B3E]/10 hover:border-[#0D1B3E]/25 transition-colors bg-white">
+                  <div key={member.id} className="flex items-center justify-between gap-3 p-3 rounded-xl border border-[var(--border-default)] hover:border-[var(--border-strong)] transition-colors bg-[var(--bg-elevated)]">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="h-8 w-8 rounded-full bg-[#0D1B3E] flex items-center justify-center text-[10px] font-black text-white shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center text-[10px] font-black text-[var(--text-primary)] shrink-0">
                         {initials(member.name)}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold text-[#0D1B3E] truncate leading-none">{member.name}</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] truncate leading-none">{member.name}</p>
                         {member.checkInTime && (
-                          <p className="text-[9px] font-semibold text-[#5A738E] mt-0.5">{fmtTime(member.checkInTime)}</p>
+                          <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5">{fmtTime(member.checkInTime)}</p>
                         )}
                       </div>
                     </div>
@@ -411,15 +417,15 @@ export default function ManagerDashboard() {
               )}
             </div>
             {/* Attendance summary footer */}
-            <div className="border-t border-[#0D1B3E]/10 px-4 py-3 grid grid-cols-4 gap-0 bg-[#F8FAFC]">
+            <div className="border-t border-[var(--border-subtle)] px-4 py-3 grid grid-cols-4 gap-0 bg-[var(--bg-surface)]">
               {(['present','late','on_leave','absent'] as const).map(s => {
                 const count = teamAttendanceToday.filter(m => m.status === s).length;
-                const colors: Record<string, string> = { present: '#10B981', late: '#F59E0B', on_leave: '#1565C0', absent: '#E05A5A' };
+                const colors: Record<string, string> = { present: 'var(--status-success-text)', late: 'var(--status-warning-text)', on_leave: 'var(--status-info-text)', absent: 'var(--status-danger-text)' };
                 const labels: Record<string, string> = { present: 'In', late: 'Late', on_leave: 'Leave', absent: 'Out' };
                 return (
                   <div key={s} className="text-center">
-                    <p className="text-base font-black" style={{ color: colors[s] }}>{count}</p>
-                    <p className="text-[9px] font-bold text-[#5A738E] uppercase tracking-wide">{labels[s]}</p>
+                    <p className="text-base font-black" style={{ color: `var(${colors[s]})` }}>{count}</p>
+                    <p className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wide">{labels[s]}</p>
                   </div>
                 );
               })}
@@ -436,32 +442,32 @@ export default function ManagerDashboard() {
             <div className="p-5">
               <div className="flex items-end justify-between mb-4">
                 <div>
-                  <p className="text-5xl font-black text-[#0D1B3E] leading-none">{taskCompletionRate}<span className="text-2xl text-[#5A738E]">%</span></p>
-                  <p className="text-[10px] font-black text-[#5A738E] uppercase tracking-wider mt-1">Completion Rate</p>
+                  <p className="text-5xl font-black text-[var(--text-primary)] leading-none">{taskCompletionRate}<span className="text-2xl text-[var(--text-secondary)]">%</span></p>
+                  <p className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-wider mt-1">Completion Rate</p>
                 </div>
                 <div className="space-y-1.5 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-[10px] font-bold text-[#5A738E] uppercase">In Progress</span>
-                    <span className="text-sm font-black text-[#1565C0]">{inProgressTasks}</span>
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">In Progress</span>
+                    <span className="text-sm font-black text-[var(--status-info-text)]">{inProgressTasks}</span>
                   </div>
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-[10px] font-bold text-[#5A738E] uppercase">Completed</span>
-                    <span className="text-sm font-black text-[#10B981]">{completedTasks}</span>
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Completed</span>
+                    <span className="text-sm font-black text-[var(--status-success-text)]">{completedTasks}</span>
                   </div>
                   <div className="flex items-center justify-end gap-2">
-                    <span className="text-[10px] font-bold text-[#5A738E] uppercase">Total</span>
-                    <span className="text-sm font-black text-[#0D1B3E]">{totalTasks}</span>
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)] uppercase">Total</span>
+                    <span className="text-sm font-black text-[var(--text-primary)]">{totalTasks}</span>
                   </div>
                 </div>
               </div>
               {/* Progress bar */}
-              <div className="h-3 bg-[#0D1B3E]/10 rounded-full overflow-hidden">
+              <div className="h-3 bg-[var(--bg-subtle)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#0D1B3E] rounded-full transition-all duration-700"
+                  className="h-full bg-[var(--accent-primary)] rounded-full transition-all duration-700"
                   style={{ width: `${taskCompletionRate}%` }}
                 />
               </div>
-              <div className="mt-2 flex justify-between text-[9px] font-black text-[#5A738E] uppercase tracking-widest">
+              <div className="mt-2 flex justify-between text-[9px] font-black text-[var(--text-secondary)] uppercase tracking-widest">
                 <span>0%</span><span>50%</span><span>100%</span>
               </div>
               {/* SVG Sparkline */}
@@ -469,14 +475,14 @@ export default function ManagerDashboard() {
                 <svg width="100%" height="100%" viewBox="0 0 200 56" preserveAspectRatio="none" className="overflow-visible">
                   <defs>
                     <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#0D1B3E" stopOpacity="0.15" />
-                      <stop offset="100%" stopColor="#0D1B3E" stopOpacity="0" />
+                      <stop offset="0%" stopColor="var(--text-primary)" stopOpacity="0.15" />
+                      <stop offset="100%" stopColor="var(--text-primary)" stopOpacity="0" />
                     </linearGradient>
                   </defs>
                   <path
                     d="M 0 45 C 30 40 40 30 70 28 S 110 20 140 22 S 175 18 200 12"
                     fill="none"
-                    stroke="#0D1B3E"
+                    stroke="var(--text-primary)"
                     strokeWidth="2"
                     strokeLinecap="round"
                   />
@@ -500,51 +506,51 @@ export default function ManagerDashboard() {
             <div className="p-4 space-y-2">
               {pendingApprovalsCount === 0 ? (
                 <div className="py-8 text-center">
-                  <CheckSquare className="h-7 w-7 text-[#10B981] mx-auto mb-2" />
-                  <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">All clear — no pending items</p>
+                  <CheckSquare className="h-7 w-7 text-[var(--status-success-text)] mx-auto mb-2" />
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">All clear — no pending items</p>
                 </div>
               ) : (
                 <>
                   {pendingLeaves.slice(0, 2).map((leave: any) => (
-                    <div key={leave.id} className="flex items-center justify-between p-3 rounded-xl border border-[#F59E0B]/30 bg-amber-50 hover:border-[#F59E0B]/60 transition-colors">
+                    <div key={leave.id} className="flex items-center justify-between p-3 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] hover:border-[var(--status-warning-text)] transition-colors">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-amber-500 flex items-center justify-center">
+                        <div className="h-7 w-7 rounded-lg bg-[var(--status-warning-text)] flex items-center justify-center">
                           <Palmtree className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-[#0D1B3E] leading-none">Leave Request</p>
-                          <p className="text-[9px] font-semibold text-[#5A738E] mt-0.5 uppercase">{leave.leave_type}</p>
+                          <p className="text-xs font-bold text-[var(--text-primary)] leading-none">Leave Request</p>
+                          <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5 uppercase">{leave.leave_type}</p>
                         </div>
                       </div>
-                      <Link href="/manager/approvals" className="text-[9px] font-black text-amber-700 uppercase tracking-widest hover:underline">Review</Link>
+                      <Link href="/manager/approvals" className="text-[9px] font-black text-[var(--status-warning-text)] uppercase tracking-widest hover:underline">Review</Link>
                     </div>
                   ))}
                   {pendingCorrections.slice(0, 2).map((corr) => (
-                    <div key={corr.id} className="flex items-center justify-between p-3 rounded-xl border border-[#1565C0]/20 bg-blue-50 hover:border-[#1565C0]/40 transition-colors">
+                    <div key={corr.id} className="flex items-center justify-between p-3 rounded-xl border border-[var(--status-info-border)] bg-[var(--status-info-bg)] hover:border-[var(--status-info-text)] transition-colors">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-[#1565C0] flex items-center justify-center">
+                        <div className="h-7 w-7 rounded-lg bg-[var(--status-info-text)] flex items-center justify-center">
                           <Clock className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-[#0D1B3E] leading-none">Attendance Correction</p>
-                          <p className="text-[9px] font-semibold text-[#5A738E] mt-0.5 uppercase">Pending review</p>
+                          <p className="text-xs font-bold text-[var(--text-primary)] leading-none">Attendance Correction</p>
+                          <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5 uppercase">Pending review</p>
                         </div>
                       </div>
-                      <Link href="/manager/approvals" className="text-[9px] font-black text-[#1565C0] uppercase tracking-widest hover:underline">Review</Link>
+                      <Link href="/manager/approvals" className="text-[9px] font-black text-[var(--status-info-text)] uppercase tracking-widest hover:underline">Review</Link>
                     </div>
                   ))}
                   {pendingProjects.slice(0, 1).map((project) => (
-                    <div key={project.id} className="flex items-center justify-between p-3 rounded-xl border border-purple-200 bg-purple-50 hover:border-purple-400 transition-colors">
+                    <div key={project.id} className="flex items-center justify-between p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] hover:border-[var(--border-strong)] transition-colors">
                       <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-purple-600 flex items-center justify-center">
+                        <div className="h-7 w-7 rounded-lg bg-[var(--accent-primary)] flex items-center justify-center">
                           <Briefcase className="h-3.5 w-3.5 text-white" />
                         </div>
                         <div>
-                          <p className="text-xs font-bold text-[#0D1B3E] truncate max-w-[140px] leading-none">{project.title}</p>
-                          <p className="text-[9px] font-semibold text-[#5A738E] mt-0.5 uppercase">Project proposal</p>
+                          <p className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[140px] leading-none">{project.title}</p>
+                          <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5 uppercase">Project proposal</p>
                         </div>
                       </div>
-                      <Link href={`/manager/projects/${project.id}`} className="text-[9px] font-black text-purple-700 uppercase tracking-widest hover:underline">Review</Link>
+                      <Link href={`/manager/projects/${project.id}`} className="text-[9px] font-black text-[var(--accent-primary)] uppercase tracking-widest hover:underline">Review</Link>
                     </div>
                   ))}
                 </>
@@ -563,24 +569,24 @@ export default function ManagerDashboard() {
             <div className="p-4 space-y-2">
               {pendingEods.length === 0 ? (
                 <div className="py-6 text-center">
-                  <ShieldCheck className="h-7 w-7 text-[#10B981] mx-auto mb-2" />
-                  <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">EOD queue fully processed</p>
+                  <ShieldCheck className="h-7 w-7 text-[var(--status-success-text)] mx-auto mb-2" />
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">EOD queue fully processed</p>
                 </div>
               ) : (
                 pendingEods.slice(0, 3).map(eod => (
-                  <div key={eod.id} className="flex items-center justify-between p-3 rounded-xl border border-[#0D1B3E]/12 hover:border-[#0D1B3E]/30 transition-colors">
+                  <div key={eod.id} className="flex items-center justify-between p-3 rounded-xl border border-[var(--border-default)] hover:border-[var(--border-strong)] transition-colors bg-[var(--bg-elevated)]">
                     <div className="flex items-center gap-2.5">
-                      <div className="h-8 w-8 rounded-full bg-[#0D1B3E] flex items-center justify-center text-[9px] font-black text-white shrink-0">
+                      <div className="h-8 w-8 rounded-full bg-[var(--accent-primary)] flex items-center justify-center text-[9px] font-black text-white shrink-0">
                         {initials(eod.user_name)}
                       </div>
                       <div>
-                        <p className="text-xs font-bold text-[#0D1B3E] leading-none">{eod.user_name}</p>
-                        <p className="text-[9px] font-semibold text-[#5A738E] mt-0.5 capitalize">{eod.work_mode} · {eod.total_hours.toFixed(1)}h</p>
+                        <p className="text-xs font-bold text-[var(--text-primary)] leading-none">{eod.user_name}</p>
+                        <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5 capitalize">{eod.work_mode} · {eod.total_hours.toFixed(1)}h</p>
                       </div>
                     </div>
                     <Link
                       href={`/manager/eod-reviews?id=${eod.id}`}
-                      className="text-[9px] font-black text-[#6366F1] uppercase tracking-widest hover:underline flex items-center gap-0.5"
+                      className="text-[9px] font-black text-[var(--accent-secondary)] uppercase tracking-widest hover:underline flex items-center gap-0.5"
                     >
                       Review <ChevronRight className="h-3 w-3" />
                     </Link>
@@ -600,25 +606,25 @@ export default function ManagerDashboard() {
             <div className="p-4 space-y-0">
               {activityFeed.length === 0 ? (
                 <div className="py-10 text-center">
-                  <Activity className="h-8 w-8 text-[#0D1B3E]/20 mx-auto mb-3" />
-                  <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">No activity yet today</p>
+                  <Activity className="h-8 w-8 text-[var(--text-secondary)]/40 mx-auto mb-3" />
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">No activity yet today</p>
                 </div>
               ) : (
                 activityFeed.map((item, idx) => (
                   <div key={item.id} className="flex gap-3 relative">
                     {/* Timeline line */}
                     {idx < activityFeed.length - 1 && (
-                      <div className="absolute left-[15px] top-8 bottom-0 w-px bg-[#0D1B3E]/10" />
+                      <div className="absolute left-[15px] top-8 bottom-0 w-px bg-[var(--border-default)]" />
                     )}
-                    <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 relative z-10" style={{ backgroundColor: `${item.color}20` }}>
+                    <div className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 relative z-10 bg-[var(--bg-subtle)]" style={{ color: item.color }}>
                       <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
                     </div>
                     <div className="flex-1 pb-3.5 min-w-0">
-                      <p className="text-xs font-bold text-[#0D1B3E] leading-snug">
+                      <p className="text-xs font-bold text-[var(--text-primary)] leading-snug">
                         <span className="font-black">{item.person}</span>
-                        {' '}<span className="font-semibold text-[#5A738E]">{item.description}</span>
+                        {' '}<span className="font-semibold text-[var(--text-secondary)]">{item.description}</span>
                       </p>
-                      <p className="text-[9px] font-semibold text-[#5A738E] mt-0.5">{timeAgo(item.time)}</p>
+                      <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5">{timeAgo(item.time)}</p>
                     </div>
                   </div>
                 ))
@@ -632,15 +638,15 @@ export default function ManagerDashboard() {
             <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
               {announcements.length === 0 ? (
                 <div className="py-6 text-center">
-                  <Megaphone className="h-7 w-7 text-[#0D1B3E]/20 mx-auto mb-2" />
-                  <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">No announcements</p>
+                  <Megaphone className="h-7 w-7 text-[var(--text-secondary)]/40 mx-auto mb-2" />
+                  <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">No announcements</p>
                 </div>
               ) : (
                 announcements.slice(0, 3).map(ann => (
-                  <div key={ann.id} className="p-3 rounded-xl border-l-[3px] border-[#1565C0] bg-blue-50/60">
-                    <p className="text-xs font-black text-[#0D1B3E] leading-snug">{ann.title}</p>
-                    <p className="text-[10px] font-semibold text-[#5A738E] mt-1 line-clamp-2 leading-relaxed">{ann.content}</p>
-                    <p className="text-[9px] font-bold text-[#5A738E] mt-1.5">{timeAgo(ann.created_at)}</p>
+                  <div key={ann.id} className="p-3 rounded-xl border-l-[3px] border-[var(--accent-primary)] bg-[var(--bg-surface)]">
+                    <p className="text-xs font-black text-[var(--text-primary)] leading-snug">{ann.title}</p>
+                    <p className="text-[10px] font-semibold text-[var(--text-secondary)] mt-1 line-clamp-2 leading-relaxed">{ann.content}</p>
+                    <p className="text-[9px] font-bold text-[var(--text-secondary)] mt-1.5">{timeAgo(ann.created_at)}</p>
                   </div>
                 ))
               )}
@@ -660,12 +666,12 @@ export default function ManagerDashboard() {
                 <Link
                   key={action.label}
                   href={action.href}
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-[2px] border-[#0D1B3E]/12 bg-white hover:border-[#0D1B3E]/30 hover:shadow-sm transition-all text-center group"
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-[2px] border-[var(--border-default)] bg-[var(--bg-elevated)] hover:border-[var(--border-strong)] hover:shadow-sm transition-all text-center group"
                 >
-                  <div className="h-9 w-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${action.color}15` }}>
-                    <action.icon className="h-4.5 w-4.5" style={{ color: action.color }} />
+                  <div className="h-9 w-9 rounded-xl flex items-center justify-center bg-[var(--bg-subtle)]">
+                    <action.icon className="h-4.5 w-4.5 text-[var(--accent-primary)]" />
                   </div>
-                  <span className="text-[9px] font-black text-[#0D1B3E] uppercase tracking-[0.15em] leading-tight">{action.label}</span>
+                  <span className="text-[9px] font-black text-[var(--text-primary)] uppercase tracking-[0.15em] leading-tight">{action.label}</span>
                 </Link>
               ))}
             </div>
@@ -682,16 +688,16 @@ export default function ManagerDashboard() {
                 </div>
                 <div className="text-right space-y-1">
                   <div className="flex items-center justify-end gap-1.5">
-                    <div className="h-2 w-2 rounded-full bg-[#E05A5A]" />
-                    <span className="text-[10px] font-bold text-[#5A738E]">{blockedTasks} Blocked</span>
+                    <div className="h-2 w-2 rounded-full bg-[var(--status-danger-text)]" />
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)]">{blockedTasks} Blocked</span>
                   </div>
                   <div className="flex items-center justify-end gap-1.5">
-                    <div className="h-2 w-2 rounded-full bg-[#F59E0B]" />
-                    <span className="text-[10px] font-bold text-[#5A738E]">{sumData.overdue_tasks} Overdue</span>
+                    <div className="h-2 w-2 rounded-full bg-[var(--status-warning-text)]" />
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)]">{sumData.overdue_tasks} Overdue</span>
                   </div>
                   <div className="flex items-center justify-end gap-1.5">
-                    <div className="h-2 w-2 rounded-full bg-[#10B981]" />
-                    <span className="text-[10px] font-bold text-[#5A738E]">{sumData.team_members_active} Active</span>
+                    <div className="h-2 w-2 rounded-full bg-[var(--status-success-text)]" />
+                    <span className="text-[10px] font-bold text-[var(--text-secondary)]">{sumData.team_members_active} Active</span>
                   </div>
                 </div>
               </div>
@@ -738,16 +744,16 @@ export default function ManagerDashboard() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center gap-3 p-3 rounded-xl border border-[#0D1B3E]/10 hover:border-[#0D1B3E]/25 hover:shadow-sm transition-all group"
+                className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border-default)] hover:border-[var(--border-strong)] hover:shadow-sm transition-all group"
               >
-                <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${item.color}15` }}>
-                  <item.icon className="h-4 w-4" style={{ color: item.color }} />
+                <div className="h-8 w-8 rounded-xl flex items-center justify-center shrink-0 bg-[var(--bg-subtle)]">
+                  <item.icon className="h-4 w-4 text-[var(--accent-primary)]" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-black text-[#0D1B3E]">{item.label}</p>
-                  <p className="text-[10px] font-semibold text-[#5A738E]">{item.sub}</p>
+                  <p className="text-xs font-black text-[var(--text-primary)]">{item.label}</p>
+                  <p className="text-[10px] font-semibold text-[var(--text-secondary)]">{item.sub}</p>
                 </div>
-                <ChevronRight className="h-4 w-4 text-[#0D1B3E]/30 group-hover:text-[#0D1B3E]/60 transition-colors shrink-0" />
+                <ChevronRight className="h-4 w-4 text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors shrink-0" />
               </Link>
             ))}
           </div>
@@ -759,17 +765,17 @@ export default function ManagerDashboard() {
           <div className="p-4 space-y-2">
             {needsAttention.length === 0 ? (
               <div className="py-8 text-center">
-                <UserCheck className="h-8 w-8 text-[#10B981] mx-auto mb-3" />
-                <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">All team members are accounted for</p>
+                <UserCheck className="h-8 w-8 text-[var(--status-success-text)] mx-auto mb-3" />
+                <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">All team members are accounted for</p>
               </div>
             ) : (
               needsAttention.map(member => (
-                <div key={member.id} className="flex items-center gap-3 p-3 rounded-xl border border-[#0D1B3E]/10">
-                  <div className="h-8 w-8 rounded-full bg-[#0D1B3E]/10 flex items-center justify-center text-[10px] font-black text-[#0D1B3E] shrink-0">
+                <div key={member.id} className="flex items-center gap-3 p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)]">
+                  <div className="h-8 w-8 rounded-full bg-[var(--bg-subtle)] flex items-center justify-center text-[10px] font-black text-[var(--text-primary)] shrink-0">
                     {initials(member.name)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-[#0D1B3E] truncate">{member.name}</p>
+                    <p className="text-xs font-bold text-[var(--text-primary)] truncate">{member.name}</p>
                   </div>
                   <StatusPill status={member.status} />
                 </div>
@@ -784,8 +790,8 @@ export default function ManagerDashboard() {
           <div className="p-4 space-y-2">
             {upcomingTasks.length === 0 ? (
               <div className="py-8 text-center">
-                <Calendar className="h-8 w-8 text-[#0D1B3E]/20 mx-auto mb-3" />
-                <p className="text-[11px] font-bold text-[#5A738E] uppercase tracking-widest">No upcoming deadlines this week</p>
+                <Calendar className="h-8 w-8 text-[var(--text-secondary)]/40 mx-auto mb-3" />
+                <p className="text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">No upcoming deadlines this week</p>
               </div>
             ) : (
               upcomingTasks.map(task => {
@@ -794,16 +800,16 @@ export default function ManagerDashboard() {
                 const isUrgent = daysLeft <= 2;
                 return (
                   <div key={task.id} className={cn(
-                    'flex items-center justify-between p-3 rounded-xl border transition-colors',
-                    isUrgent ? 'border-red-200 bg-red-50' : 'border-[#0D1B3E]/10 hover:border-[#0D1B3E]/25'
+                    'flex items-center justify-between p-3 rounded-xl border transition-colors bg-[var(--bg-elevated)]',
+                    isUrgent ? 'border-[var(--status-danger-border)]' : 'border-[var(--border-default)] hover:border-[var(--border-strong)]'
                   )}>
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={cn('h-2 w-2 rounded-full shrink-0', isUrgent ? 'bg-[#E05A5A]' : 'bg-[#1565C0]')} />
-                      <p className="text-xs font-bold text-[#0D1B3E] truncate">{task.title}</p>
+                      <div className={cn('h-2 w-2 rounded-full shrink-0', isUrgent ? 'bg-[var(--status-danger-text)]' : 'bg-[var(--accent-primary)]')} />
+                      <p className="text-xs font-bold text-[var(--text-primary)] truncate">{task.title}</p>
                     </div>
                     <span className={cn(
                       'text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full shrink-0 ml-2',
-                      isUrgent ? 'bg-red-100 text-red-700' : 'bg-[#0D1B3E]/10 text-[#0D1B3E]'
+                      isUrgent ? 'bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]' : 'bg-[var(--bg-subtle)] text-[var(--text-primary)]'
                     )}>
                       {daysLeft}d
                     </span>

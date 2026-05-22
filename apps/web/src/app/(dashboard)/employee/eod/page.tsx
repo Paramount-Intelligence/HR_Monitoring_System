@@ -132,16 +132,16 @@ export default function MyEODPage() {
           </div>
 
           {eod.manager_comments && (
-            <Card className="border-none shadow-[var(--shadow-soft)] bg-rose-50 rounded-[2.5rem] overflow-hidden text-rose-950">
+            <Card className="border border-[var(--status-danger-border)] shadow-[var(--shadow-soft)] bg-[var(--status-danger-bg)] rounded-[2.5rem] overflow-hidden text-[var(--status-danger-text)]">
               <CardHeader className="px-10 pt-10 pb-4">
-                <CardTitle className="text-xs font-black text-rose-800 flex items-center gap-2 uppercase tracking-widest">
+                <CardTitle className="text-xs font-black text-[var(--status-danger-text)] flex items-center gap-2 uppercase tracking-widest">
                   <AlertCircle className="h-4 w-4" /> Manager Feedback
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-10 pb-10">
-                <p className="text-sm text-rose-900 font-bold leading-relaxed italic">"{eod.manager_comments}"</p>
+                <p className="text-sm text-[var(--status-danger-text)] font-bold leading-relaxed italic">"{eod.manager_comments}"</p>
                 {eod.status === 'Needs Revision' && (
-                  <Button variant="outline" size="sm" onClick={handleGenerate} className="mt-6 h-10 bg-white border-rose-200 text-rose-700 font-black text-[10px] uppercase tracking-widest rounded-xl px-6 hover:bg-rose-50 hover:text-rose-800 transition-all">
+                  <Button variant="outline" size="sm" onClick={handleGenerate} className="mt-6 h-10 bg-[var(--bg-surface)] border-[var(--status-danger-border)] text-[var(--status-danger-text)] font-black text-[10px] uppercase tracking-widest rounded-xl px-6 hover:bg-[var(--status-danger-bg)] transition-all">
                     Regenerate EOD
                   </Button>
                 )}
@@ -215,7 +215,7 @@ export default function MyEODPage() {
             </Card>
           </div>
 
-          <Card className="border-none shadow-[var(--shadow-soft)] bg-slate-900 text-white rounded-[3rem] overflow-hidden relative group">
+          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-elevated)] text-white rounded-[3rem] overflow-hidden relative group">
             <div className="absolute top-0 right-0 p-12 opacity-10 transition-transform group-hover:scale-110 duration-700">
                 <ShieldCheck className="h-48 w-48 rotate-12" />
             </div>
@@ -226,12 +226,12 @@ export default function MyEODPage() {
                     <Briefcase className="h-8 w-8 text-white" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Productivity Index</p>
-                    <p className="text-5xl font-black tracking-tighter text-white">{eod.productivity_score}<span className="text-lg text-slate-500 font-black ml-1 uppercase">/100</span></p>
+                    <p className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">Productivity Index</p>
+                    <p className="text-5xl font-black tracking-tighter text-white">{eod.productivity_score}<span className="text-lg text-[var(--text-muted)] font-black ml-1 uppercase">/100</span></p>
                   </div>
                 </div>
                 <div className="text-center md:text-right">
-                  <p className="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em] mb-1">Status</p>
+                  <p className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">Status</p>
                   <p className="text-lg font-black text-indigo-400 uppercase tracking-widest">{eod.status}</p>
                 </div>
               </div>

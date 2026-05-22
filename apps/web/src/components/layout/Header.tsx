@@ -1,8 +1,8 @@
-'use client';
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { notificationsApi, Notification } from '@/lib/api/notifications';
 import { Breadcrumbs } from './Breadcrumbs';
 import { HeaderTimer } from './HeaderTimer';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -13,7 +13,13 @@ import {
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
-import { Menu, LogOut, User as UserIcon } from 'lucide-react';
+import { 
+  Menu, LogOut, User as UserIcon, Bell, Check, 
+  MessageSquare, Calendar, ShieldCheck, MailOpen, AlertCircle 
+} from 'lucide-react';
+import { ThemeToggle } from './ThemeToggle';
+import { messagesApi } from '@/lib/api/messages';
+
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -21,8 +27,108 @@ interface HeaderProps {
 
 export function Header({ onMenuToggle }: HeaderProps) {
   const { user, logout } = useAuth();
+  const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Notifications states
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifLoading, setNotifLoading] = useState(false);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const res = await notificationsApi.getUnreadCount();
+      setUnreadCount(res.count);
+    } catch (err) {
+      console.error('[Header] Failed to load unread count:', err);
+    }
+  };
+
+  const fetchUnreadMsgCount = async () => {
+    try {
+      const res = await messagesApi.getUnreadMessageCount();
+      setUnreadMsgCount(res.unread_conversations);
+    } catch (err) {
+      console.error('[Header] Failed to load message unread count:', err);
+    }
+  };
+
+  const loadNotifications = async () => {
+    try {
+      setNotifLoading(true);
+      const data = await notificationsApi.getNotifications(8);
+      setNotifications(data);
+    } catch (err) {
+      console.error('[Header] Failed to load notifications:', err);
+    } finally {
+      setNotifLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchUnreadCount();
+      fetchUnreadMsgCount();
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+        fetchUnreadMsgCount();
+      }, 30000); // Poll every 30s
+
+      const handleUpdate = () => {
+        fetchUnreadMsgCount();
+      };
+      window.addEventListener('pims-messages-unread-update', handleUpdate);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('pims-messages-unread-update', handleUpdate);
+      };
+    }
+  }, [user]);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsApi.markAllRead();
+      setUnreadCount(0);
+      setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
+    } catch (err) {
+      console.error('[Header] Failed to mark all read:', err);
+    }
+  };
+
+  const handleNotificationClick = async (n: Notification) => {
+    try {
+      if (!n.is_read) {
+        await notificationsApi.markRead(n.id);
+        fetchUnreadCount();
+      }
+      
+      // Dynamic navigation
+      if (n.related_entity_type === 'meeting') {
+        router.push('/calendar');
+      } else if (n.related_entity_type === 'support_ticket') {
+        router.push('/help-support');
+      }
+    } catch (err) {
+      console.error('[Header] Failed to process notification click:', err);
+    }
+  };
+
+  const getIconForNotif = (type: string) => {
+    switch (type) {
+      case 'meeting_invite':
+      case 'meeting_updated':
+        return <Calendar className="h-4 w-4 text-[var(--accent-primary)]" />;
+      case 'meeting_cancelled':
+        return <AlertCircle className="h-4 w-4 text-[var(--status-danger-text)]" />;
+      case 'support_ticket':
+        return <MessageSquare className="h-4 w-4 text-[var(--status-warning-text)]" />;
+      default:
+        return <Bell className="h-4 w-4 text-[var(--text-secondary)]" />;
+    }
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -41,7 +147,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[var(--border-default)] bg-[var(--bg-surface)]/80 backdrop-blur-xl px-4 sm:px-8 transition-colors duration-300">
+      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-header)] backdrop-blur-xl px-4 sm:px-8 transition-colors duration-300">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -65,8 +171,102 @@ export function Header({ onMenuToggle }: HeaderProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-4">
           <HeaderTimer />
+
+          <div className="h-6 w-px bg-[var(--border-default)] hidden sm:block" />
+
+          <ThemeToggle />
+
+          <div className="h-6 w-px bg-[var(--border-default)] hidden sm:block" />
+
+          {/* Message Indicator Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => router.push('/messages')}
+            className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)] h-9 w-9 rounded-xl transition-all focus:outline-none"
+          >
+            <MessageSquare className="h-5 w-5" />
+            {unreadMsgCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] text-[10px] font-black border-2 border-[var(--bg-surface)] flex items-center justify-center">
+                {unreadMsgCount}
+              </span>
+            )}
+          </Button>
+
+          <div className="h-6 w-px bg-[var(--border-default)] hidden sm:block" />
+
+          {/* Notification Bell Dropdown */}
+          <DropdownMenu onOpenChange={(open) => { if (open) loadNotifications(); }}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)] h-9 w-9 rounded-xl transition-all focus:outline-none"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] text-[10px] font-black border-2 border-[var(--bg-surface)] flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-80 mt-2 p-1.5 rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border-default)] backdrop-blur-xl bg-[var(--bg-elevated)] text-[var(--text-primary)]" align="end">
+              <DropdownMenuLabel className="p-3 flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">Notifications</span>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[10px] font-black text-[var(--accent-primary)] hover:underline flex items-center gap-1 leading-none"
+                  >
+                    <MailOpen className="h-3 w-3" /> Mark all read
+                  </button>
+                )}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
+              
+              <div className="max-h-[300px] overflow-y-auto custom-scrollbar space-y-1 py-1">
+                {notifLoading ? (
+                  <div className="py-8 text-center text-xs text-[var(--text-muted)] font-semibold">
+                    Syncing updates...
+                  </div>
+                ) : notifications.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-[var(--text-muted)] italic font-semibold">
+                    No active notifications
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <DropdownMenuItem
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer p-3 flex gap-3 text-left transition-colors duration-150 relative ${
+                        n.is_read ? 'opacity-70' : 'border border-[var(--accent-primary)]/20 bg-[var(--accent-primary)]/5'
+                      }`}
+                    >
+                      <div className="h-7 w-7 rounded-full bg-[var(--bg-surface)] border border-[var(--border-default)] flex items-center justify-center shrink-0">
+                        {getIconForNotif(n.notification_type)}
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex justify-between items-start gap-1">
+                          <p className="text-xs font-black text-[var(--text-primary)] truncate leading-none">
+                            {n.title}
+                          </p>
+                          {!n.is_read && (
+                            <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)] shrink-0 mt-0.5" />
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
+                          {n.message}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <div className="h-6 w-px bg-[var(--border-default)] hidden sm:block" />
 

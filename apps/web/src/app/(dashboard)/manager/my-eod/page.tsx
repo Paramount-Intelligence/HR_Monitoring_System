@@ -129,16 +129,16 @@ export default function MyEODPage() {
           </div>
 
           {eod.manager_comments && (
-            <Card className="shadow-sm border-rose-200 bg-rose-50/50">
+            <Card className="shadow-sm border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]">
               <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-rose-800 flex items-center gap-2">
+                <CardTitle className="text-sm font-semibold text-[var(--status-danger-text)] flex items-center gap-2">
                   <FileText className="h-4 w-4" /> Manager Feedback
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-rose-900 leading-relaxed">{eod.manager_comments}</p>
+                <p className="text-sm text-[var(--status-danger-text)] leading-relaxed">{eod.manager_comments}</p>
                 {eod.status === 'Needs Revision' && (
-                  <Button variant="outline" size="sm" onClick={handleGenerate} className="mt-4 bg-white">
+                  <Button variant="outline" size="sm" onClick={handleGenerate} className="mt-4 bg-[var(--bg-surface)] border-[var(--status-danger-border)] text-[var(--status-danger-text)] hover:bg-[var(--status-danger-bg)]">
                     Regenerate Report
                   </Button>
                 )}

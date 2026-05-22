@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api/client';
+import { messagesApi } from '@/lib/api/messages';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { 
-  Plus, Loader2, Briefcase, CheckCircle, XCircle, Search, ShieldCheck, Zap, Calendar, ExternalLink
+  Plus, Loader2, Briefcase, CheckCircle, XCircle, Search, ShieldCheck, Zap, Calendar, ExternalLink, MessageSquare
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,19 @@ export default function ManagerProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleDiscussProject = async (project: Project) => {
+    try {
+      const conv = await messagesApi.getOrCreateContextThread({
+        related_entity_type: 'project',
+        related_entity_id: project.id,
+        title: `Project: ${project.title}`
+      });
+      router.push(`/messages?conversation_id=${conv.id}`);
+    } catch (error) {
+      toast.error('Failed to open discussion: ' + getErrorMessage(error));
+    }
+  };
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -213,7 +227,18 @@ export default function ManagerProjectsPage() {
                     <TableRow key={project.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28 text-[var(--text-primary)]">
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
-                          <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{project.title}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{project.title}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/10 gap-1"
+                              onClick={() => handleDiscussProject(project)}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Discuss
+                            </Button>
+                          </div>
                           <span className="text-[10px] font-bold text-[var(--text-muted)] leading-relaxed italic line-clamp-1 max-w-[350px]">
                             {project.description}
                           </span>

@@ -9,7 +9,8 @@ import { getErrorMessage } from '@/lib/api/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft } from 'lucide-react';
+import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft, MessageSquare } from 'lucide-react';
+import { messagesApi } from '@/lib/api/messages';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -33,6 +34,24 @@ export default function ProjectDetailsPage() {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [isDiscussionLoading, setIsDiscussionLoading] = useState(false);
+
+  const handleProjectDiscussion = async () => {
+    if (!project) return;
+    setIsDiscussionLoading(true);
+    try {
+      const thread = await messagesApi.getOrCreateContextThread({
+        related_entity_type: 'project',
+        related_entity_id: project.id,
+        title: `Project: ${project.title}`
+      });
+      router.push(`/messages?conversation_id=${thread.id}`);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsDiscussionLoading(false);
+    }
+  };
 
   const fetchProject = async () => {
     try {
@@ -137,9 +156,23 @@ export default function ProjectDetailsPage() {
           </div>
           <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">{project.title}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <StatusBadge status={project.approval_status} />
-          <StatusBadge status={project.priority} />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-3">
+            <StatusBadge status={project.approval_status} />
+            <StatusBadge status={project.priority} />
+          </div>
+          <Button
+            onClick={handleProjectDiscussion}
+            disabled={isDiscussionLoading}
+            className="btn-primary h-10 px-4 rounded-xl flex items-center gap-2 font-black text-[10px] uppercase tracking-widest text-white border-none shadow-[var(--shadow-soft)] transition-all active:scale-[0.98]"
+          >
+            {isDiscussionLoading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <MessageSquare className="h-3.5 w-3.5" />
+            )}
+            Discuss Project
+          </Button>
         </div>
       </div>
 

@@ -88,8 +88,8 @@ export default function AdminAnnouncementsPage() {
             <Megaphone className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Broadcast Hub</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Announcements</h1>
-          <p className="text-slate-500 font-bold text-sm tracking-tight uppercase opacity-60">Organizational Updates & Strategic Communication</p>
+          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Announcements</h1>
+          <p className="text-[var(--text-muted)] font-bold text-sm tracking-tight uppercase opacity-60">Organizational Updates & Strategic Communication</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -100,18 +100,18 @@ export default function AdminAnnouncementsPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-premium-lg p-10">
             <DialogHeader className="space-y-3">
-              <DialogTitle className="text-2xl font-black text-slate-900 tracking-tighter">Broadcast Message</DialogTitle>
+              <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">Broadcast Message</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-6">
                 <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem><FormLabel className="text-[10px] font-black text-slate-400 uppercase ml-1">Title</FormLabel><FormControl><Input placeholder="e.g. Annual Town Hall" className="h-12 rounded-xl bg-slate-50/50" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Title</FormLabel><FormControl><Input placeholder="e.g. Annual Town Hall" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="audience" render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-[10px] font-black text-slate-400 uppercase ml-1">Target Audience</FormLabel>
+                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Target Audience</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-slate-50/50"><SelectValue placeholder="Select audience" /></SelectTrigger></FormControl>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select audience" /></SelectTrigger></FormControl>
                       <SelectContent className="rounded-2xl shadow-premium-lg">
                         {AUDIENCE_OPTIONS.map(opt => (
                           <SelectItem key={opt.value} value={opt.value} className="text-xs font-bold">{opt.label}</SelectItem>
@@ -122,14 +122,14 @@ export default function AdminAnnouncementsPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="content" render={({ field }) => (
-                  <FormItem><FormLabel className="text-[10px] font-black text-slate-400 uppercase ml-1">Message Content</FormLabel><FormControl><Textarea className="resize-none rounded-xl bg-slate-50/50 min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Message Content</FormLabel><FormControl><Textarea className="resize-none rounded-xl min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="start_date" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] font-black text-slate-400 uppercase ml-1">Start Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl bg-slate-50/50" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Start Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="end_date" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] font-black text-slate-400 uppercase ml-1">End Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl bg-slate-50/50" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">End Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
                 <Button type="submit" className="w-full h-14 bg-indigo-600 text-white font-black text-[10px] uppercase rounded-2xl shadow-xl mt-4">Publish Announcement</Button>
@@ -143,47 +143,47 @@ export default function AdminAnnouncementsPage() {
         {isLoading ? (
           <div className="p-10"><TableSkeleton rows={4} cols={1} /></div>
         ) : announcements.length === 0 ? (
-          <div className="py-20 bg-white rounded-[3rem] shadow-premium">
+          <div className="py-20 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[3rem] shadow-[var(--shadow-soft)]">
               <EmptyState title="No announcements published yet" message="Broadcast updates will appear here." icon={Megaphone} />
           </div>
         ) : (
           announcements.map((ann) => (
-            <Card key={ann.id} className="border-none shadow-premium bg-white rounded-[2.5rem] overflow-hidden group hover:shadow-premium-lg transition-all duration-500">
+            <Card key={ann.id} className="border border-[var(--border-subtle)] shadow-[var(--shadow-card)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden group hover:shadow-[var(--shadow-card)] transition-all duration-500">
               <CardHeader className="p-10 pb-4 flex flex-row items-center justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
                       <div className="h-10 w-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
                         <Zap className="h-5 w-5" />
                       </div>
-                      <CardTitle className="text-2xl font-black text-slate-900 tracking-tight leading-snug group-hover:text-indigo-600 transition-colors">
+                      <CardTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tight leading-snug group-hover:text-[var(--accent-primary)] transition-colors">
                         {ann.title}
                       </CardTitle>
                   </div>
-                  <div className="flex items-center gap-4 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  <div className="flex items-center gap-4 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">
                     <div className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {format(parseISO(ann.created_at), 'PPP')}</div>
-                    <div className="flex items-center gap-1.5 text-indigo-500"><Target className="h-3.5 w-3.5" /> Audience: {ann.audience}</div>
+                    <div className="flex items-center gap-1.5 text-[var(--accent-primary)]"><Target className="h-3.5 w-3.5" /> Audience: {ann.audience}</div>
                   </div>
                 </div>
-                <Badge className={cn("rounded-lg text-[8px] font-black uppercase tracking-widest px-3 h-6", ann.is_active ? "bg-emerald-500" : "bg-slate-400")}>
+                <Badge className={cn("rounded-lg text-[8px] font-black uppercase tracking-widest px-3 h-6", ann.is_active ? "bg-[var(--status-success-text)] text-white" : "bg-[var(--status-neutral-bg)] text-[var(--text-muted)]")}>
                   {ann.is_active ? 'ACTIVE' : 'INACTIVE'}
                 </Badge>
               </CardHeader>
               <CardContent className="px-10 pb-10">
-                <p className="text-slate-600 font-medium text-sm leading-relaxed italic border-l-4 border-indigo-100 pl-6 py-2">
+                <p className="text-[var(--text-secondary)] font-medium text-sm leading-relaxed italic border-l-4 border-[var(--accent-soft)] pl-6 py-2">
                   "{ann.content}"
                 </p>
                 {(ann.start_date || ann.end_date) && (
-                  <div className="mt-8 flex gap-8 p-4 bg-slate-50/50 rounded-2xl border border-slate-100/50">
+                  <div className="mt-8 flex gap-8 p-4 bg-[var(--bg-subtle)] rounded-2xl border border-[var(--border-subtle)]">
                     {ann.start_date && (
                       <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Broadcast Start</span>
-                        <span className="text-[11px] font-bold text-slate-900">{format(parseISO(ann.start_date), 'PPp')}</span>
+                        <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Broadcast Start</span>
+                        <span className="text-[11px] font-bold text-[var(--text-primary)]">{format(parseISO(ann.start_date), 'PPp')}</span>
                       </div>
                     )}
                     {ann.end_date && (
                       <div className="flex flex-col gap-1">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Broadcast End</span>
-                        <span className="text-[11px] font-bold text-slate-900">{format(parseISO(ann.end_date), 'PPp')}</span>
+                        <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Broadcast End</span>
+                        <span className="text-[11px] font-bold text-[var(--text-primary)]">{format(parseISO(ann.end_date), 'PPp')}</span>
                       </div>
                     )}
                   </div>

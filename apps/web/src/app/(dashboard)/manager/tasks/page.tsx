@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { tasksApi, Task } from '@/lib/api/tasks';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
+import { messagesApi } from '@/lib/api/messages';
 import { User } from '@/types';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api/client';
@@ -12,7 +14,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { cn } from '@/lib/utils';
 import { 
-  Plus, Loader2, Briefcase, CheckCircle2, UserPlus, Search, ShieldCheck, Zap, Calendar, ExternalLink, Target, Users
+  Plus, Loader2, Briefcase, CheckCircle2, UserPlus, Search, ShieldCheck, Zap, Calendar, ExternalLink, Target, Users, MessageSquare
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -49,11 +51,25 @@ const assignTaskSchema = z.object({
 type AssignTaskFormValues = z.infer<typeof assignTaskSchema>;
 
 export default function ManagerTasksPage() {
+  const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  const handleDiscussTask = async (task: Task) => {
+    try {
+      const conv = await messagesApi.getOrCreateContextThread({
+        related_entity_type: 'task',
+        related_entity_id: task.id,
+        title: `Task: ${task.title}`
+      });
+      router.push(`/messages?conversation_id=${conv.id}`);
+    } catch (error) {
+      toast.error('Failed to open discussion: ' + getErrorMessage(error));
+    }
+  };
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -251,7 +267,18 @@ export default function ManagerTasksPage() {
                     <TableRow key={task.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28 text-[var(--text-primary)]">
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
-                          <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{task.title}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{task.title}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/10 gap-1"
+                              onClick={() => handleDiscussTask(task)}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Discuss
+                            </Button>
+                          </div>
                           <span className="text-[10px] font-bold text-[var(--text-muted)] leading-relaxed italic line-clamp-1 max-w-[250px]">
                             {task.description || 'No brief provided'}
                           </span>

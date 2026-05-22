@@ -13,7 +13,7 @@ from app.core.deps import (
 )
 from app.models.enums import UserRole, UserStatus
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse, UserProfileUpdate, UserPasswordChange
+from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse, UserProfileUpdate, UserPasswordChange, UserDirectoryRead
 from app.services.user_service import UserService
 
 router = APIRouter()
@@ -54,9 +54,27 @@ def list_users(
     )
 
 
+@router.get("/active-directory", response_model=list[UserDirectoryRead], summary="List active users for meeting directory")
+def list_active_directory(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[UserDirectoryRead]:
+    """Get active users in organization for meeting invites.
+    Accessible by any active logged-in user. Exposes only safe basic identity fields.
+    """
+    active_users = (
+        db.query(User)
+        .filter(User.status == UserStatus.ACTIVE)
+        .order_by(User.full_name)
+        .all()
+    )
+    return active_users
+
+
 @router.get("/me", response_model=UserRead, summary="Get current user profile")
 def get_me(current_user: User = Depends(get_current_user)) -> UserRead:
     return current_user
+
 
 
 @router.patch("/me/profile", response_model=UserRead, summary="Update current user profile details")

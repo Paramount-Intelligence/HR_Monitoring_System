@@ -43,8 +43,8 @@ export default function ManagerAnalyticsPage() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">Intelligence & Analytics</h1>
-        <p className="text-sm font-medium text-slate-500 mt-1">Deep-tissue insights into team performance, workload balance, and productivity vectors.</p>
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">Intelligence & Analytics</h1>
+        <p className="text-sm font-medium text-[var(--text-muted)] mt-1">Deep-tissue insights into team performance, workload balance, and productivity vectors.</p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
@@ -80,9 +80,9 @@ export default function ManagerAnalyticsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="rounded-2xl shadow-premium border-slate-100 overflow-hidden">
-          <CardHeader className="border-b border-slate-50 bg-slate-50/30">
-            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-600">
+        <Card className="rounded-2xl shadow-premium border-[var(--border-subtle)] overflow-hidden">
+          <CardHeader className="border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-[var(--text-secondary)]">
               <Activity className="h-4 w-4 text-indigo-600" />
               Efficiency Vectors
             </CardTitle>
@@ -113,9 +113,9 @@ export default function ManagerAnalyticsPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl shadow-premium border-slate-100 overflow-hidden">
+        <Card className="rounded-2xl shadow-premium border-[var(--border-subtle)] overflow-hidden">
           <CardHeader className="border-b border-slate-50 bg-slate-50/30">
-            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-slate-600">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-[var(--text-secondary)]">
               <BarChart3 className="h-4 w-4 text-indigo-600" />
               Load Distribution
             </CardTitle>
@@ -143,33 +143,33 @@ export default function ManagerAnalyticsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <Card className="md:col-span-2 rounded-2xl shadow-premium border-slate-100 overflow-hidden">
+        <Card className="md:col-span-2 rounded-2xl shadow-premium border-[var(--border-subtle)] overflow-hidden">
           <CardHeader className="border-b border-slate-50 bg-slate-50/30">
-            <CardTitle className="text-sm font-bold uppercase tracking-widest text-slate-600">Performance Leaderboard</CardTitle>
+            <CardTitle className="text-sm font-bold uppercase tracking-widest text-[var(--text-secondary)]">Performance Leaderboard</CardTitle>
             <CardDescription className="text-xs font-medium">Top contributors based on completion velocity and consistency.</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="space-y-3">
               {bestPerformers.slice(0, 5).map((performer, idx) => (
-                <div key={performer.user_id} className="flex items-center justify-between p-4 rounded-xl border border-slate-50 hover:bg-slate-50/50 transition-all hover:translate-x-1 duration-200">
+                <div key={performer.user_id} className="flex items-center justify-between p-4 rounded-xl border border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)] transition-all hover:translate-x-1 duration-200">
                   <div className="flex items-center gap-4">
                     <div className={cn(
                       "h-8 w-8 rounded-lg flex items-center justify-center text-xs font-black shadow-sm",
                       idx === 0 ? "bg-indigo-600 text-white" : 
                       idx === 1 ? "bg-slate-800 text-white" :
-                      idx === 2 ? "bg-slate-400 text-white" : "bg-slate-100 text-slate-400"
+                      idx === 2 ? "bg-[var(--text-muted)] text-white" : "bg-[var(--bg-soft)] text-[var(--text-muted)]"
                     )}>
                       {idx + 1}
                     </div>
                     <div>
-                      <div className="font-bold text-slate-900 text-sm leading-none mb-1">{performer.full_name}</div>
-                      <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{performer.completed_tasks} Tasks Verified</div>
+                      <div className="font-bold text-[var(--text-primary)] text-sm leading-none mb-1">{performer.full_name}</div>
+                      <div className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider">{performer.completed_tasks} Tasks Verified</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-6">
                     <div className="text-right">
-                      <div className="text-sm font-black text-slate-900 leading-none mb-1">{performer.score}</div>
-                      <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Efficiency</div>
+                      <div className="text-sm font-black text-[var(--text-primary)] leading-none mb-1">{performer.score}</div>
+                      <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-widest">Efficiency</div>
                     </div>
                     <div className="hidden sm:block">
                         <StatusBadge status="active" text={`${Math.round(performer.attendance_consistency * 100)}% Match`} />
@@ -178,14 +178,14 @@ export default function ManagerAnalyticsPage() {
                 </div>
               ))}
               {bestPerformers.length === 0 && (
-                <div className="text-center py-8 text-slate-400 text-xs font-bold uppercase tracking-widest animate-pulse">Synchronizing Intelligence Data...</div>
+                <div className="text-center py-8 text-[var(--text-muted)] text-xs font-bold uppercase tracking-widest animate-pulse">Synchronizing Intelligence Data...</div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl shadow-premium border-rose-100 bg-rose-50/10 overflow-hidden">
-          <CardHeader className="border-b border-rose-100/50 bg-rose-50/50">
+        <Card className="rounded-2xl shadow-[var(--shadow-card)] border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] overflow-hidden">
+          <CardHeader className="border-b border-[var(--status-danger-border)] bg-[var(--status-danger-bg)]">
             <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-rose-600">
                 <AlertTriangle className="h-4 w-4" />
                 Risk Signals
@@ -196,16 +196,16 @@ export default function ManagerAnalyticsPage() {
             <div className="space-y-4">
               {burnoutRisks.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-600 mb-4 border border-emerald-100 shadow-sm">
+                  <div className="h-16 w-16 rounded-2xl bg-[var(--status-success-bg)] flex items-center justify-center text-[var(--status-success-text)] mb-4 border border-[var(--status-success-border)] shadow-sm">
                     <CheckCircle2 className="h-8 w-8" />
                   </div>
-                  <p className="text-xs font-bold text-slate-900 uppercase tracking-widest">System Nominal</p>
-                  <p className="text-[10px] text-slate-500 font-medium mt-1">No burnout risks detected in current cycle.</p>
+                  <p className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-widest">System Nominal</p>
+                  <p className="text-[10px] text-[var(--text-muted)] font-medium mt-1">No burnout risks detected in current cycle.</p>
                 </div>
               ) : (
                 burnoutRisks.map((risk) => (
-                  <div key={risk.user_id} className="p-4 rounded-xl border border-rose-100 bg-white shadow-sm transition-all hover:shadow-md">
-                    <div className="font-bold text-slate-900 text-sm leading-none mb-2">{risk.full_name}</div>
+                  <div key={risk.user_id} className="p-4 rounded-xl border border-[var(--status-danger-border)] bg-[var(--bg-surface)] shadow-sm transition-all hover:shadow-md">
+                    <div className="font-bold text-[var(--text-primary)] text-sm leading-none mb-2">{risk.full_name}</div>
                     <div className="text-[10px] text-rose-600 font-bold uppercase tracking-tight flex items-center gap-1.5 mb-3">
                       <Activity className="h-3 w-3" />
                       {risk.consecutive_high_hour_days} Consecutive Overages

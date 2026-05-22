@@ -7,6 +7,11 @@ export const usersApi = {
     return response.data;
   },
 
+  getActiveDirectory: async () => {
+    const response = await apiClient.get<Partial<User>[]>('/users/active-directory');
+    return response.data;
+  },
+
   getUser: async (id: string) => {
     const response = await apiClient.get<User>(`/users/${id}`);
     return response.data;

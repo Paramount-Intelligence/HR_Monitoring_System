@@ -195,7 +195,7 @@ export default function EmployeeDashboard() {
                   href="/employee/eod" 
                   className={cn(
                     buttonVariants({ variant: "secondary" }), 
-                    "bg-white text-[var(--accent-primary)] hover:bg-indigo-50 font-black text-xs uppercase tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all active:scale-95 whitespace-nowrap border-none"
+                    "bg-white/90 text-[var(--accent-primary)] hover:bg-white font-black text-xs uppercase tracking-widest rounded-2xl px-10 h-14 shadow-xl transition-all active:scale-95 whitespace-nowrap border-none"
                   )}
                 >
                   {eodStatus === 'Completed' ? 'View Intel' : 'Initialize Report'}
@@ -226,7 +226,7 @@ export default function EmployeeDashboard() {
                       <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-ping" />
                       <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest">In Progress</span>
                     </div>
-                    <div className="font-black text-slate-900 text-lg leading-tight line-clamp-2">
+                    <div className="font-black text-[var(--text-primary)] text-lg leading-tight line-clamp-2">
                       {summary.active_timer_task_title || 'Autonomous Execution'}
                     </div>
                   </div>

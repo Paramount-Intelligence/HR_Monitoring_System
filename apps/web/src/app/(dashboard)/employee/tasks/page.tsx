@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { tasksApi, Task } from '@/lib/api/tasks';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { timeLogsApi, TimeLog } from '@/lib/api/timeLogs';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { messagesApi } from '@/lib/api/messages';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Plus, Loader2, Shield, Download, BarChart3, Globe, Zap, FileText, TrendingUp, Users, Clock, Play, StopCircle, Calendar, Briefcase, Flame, Trophy, PlayCircle, CheckCircle2, Circle
+  Plus, Loader2, Shield, Download, BarChart3, Globe, Zap, FileText, TrendingUp, Users, Clock, Play, StopCircle, Calendar, Briefcase, Flame, Trophy, PlayCircle, CheckCircle2, Circle, MessageSquare
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -59,6 +61,20 @@ export default function EmployeeTasksPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
   const { user } = useAuth();
+  const router = useRouter();
+
+  const handleDiscussTask = async (task: Task) => {
+    try {
+      const conv = await messagesApi.getOrCreateContextThread({
+        related_entity_type: 'task',
+        related_entity_id: task.id,
+        title: `Task: ${task.title}`
+      });
+      router.push(`/messages?conversation_id=${conv.id}`);
+    } catch (error) {
+      toast.error('Failed to open discussion: ' + getErrorMessage(error));
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -239,7 +255,7 @@ export default function EmployeeTasksPage() {
                         <Button 
                             size="lg" 
                             variant="outline"
-                            className="h-14 px-8 rounded-2xl bg-white hover:bg-slate-50 text-slate-900 border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
+                            className="h-14 px-8 rounded-2xl bg-white/90 hover:bg-white text-[var(--accent-primary)] border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
                             onClick={() => handlePauseTimer(activeTimer.task_id)}
                             disabled={isActionLoading === activeTimer.task_id}
                         >
@@ -272,7 +288,7 @@ export default function EmployeeTasksPage() {
             </div>
           </div>
           {!isCheckedIn && activeTimer.status === 'paused' && (
-              <div className="px-10 py-3 bg-slate-900/10 text-[9px] font-bold text-white uppercase tracking-[0.3em] text-center border-t border-white/5">
+              <div className="px-10 py-3 bg-[var(--bg-elevated)]/10 text-[9px] font-bold text-white uppercase tracking-[0.3em] text-center border-t border-white/5">
                   Attendance Offline: Please check in to resume tracking focus
               </div>
           )}
@@ -413,7 +429,18 @@ export default function EmployeeTasksPage() {
                     <TableRow key={task.id} className="hover:bg-[var(--bg-subtle)]/50 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
-                          <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{task.title}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{task.title}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/10 gap-1"
+                              onClick={() => handleDiscussTask(task)}
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Discuss
+                            </Button>
+                          </div>
                           <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                             <Clock className="h-3 w-3" />
                             {task.due_date ? format(parseISO(task.due_date), 'MMM d, yyyy') : 'No Deadline'}

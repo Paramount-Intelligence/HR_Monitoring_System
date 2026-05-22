@@ -72,6 +72,17 @@ class UserRead(BaseModel):
     updated_at: datetime
 
 
+class UserDirectoryRead(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    full_name: str
+    email: str
+    role: UserRole
+    department: str | None = None
+
+
+
 from typing import Any
 from app.schemas.attendance import AttendanceSessionRead, AttendanceBreakRead
 from app.schemas.leave import LeaveRequestRead

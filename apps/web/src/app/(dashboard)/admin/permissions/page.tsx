@@ -130,10 +130,10 @@ export default function AdminPermissionsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-3xl font-bold tracking-tight text-[var(--text-primary)]">
           Permission Manager
         </h1>
-        <p className="text-slate-500">
+        <p className="text-[var(--text-muted)]">
           View role-permission mappings and manage per-user overrides.
         </p>
       </div>
@@ -162,7 +162,7 @@ export default function AdminPermissionsPage() {
                 </SelectContent>
               </Select>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-muted)]" />
                 <Input
                   placeholder="Filter permissions..."
                   value={search}
@@ -177,7 +177,7 @@ export default function AdminPermissionsPage() {
           <div className="space-y-6">
             {filteredGroups.map(({ group, keys }) => (
               <div key={group}>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3">
                   {group}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -190,7 +190,7 @@ export default function AdminPermissionsPage() {
                         className={`flex items-center gap-3 p-3 rounded-lg border text-sm transition-colors ${
                           granted
                             ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                            : "bg-slate-50 border-slate-100 text-slate-400"
+                            : "bg-slate-50 border-[var(--border-subtle)] text-[var(--text-muted)]"
                         }`}
                       >
                         <div
@@ -201,7 +201,7 @@ export default function AdminPermissionsPage() {
                           {granted ? (
                             <Check className="h-3 w-3 text-white" />
                           ) : (
-                            <Minus className="h-3 w-3 text-slate-400" />
+                            <Minus className="h-3 w-3 text-[var(--text-muted)]" />
                           )}
                         </div>
                         <div>
@@ -230,7 +230,7 @@ export default function AdminPermissionsPage() {
             Permission System Notes
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-slate-600">
+        <CardContent className="space-y-2 text-sm text-[var(--text-secondary)]">
           <p>
             • <strong>Intern</strong> and <strong>Junior Employee</strong> share
             the same base permission set (BASIC_EMPLOYEE_RESTRICTED).

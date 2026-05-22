@@ -67,21 +67,21 @@ export function HeaderTimer() {
           </div>
           <div className="flex items-center gap-2 overflow-hidden">
             <span className={cn(
-              "text-xs font-bold truncate max-w-[140px]",
+              "text-xs font-bold truncate max-w-[140px] hidden sm:inline-block",
               activeTimer.status === 'running' ? "text-[var(--text-primary)]" : "text-[var(--text-secondary)]"
             )}>
               {activeTimer.task_title || 'Active Task'}
             </span>
             {activeTimer.status === 'paused' && (
               <>
-                <div className="h-3 w-px bg-[var(--border-default)]" />
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-500">
+                <div className="h-3 w-px bg-[var(--border-default)] hidden sm:block" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-500 hidden sm:inline-block">
                   {activeTimer.pause_reason === 'attendance_checkout' ? 'Paused after checkout' : 
                    activeTimer.pause_reason === 'break_started' ? 'Paused for break' : 'Paused'}
                 </span>
               </>
             )}
-            <div className="h-3 w-px bg-[var(--border-default)]" />
+            <div className="h-3 w-px bg-[var(--border-default)] hidden sm:block" />
             <TaskTimer 
               startedAt={activeTimer.started_at} 
               lastResumedAt={activeTimer.last_resumed_at}

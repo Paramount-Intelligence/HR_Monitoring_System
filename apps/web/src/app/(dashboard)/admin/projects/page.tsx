@@ -113,8 +113,8 @@ export default function AdminProjectsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Organization Projects</h1>
-          <p className="text-sm text-slate-500">View and manage all projects across the company.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Organization Projects</h1>
+          <p className="text-sm text-[var(--text-muted)]">View and manage all projects across the company.</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -171,10 +171,10 @@ export default function AdminProjectsPage() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
             </div>
           ) : projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
+            <div className="flex flex-col items-center justify-center py-12 text-[var(--text-muted)]">
               <Briefcase className="h-12 w-12 text-slate-200 mb-4" />
               <p>No projects found in the organization.</p>
             </div>
@@ -182,7 +182,7 @@ export default function AdminProjectsPage() {
             <div className="rounded-md border-0">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/50">
+                  <TableRow className="bg-[var(--bg-subtle)]">
                     <TableHead className="w-[300px]">Project</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
@@ -195,15 +195,15 @@ export default function AdminProjectsPage() {
                   {projects.map((project) => (
                     <TableRow key={project.id}>
                       <TableCell>
-                        <div className="font-medium text-slate-900">{project.title}</div>
-                        <div className="text-xs text-slate-500 truncate max-w-[250px]">{project.description}</div>
+                        <div className="font-medium text-[var(--text-primary)]">{project.title}</div>
+                        <div className="text-xs text-[var(--text-muted)] truncate max-w-[250px]">{project.description}</div>
                       </TableCell>
                       <TableCell>{getPriorityBadge(project.priority)}</TableCell>
                       <TableCell>{getStatusBadge(project.approval_status)}</TableCell>
-                      <TableCell className="text-slate-500">
+                      <TableCell className="text-[var(--text-muted)]">
                         {project.due_date ? format(parseISO(project.due_date), 'PP') : '-'}
                       </TableCell>
-                      <TableCell className="text-slate-500">
+                      <TableCell className="text-[var(--text-muted)]">
                         {format(parseISO(project.created_at), 'PP')}
                       </TableCell>
                       <TableCell className="text-right">

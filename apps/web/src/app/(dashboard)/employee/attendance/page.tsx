@@ -586,7 +586,7 @@ export default function AttendancePage() {
                             <Badge className="bg-amber-50 text-amber-600 border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Early</Badge>
                           )}
                           {session.is_corrected && (
-                            <Badge className="bg-slate-100 text-slate-600 border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Adjusted</Badge>
+                            <Badge className="bg-slate-100 text-[var(--text-secondary)] border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Adjusted</Badge>
                           )}
                           {!session.is_late_login && !session.is_early_logout && !session.is_corrected && (
                             <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest opacity-40">None</span>
@@ -749,7 +749,7 @@ export default function AttendancePage() {
             </div>
             <DialogFooter>
               <Button
-                className="w-full h-16 bg-slate-900 hover:bg-slate-800 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 mt-4 border-none"
+                className="w-full h-16 bg-[var(--bg-elevated)] hover:bg-slate-800 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 mt-4 border-none"
                 disabled={isActionLoading || !checkoutNote.trim()}
                 onClick={() => performCheckOut({ checkout_after_shift_reason: checkoutReason, checkout_after_shift_note: checkoutNote })}
               >

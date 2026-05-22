@@ -71,8 +71,8 @@ export default function AdminHolidaysPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Holiday Calendar</h1>
-          <p className="text-sm text-slate-500">Public and company holidays for the current year.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">Holiday Calendar</h1>
+          <p className="text-sm text-[var(--text-muted)]">Public and company holidays for the current year.</p>
         </div>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -123,11 +123,11 @@ export default function AdminHolidaysPage() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-slate-300" />
+              <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
             </div>
           ) : (
             <Table>
-              <TableHeader className="bg-slate-50/50">
+              <TableHeader className="bg-[var(--bg-subtle)]">
                 <TableRow>
                   <TableHead>Holiday Name</TableHead>
                   <TableHead>Date</TableHead>
@@ -137,15 +137,15 @@ export default function AdminHolidaysPage() {
               <TableBody>
                 {holidays.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center py-12 text-slate-500 italic">
+                    <TableCell colSpan={3} className="text-center py-12 text-[var(--text-muted)] italic">
                       No holidays added yet.
                     </TableCell>
                   </TableRow>
                 ) : (
                   holidays.map((hol) => (
                     <TableRow key={hol.id}>
-                      <TableCell className="font-medium text-slate-900">{hol.name}</TableCell>
-                      <TableCell className="text-slate-600">{format(new Date(hol.holiday_date), 'PPPP')}</TableCell>
+                      <TableCell className="font-medium text-[var(--text-primary)]">{hol.name}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)]">{format(new Date(hol.holiday_date), 'PPPP')}</TableCell>
                       <TableCell className="text-right">
                         <Button 
                           variant="ghost" 

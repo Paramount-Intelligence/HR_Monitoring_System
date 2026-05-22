@@ -39,19 +39,23 @@ async def lifespan(app: FastAPI):
     
     logger.info(f"SMTP Config: Host={settings.smtp_host}, Port={settings.smtp_port}, User={settings.smtp_user}")
 
-    # Start Celery worker as a background process
+    # Start Celery worker as a background process (Local development only)
     celery_worker = None
-    try:
-        celery_worker = subprocess.Popen(
-            ["python", "-m", "celery", "-A", "app.worker", "worker", "--loglevel=info", "--pool=solo"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        logger.info(f"Started Celery worker (PID: {celery_worker.pid})")
-    except Exception as e:
-        logger.error(f"Failed to start Celery worker: {e}")
+    if settings.app_env == "development":
+        try:
+            celery_worker = subprocess.Popen(
+                ["python", "-m", "celery", "-A", "app.worker", "worker", "--loglevel=info", "--pool=solo"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            logger.info(f"Started Celery worker (PID: {celery_worker.pid})")
+        except Exception as e:
+            logger.error(f"Failed to start Celery worker: {e}")
+    else:
+        logger.info("Production env detected. Background Celery worker subprocess skipped.")
 
     yield
+
 
     # Shutdown Celery worker
     if celery_worker:

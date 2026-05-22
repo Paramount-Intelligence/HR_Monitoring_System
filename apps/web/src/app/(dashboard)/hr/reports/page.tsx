@@ -183,7 +183,7 @@ export default function HRReportsPage({ role = 'hr' }: HRReportsPageProps) {
                         <TableCell>
                             <Badge variant="outline" className={cn(
                                 "rounded-lg text-[8px] font-black uppercase tracking-widest px-2 border-none",
-                                r.late_logins + r.early_logouts > 0 ? "bg-amber-50 text-amber-700" : "bg-slate-50 text-slate-400"
+                                r.late_logins + r.early_logouts > 0 ? "bg-amber-50 text-amber-700" : "bg-[var(--bg-subtle)] text-[var(--text-muted)]"
                             )}>
                                 {r.late_logins + r.early_logouts} FLAG
                             </Badge>

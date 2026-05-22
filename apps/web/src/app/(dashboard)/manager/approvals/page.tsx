@@ -28,6 +28,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Badge } from '@/components/ui/badge';
 import { formatPKDate, formatPKDateTime } from '@/lib/time';
 
 export default function ManagerApprovalsPage() {
@@ -115,227 +116,246 @@ export default function ManagerApprovalsPage() {
     <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Approvals</span>
+          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">
+            <span>Manager</span>
+            <span className="opacity-40">/</span>
+            <span className="text-[var(--accent-primary)]">Approvals</span>
           </div>
           <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Pending Approvals</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Review & Approve Team Submissions</p>
+          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Review and approve team submissions</p>
         </div>
       </div>
 
-      <Tabs defaultValue="leaves" className="w-full">
-        <TabsList className="bg-[var(--bg-subtle)] p-1.5 mb-10 rounded-2xl inline-flex h-16 border border-[var(--border-subtle)] shadow-inner">
-          <TabsTrigger value="leaves" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:shadow-[var(--shadow-soft)] text-[var(--text-muted)] transition-all h-full">
-            Leave & WFH Requests ({leaveRequests.length})
-          </TabsTrigger>
-          <TabsTrigger value="corrections" className="rounded-xl px-10 font-black text-[10px] uppercase tracking-[0.15em] data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:shadow-[var(--shadow-soft)] text-[var(--text-muted)] transition-all h-full">
-            Attendance Corrections ({corrections.length})
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="leaves" className="w-full" orientation="vertical">
+        <div className="app-surface overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
+            <aside className="border-b lg:border-b-0 lg:border-r border-[var(--border-subtle)] p-4 flex flex-col gap-2 bg-[var(--bg-surface)]">
+              <TabsList className="flex flex-col gap-2 bg-transparent h-auto w-full p-0" variant="line">
+                <TabsTrigger
+                  value="leaves"
+                  className="w-full flex items-center justify-between rounded-xl px-4 py-4 text-left font-bold transition text-sm tracking-tight text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] bg-transparent border-l-4 border-transparent data-[state=active]:bg-[var(--bg-elevated)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:border-l-[var(--accent-primary)] data-active:bg-[var(--bg-elevated)] data-active:text-[var(--text-primary)] data-active:border-l-[var(--accent-primary)] shadow-none group"
+                >
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Leave & WFH Requests</span>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] text-[var(--text-secondary)] group-data-[state=active]:bg-[var(--accent-primary)] group-data-[state=active]:text-white group-data-active:bg-[var(--accent-primary)] group-data-active:text-white border border-[var(--border-subtle)] transition-colors">
+                      {leaveRequests.length}
+                    </span>
+                  </div>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="corrections"
+                  className="w-full flex items-center justify-between rounded-xl px-4 py-4 text-left font-bold transition text-sm tracking-tight text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] bg-transparent border-l-4 border-transparent data-[state=active]:bg-[var(--bg-elevated)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:border-l-[var(--accent-primary)] data-active:bg-[var(--bg-elevated)] data-active:text-[var(--text-primary)] data-active:border-l-[var(--accent-primary)] shadow-none group"
+                >
+                  <div className="flex items-center justify-between w-full gap-4">
+                    <span>Attendance Corrections</span>
+                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] text-[var(--text-secondary)] group-data-[state=active]:bg-[var(--accent-primary)] group-data-[state=active]:text-white group-data-active:bg-[var(--accent-primary)] group-data-active:text-white border border-[var(--border-subtle)] transition-colors">
+                      {corrections.length}
+                    </span>
+                  </div>
+                </TabsTrigger>
+              </TabsList>
+            </aside>
 
-        <TabsContent value="leaves" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
-            <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-              <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
-                <Inbox className="h-6 w-6 text-[var(--accent-primary)]" />
-                Leave Requests
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isLoading ? (
-                <div className="p-10"><TableSkeleton rows={5} cols={5} /></div>
-              ) : leaveRequests.length === 0 ? (
-                <div className="p-20">
-                  <EmptyState 
-                      title="Approvals Queue Clear"
-                      message="No pending leave or WFH requests found for your team."
-                      icon={CheckCircle2}
-                  />
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-[var(--bg-subtle)]">
-                      <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
-                        <TableHead className="w-[250px] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Employee</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request Details</TableHead>
-                        <TableHead className="max-w-[300px] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Reason</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
-                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {leaveRequests.map((req) => (
-                        <TableRow key={req.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
-                          <TableCell className="pl-10">
-                            <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)] border border-[var(--border-subtle)] font-black text-xs shadow-inner">
-                                {req.user_full_name ? req.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{req.user_full_name || 'Team Member'}</span>
-                                <span className="text-[9px] text-[var(--accent-primary)] uppercase font-black tracking-widest">Employee</span>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1.5">
-                              <span className="capitalize font-black text-[var(--text-secondary)] text-[10px] uppercase tracking-widest flex items-center gap-2">
-                                <Zap className="h-3 w-3 text-[var(--accent-primary)]" />
-                                {req.leave_type.replace('_', ' ')}
-                                {req.is_half_day && <Badge className="bg-[var(--accent-primary)] text-white border-none text-[8px] h-4">HALF DAY</Badge>}
-                              </span>
-                              <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
-                                {formatPKDate(req.start_date)} — {formatPKDate(req.end_date)}
-                              </span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-[300px]">
-                            <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
-                                "{req.reason}"
-                            </p>
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={req.status} />
-                          </TableCell>
-                          <TableCell className="text-right pr-10">
-                            <div className="flex justify-end gap-3">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-[var(--accent-primary)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)] transition-all"
-                                onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('clarified'); }}
-                              >
-                                <MessageSquare className="h-5 w-5" />
-                              </Button>
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-default)] hover:bg-rose-50 transition-all"
-                                onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('rejected'); }}
-                              >
-                                <XCircle className="h-5 w-5" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg border-none transition-all active:scale-95"
-                                onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('approved'); }}
-                              >
-                                <CheckCircle className="h-5 w-5 text-white" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+            <section className="w-full min-w-0 p-6">
+              <TabsContent value="leaves" className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full min-w-0 focus-visible:outline-none">
+                <div className="w-full min-w-0">
+                  <div className="flex items-center gap-3 pb-6 border-b border-[var(--border-subtle)] mb-6">
+                    <Inbox className="h-6 w-6 text-[var(--accent-primary)]" />
+                    <h2 className="text-xl font-black tracking-tight text-[var(--text-primary)]">Leave Requests</h2>
+                  </div>
 
-        <TabsContent value="corrections" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
-            <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-              <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
-                <RefreshCcw className="h-6 w-6 text-[var(--accent-primary)]" />
-                Attendance Corrections
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isLoading ? (
-                <div className="p-10"><TableSkeleton rows={5} cols={4} /></div>
-              ) : corrections.length === 0 ? (
-                <div className="p-20">
-                  <EmptyState 
-                      title="Corrections Clear"
-                      message="All attendance corrections have been reviewed and resolved."
-                      icon={ShieldCheck}
-                  />
+                  {isLoading ? (
+                    <div className="py-12"><TableSkeleton rows={5} cols={5} /></div>
+                  ) : leaveRequests.length === 0 ? (
+                    <div className="py-12 max-w-xl mx-auto">
+                      <EmptyState 
+                        title="Approvals Queue Clear"
+                        description="No leave or WFH requests are waiting for review."
+                        icon={CheckCircle2}
+                      />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto w-full">
+                      <Table>
+                        <TableHeader className="bg-[var(--bg-subtle)]">
+                          <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                            <TableHead className="w-[250px] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Employee</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Request Details</TableHead>
+                            <TableHead className="max-w-[300px] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Reason</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                            <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {leaveRequests.map((req) => (
+                            <TableRow key={req.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
+                              <TableCell className="pl-10">
+                                <div className="flex items-center gap-4">
+                                  <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)] border border-[var(--border-subtle)] font-black text-xs shadow-inner">
+                                    {req.user_full_name ? req.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{req.user_full_name || 'Team Member'}</span>
+                                    <span className="text-[9px] text-[var(--accent-primary)] uppercase font-black tracking-widest">Employee</span>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1.5">
+                                  <span className="capitalize font-black text-[var(--text-secondary)] text-[10px] uppercase tracking-widest flex items-center gap-2">
+                                    <Zap className="h-3 w-3 text-[var(--accent-primary)]" />
+                                    {req.leave_type.replace('_', ' ')}
+                                    {req.is_half_day && <Badge className="bg-[var(--accent-primary)] text-white border-none text-[8px] h-4">HALF DAY</Badge>}
+                                  </span>
+                                  <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
+                                    {formatPKDate(req.start_date)} — {formatPKDate(req.end_date)}
+                                  </span>
+                                </div>
+                              </TableCell>
+                              <TableCell className="max-w-[300px]">
+                                <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
+                                    "{req.reason}"
+                                </p>
+                              </TableCell>
+                              <TableCell>
+                                <StatusBadge status={req.status} />
+                              </TableCell>
+                              <TableCell className="text-right pr-10">
+                                <div className="flex justify-end gap-3">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-11 w-11 p-0 rounded-xl text-[var(--accent-primary)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)] transition-all"
+                                    onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('clarified'); }}
+                                  >
+                                    <MessageSquare className="h-5 w-5" />
+                                  </Button>
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-default)] hover:bg-rose-50 transition-all"
+                                    onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('rejected'); }}
+                                  >
+                                    <XCircle className="h-5 w-5" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg border-none transition-all active:scale-95"
+                                    onClick={() => { setSelectedItem({id: req.id, type: 'leave'}); setActionType('approved'); }}
+                                  >
+                                    <CheckCircle className="h-5 w-5 text-white" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader className="bg-[var(--bg-subtle)]">
-                      <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Employee</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Correction Details</TableHead>
-                        <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Reason</TableHead>
-                        <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {corrections.map((corr) => (
-                        <TableRow key={corr.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
-                          <TableCell className="pl-10">
-                              <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)] border border-[var(--border-subtle)] font-black text-xs shadow-inner">
-                                  {corr.user_full_name ? corr.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
+              </TabsContent>
+
+              <TabsContent value="corrections" className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full min-w-0 focus-visible:outline-none">
+                <div className="w-full min-w-0">
+                  <div className="flex items-center gap-3 pb-6 border-b border-[var(--border-subtle)] mb-6">
+                    <RefreshCcw className="h-6 w-6 text-[var(--accent-primary)]" />
+                    <h2 className="text-xl font-black tracking-tight text-[var(--text-primary)]">Attendance Corrections</h2>
+                  </div>
+
+                  {isLoading ? (
+                    <div className="py-12"><TableSkeleton rows={5} cols={4} /></div>
+                  ) : corrections.length === 0 ? (
+                    <div className="py-12 max-w-xl mx-auto">
+                      <EmptyState 
+                        title="No Attendance Corrections"
+                        description="No attendance correction requests are waiting for review."
+                        icon={ShieldCheck}
+                      />
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto w-full">
+                      <Table>
+                        <TableHeader className="bg-[var(--bg-subtle)]">
+                          <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Employee</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Correction Details</TableHead>
+                            <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Reason</TableHead>
+                            <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {corrections.map((corr) => (
+                            <TableRow key={corr.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
+                              <TableCell className="pl-10">
+                                <div className="flex items-center gap-4">
+                                  <div className="h-12 w-12 rounded-2xl bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-muted)] border border-[var(--border-subtle)] font-black text-xs shadow-inner">
+                                    {corr.user_full_name ? corr.user_full_name.split(' ').map(n => n[0]).join('') : 'U'}
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{corr.user_full_name || 'Team Member'}</span>
+                                    <span className="text-[9px] text-[var(--accent-primary)] uppercase font-black tracking-widest">Employee</span>
+                                  </div>
                                 </div>
-                                <div className="flex flex-col">
-                                  <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{corr.user_full_name || 'Team Member'}</span>
-                                  <span className="text-[9px] text-[var(--accent-primary)] uppercase font-black tracking-widest">Employee</span>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex flex-col gap-1.5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
+                                    <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg w-fit border border-emerald-100/50">
+                                      <Clock className="h-3 w-3" />
+                                      IN: {formatPKDateTime(corr.check_in_at)}
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-rose-50 text-rose-700 px-3 py-1 rounded-lg w-fit border border-rose-100/50">
+                                      <Clock className="h-3 w-3" />
+                                      OUT: {corr.check_out_at ? formatPKDateTime(corr.check_out_at) : 'OPEN SESSION'}
+                                    </div>
                                 </div>
-                              </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col gap-1.5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
-                                <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg w-fit border border-emerald-100/50">
-                                  <Clock className="h-3 w-3" />
-                                  IN: {formatPKDateTime(corr.check_in_at)}
+                              </TableCell>
+                              <TableCell className="max-w-[350px]">
+                                <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
+                                    "{corr.correction_reason}"
+                                </p>
+                              </TableCell>
+                              <TableCell className="text-right pr-10">
+                                <div className="flex justify-end gap-3">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-default)] hover:bg-rose-50 transition-all"
+                                    onClick={() => { setSelectedItem({id: corr.id, type: 'correction'}); setActionType('rejected'); }}
+                                  >
+                                    <XCircle className="h-5 w-5" />
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg border-none transition-all active:scale-95"
+                                    onClick={() => { 
+                                        setSelectedItem({id: corr.id, type: 'correction', check_in_at: corr.check_in_at}); 
+                                        setActionType('approved'); 
+                                        const dateObj = new Date(corr.check_in_at);
+                                        const pktTime = new Intl.DateTimeFormat('en-US', {
+                                          timeZone: 'Asia/Karachi',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          hour12: false
+                                        }).format(dateObj);
+                                        setCheckInTime(pktTime);
+                                    }}
+                                  >
+                                    <CheckCircle className="h-5 w-5 text-white" />
+                                  </Button>
                                 </div>
-                                <div className="flex items-center gap-2 bg-rose-50 text-rose-700 px-3 py-1 rounded-lg w-fit border border-rose-100/50">
-                                  <Clock className="h-3 w-3" />
-                                  OUT: {corr.check_out_at ? formatPKDateTime(corr.check_out_at) : 'OPEN SESSION'}
-                                </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="max-w-[350px]">
-                            <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
-                                "{corr.correction_reason}"
-                            </p>
-                          </TableCell>
-                          <TableCell className="text-right pr-10">
-                            <div className="flex justify-end gap-3">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-default)] hover:bg-rose-50 transition-all"
-                                onClick={() => { setSelectedItem({id: corr.id, type: 'correction'}); setActionType('rejected'); }}
-                              >
-                                <XCircle className="h-5 w-5" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                className="h-11 w-11 p-0 rounded-xl bg-emerald-600 hover:bg-emerald-700 shadow-lg border-none transition-all active:scale-95"
-                                onClick={() => { 
-                                    setSelectedItem({id: corr.id, type: 'correction', check_in_at: corr.check_in_at}); 
-                                    setActionType('approved'); 
-                                    const dateObj = new Date(corr.check_in_at);
-                                    const pktTime = new Intl.DateTimeFormat('en-US', {
-                                      timeZone: 'Asia/Karachi',
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      hour12: false
-                                    }).format(dateObj);
-                                    setCheckInTime(pktTime);
-                                }}
-                              >
-                                <CheckCircle className="h-5 w-5 text-white" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+              </TabsContent>
+            </section>
+          </div>
+        </div>
       </Tabs>
 
       {/* Resolution Dialog */}
