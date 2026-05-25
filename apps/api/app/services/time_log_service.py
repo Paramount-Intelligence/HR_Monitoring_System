@@ -128,7 +128,8 @@ class TimeLogService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot start timer on a completed task")
 
         project = self.db.get(Project, task.project_id)
-        if not project or project.project_status not in (ProjectStatus.APPROVED, ProjectStatus.ACTIVE):
+        status_val = project.project_status.value if project and hasattr(project.project_status, 'value') else (project.project_status if project else None)
+        if not project or status_val not in ("approved", "active"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task project is not approved or active")
 
         if actor.role == UserRole.EMPLOYEE and task.assigned_to != actor.id:

@@ -32,6 +32,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const LiveTimer = ({ checkInAt }: { checkInAt: string }) => {
   const [elapsed, setElapsed] = useState('');
@@ -109,6 +110,10 @@ export default function AttendancePage() {
   const [checkoutReason, setCheckoutReason] = useState<'overtime' | 'forgot_checkout'>('overtime');
   const [checkoutNote, setCheckoutNote] = useState('');
 
+  // Early Checkout Dialog
+  const [earlyCheckoutDialog, setEarlyCheckoutDialog] = useState({ isOpen: false });
+  const [earlyCheckoutReason, setEarlyCheckoutReason] = useState('');
+
   // Break State
   const [isBreakLoading, setIsBreakLoading] = useState(false);
   const [breakNote, setBreakNote] = useState('');
@@ -151,28 +156,71 @@ export default function AttendancePage() {
 
   const handleCheckOutClick = () => {
     if (!activeSession) return;
+
+    // Use current time to check against expected shift end
     const now = new Date();
+    
     if (activeSession.expected_shift_end_at) {
       const shiftEnd = new Date(activeSession.expected_shift_end_at);
-      if (now > shiftEnd) {
+      // We add a 2-minute buffer for clock skew
+      const bufferMs = 2 * 60 * 1000;
+      
+      if (now.getTime() < shiftEnd.getTime() - bufferMs) {
+        setEarlyCheckoutDialog({ isOpen: true });
+        return;
+      }
+      if (now.getTime() > shiftEnd.getTime() + bufferMs) {
         setCheckoutDialog({ isOpen: true });
         return;
       }
+    } else {
+      // Fallback: 5:00 PM to 2:00 AM PKT
+      // Convert current time to PKT to evaluate correctly
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const pkt = new Date(utc + (3600000 * 5)); // PKT is UTC+5
+      
+      const pktHour = pkt.getHours();
+      
+      // If the PKT time is between 5 PM (17) and 2 AM (2), it's before the end of the shift
+      // Specifically: 17, 18, 19, 20, 21, 22, 23, 0, 1
+      const isEarly = (pktHour >= 17 || pktHour < 2);
+      const isOvertime = (pktHour >= 2 && pktHour < 10); // Between 2 AM and 10 AM PKT
+      
+      if (isEarly) {
+         setEarlyCheckoutDialog({ isOpen: true });
+         return;
+      }
+      if (isOvertime) {
+         setCheckoutDialog({ isOpen: true });
+         return;
+      }
     }
-    performCheckOut();
+
+    // Normal checkout
+    performCheckOut({});
   };
 
-  const performCheckOut = async (justification?: { checkout_after_shift_reason: string, checkout_after_shift_note: string }) => {
+  const performCheckOut = async (justification: { checkout_after_shift_reason?: string, checkout_after_shift_note?: string, early_checkout_reason?: string } = {}) => {
     setIsActionLoading(true);
     try {
       await attendanceApi.checkOut(justification);
-      toast.success('Checked out successfully');
+      toast.success('Session completed and saved to database');
       setCheckoutDialog({ isOpen: false });
+      setEarlyCheckoutDialog({ isOpen: false });
       setCheckoutReason('overtime');
       setCheckoutNote('');
+      setEarlyCheckoutReason('');
       await fetchData();
     } catch (error: any) {
-      toast.error(getErrorMessage(error) || 'Failed to check out');
+      const msg = getErrorMessage(error) || 'Failed to check out';
+      toast.error(msg);
+      
+      // If the backend says it's early but frontend missed it, open the modal
+      if (msg.toLowerCase().includes('before your shift ends') || msg.toLowerCase().includes('early checkout')) {
+        setEarlyCheckoutDialog({ isOpen: true });
+      } else if (msg.toLowerCase().includes('after shift end') || msg.toLowerCase().includes('overtime')) {
+        setCheckoutDialog({ isOpen: true });
+      }
     } finally {
       setIsActionLoading(false);
     }
@@ -315,7 +363,7 @@ export default function AttendancePage() {
                 {!activeSession ? (
                   <>
                     <div className="flex items-center gap-2 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-default)] p-1 pr-3 shadow-sm text-[var(--text-primary)]">
-                      <Select value={workMode} onValueChange={(val: 'office' | 'wfh') => setWorkMode(val)}>
+                      <Select value={workMode} onValueChange={(val) => { if (val) setWorkMode(val as 'office' | 'wfh'); }}>
                         <SelectTrigger className="w-[130px] border-none shadow-none focus:ring-0 h-9 font-bold text-xs uppercase tracking-tight text-[var(--text-secondary)] bg-transparent">
                           <SelectValue placeholder="Work Mode" />
                         </SelectTrigger>
@@ -571,6 +619,111 @@ export default function AttendancePage() {
               Confirm
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Early Checkout Reason Dialog */}
+      <Dialog open={earlyCheckoutDialog.isOpen} onOpenChange={(open) => setEarlyCheckoutDialog({ isOpen: open })}>
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] max-h-[90vh] overflow-y-auto p-0 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="h-3 bg-gradient-to-r from-red-400 to-rose-600 w-full" />
+          <div className="p-12">
+            <DialogHeader className="space-y-4">
+              <div className="h-16 w-16 rounded-3xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner mb-2 ring-4 ring-rose-50/50">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
+                Early Checkout Reason
+              </DialogTitle>
+              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] leading-relaxed uppercase tracking-tight">
+                You are checking out before your scheduled shift end time. Please provide a reason.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-8 py-10">
+              <div className="space-y-4">
+                <Label htmlFor="early-note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason for early checkout</Label>
+                <Textarea
+                  id="early-note"
+                  placeholder="Provide a reason for checking out early..."
+                  className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm p-6 resize-none transition-all"
+                  value={earlyCheckoutReason}
+                  onChange={(e) => setEarlyCheckoutReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-4 flex sm:flex-row flex-col">
+              <Button variant="ghost" className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1" onClick={() => setEarlyCheckoutDialog({ isOpen: false })}>Cancel</Button>
+              <Button
+                className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 flex-1 border-none"
+                disabled={isActionLoading || earlyCheckoutReason.trim().length < 5}
+                onClick={() => performCheckOut({ early_checkout_reason: earlyCheckoutReason })}
+              >
+                {isActionLoading && <Loader2 className="mr-3 h-5 w-5 animate-spin" />}
+                Submit Checkout
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Checkout Justification Dialog */}
+      <Dialog open={checkoutDialog.isOpen} onOpenChange={(open) => setCheckoutDialog({ isOpen: open })}>
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] overflow-hidden p-0 animate-in slide-in-from-bottom-8 duration-500">
+          <div className="h-3 bg-gradient-to-r from-amber-400 to-orange-500 w-full" />
+          <div className="p-12">
+            <DialogHeader className="space-y-4">
+              <div className="h-16 w-16 rounded-3xl bg-amber-50 flex items-center justify-center text-amber-500 shadow-inner mb-2 ring-4 ring-amber-50/50">
+                <AlertCircle className="h-8 w-8" />
+              </div>
+              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
+                Overtime Justification
+              </DialogTitle>
+              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] leading-relaxed uppercase tracking-tight">
+                You are checking out after your shift has ended. Please provide a reason.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-8 py-10">
+              <div className="space-y-4">
+                <Label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason Type</Label>
+                <RadioGroup value={checkoutReason} onValueChange={(val: 'overtime' | 'forgot_checkout') => setCheckoutReason(val)} className="flex flex-col gap-3">
+                  <div className={cn(
+                    "flex items-center space-x-4 p-5 rounded-2xl border transition-all cursor-pointer group",
+                    checkoutReason === 'overtime' ? "bg-indigo-50 border-indigo-200 shadow-sm ring-4 ring-indigo-50/50" : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
+                  )} onClick={() => setCheckoutReason('overtime')}>
+                    <RadioGroupItem value="overtime" id="overtime" className="h-5 w-5 text-[var(--accent-primary)]" />
+                    <Label htmlFor="overtime" className="flex-1 font-black text-[var(--text-secondary)] cursor-pointer text-sm">Overtime Work (Business Requirement)</Label>
+                  </div>
+                  <div className={cn(
+                    "flex items-center space-x-4 p-5 rounded-2xl border transition-all cursor-pointer group",
+                    checkoutReason === 'forgot_checkout' ? "bg-amber-50 border-amber-200 shadow-sm ring-4 ring-amber-50/50" : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
+                  )} onClick={() => setCheckoutReason('forgot_checkout')}>
+                    <RadioGroupItem value="forgot_checkout" id="forgot_checkout" className="h-5 w-5 text-amber-600" />
+                    <Label htmlFor="forgot_checkout" className="flex-1 font-black text-[var(--text-secondary)] cursor-pointer text-sm">Forgot to check out</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              <div className="space-y-4">
+                <Label htmlFor="note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Explanation Notes</Label>
+                <Textarea
+                  id="note"
+                  placeholder="Provide a reason for this request..."
+                  className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm p-6 resize-none transition-all"
+                  value={checkoutNote}
+                  onChange={(e) => setCheckoutNote(e.target.value)}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                className="w-full h-16 bg-[var(--bg-elevated)] hover:bg-slate-800 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 mt-4 border-none"
+                disabled={isActionLoading || !checkoutNote.trim()}
+                onClick={() => performCheckOut({ checkout_after_shift_reason: checkoutReason, checkout_after_shift_note: checkoutNote })}
+              >
+                {isActionLoading && <Loader2 className="mr-3 h-5 w-5 animate-spin" />}
+                Check Out
+              </Button>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

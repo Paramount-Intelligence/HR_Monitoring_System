@@ -24,7 +24,10 @@ class TaskService:
         project = self.db.get(Project, payload.project_id)
         if not project:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-        if project.project_status not in (ProjectStatus.APPROVED, ProjectStatus.ACTIVE):
+        
+        # Robust comparison against string vs enum representation
+        status_val = project.project_status.value if hasattr(project.project_status, 'value') else project.project_status
+        if status_val not in ("approved", "active"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Tasks can only be created for approved or active projects",
@@ -32,8 +35,8 @@ class TaskService:
         assignee = self.db.get(User, payload.assigned_to)
         if not assignee:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
-        if actor.role == UserRole.MANAGER and assignee.manager_id != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only assign tasks to your direct reports")
+        if actor.role == UserRole.MANAGER and assignee.id != actor.id and assignee.manager_id != actor.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only assign tasks to your direct reports or yourself")
 
         task = Task(
             project_id=payload.project_id,

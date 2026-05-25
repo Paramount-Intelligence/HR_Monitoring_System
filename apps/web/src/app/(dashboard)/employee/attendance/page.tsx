@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { attendanceApi } from '@/lib/api/attendance';
-import { AttendanceSession } from '@/types';
+import { attendanceApi, AttendanceSession } from '@/lib/api/attendance';
 import apiClient from '@/lib/api/client';
 import { toast } from 'sonner';
 import { 
@@ -381,7 +380,7 @@ export default function AttendancePage() {
                 {!activeSession ? (
                   <>
                     <div className="flex items-center gap-3 bg-[var(--bg-surface)] rounded-2xl border border-[var(--border-default)] p-1.5 pr-4 shadow-sm group hover:border-indigo-200 transition-all">
-                      <Select value={workMode} onValueChange={(val: 'office' | 'wfh') => setWorkMode(val)}>
+                      <Select value={workMode} onValueChange={(val) => { if (val) setWorkMode(val as 'office' | 'wfh'); }}>
                         <SelectTrigger className="w-[140px] border-none shadow-none focus:ring-0 h-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-secondary)]">
                           <SelectValue placeholder="Work Mode" />
                         </SelectTrigger>

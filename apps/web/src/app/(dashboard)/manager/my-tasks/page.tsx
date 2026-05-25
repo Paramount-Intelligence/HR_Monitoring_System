@@ -45,7 +45,7 @@ export default function TasksPage() {
   const fetchData = async () => {
     try {
       const tasksData = await tasksApi.getTasks();
-      const projectsData = await projectsApi.getProjects({ projectStatus: 'active' }); 
+      const projectsData = await projectsApi.getTaskEligibleProjects(); 
       setTasks(tasksData);
       setProjects(projectsData);
     } catch (error) {
@@ -245,7 +245,7 @@ export default function TasksPage() {
                         <div className="flex items-center gap-3">
                             <div className="flex items-center gap-1.5 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                                 <Briefcase className="h-3 w-3 text-[var(--accent-primary)]" />
-                                {projects.find(p => p.id === task.project_id)?.title || 'Unlinked Project'}
+                                {task.project_title || 'Unlinked Project'}
                             </div>
                             {task.due_date && (
                                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-rose-400 uppercase tracking-widest">
