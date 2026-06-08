@@ -550,7 +550,7 @@ export default function ManagerDashboard() {
                           <p className="text-[9px] font-semibold text-[var(--text-secondary)] mt-0.5 uppercase">Project proposal</p>
                         </div>
                       </div>
-                      <Link href={`/manager/projects/${project.id}`} className="text-[9px] font-black text-[var(--accent-primary)] uppercase tracking-widest hover:underline">Review</Link>
+                      <Link href={`/manager/projects/details?id=${project.id}`} className="text-[9px] font-black text-[var(--accent-primary)] uppercase tracking-widest hover:underline">Review</Link>
                     </div>
                   ))}
                 </>

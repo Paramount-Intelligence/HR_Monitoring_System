@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
 import { User } from '@/types';
@@ -49,11 +49,21 @@ const formatShortDate = (dateString?: string) => {
 };
 
 export default function AdminEmployeeProfilePage() {
-  const { id } = useParams();
   const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [dateFilter, setDateFilter] = useState('30days'); // '7days', '30days', 'month'
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryId = params.get('id');
+      if (queryId) {
+        setId(queryId);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (id) {

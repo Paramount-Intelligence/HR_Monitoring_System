@@ -1,0 +1,8 @@
+{
+  "appId": "com.paramountintelligence.workforce",
+  "appName": "Workforce OS",
+  "webDir": "out",
+  "server": {
+    "androidScheme": "https"
+  }
+}

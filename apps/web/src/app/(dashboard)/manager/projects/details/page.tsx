@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
@@ -26,10 +26,20 @@ import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
 
 export default function ProjectDetailsPage() {
-  const { id } = useParams();
   const router = useRouter();
+  const [id, setId] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const queryId = params.get('id');
+      if (queryId) {
+        setId(queryId);
+      }
+    }
+  }, []);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);

@@ -270,13 +270,13 @@ export default function ManagerProjectsPage() {
                               <Button 
                                 variant="outline" size="sm" 
                                 className="h-11 w-11 p-0 rounded-xl text-rose-600 border-[var(--border-subtle)] hover:border-rose-100 hover:bg-rose-50 transition-all"
-                                onClick={() => router.push(`/manager/projects/${project.id}`)}
+                                onClick={() => router.push(`/manager/projects/details?id=${project.id}`)}
                               >
                                 <XCircle className="h-5 w-5" />
                               </Button>
                             </>
                           )}
-                          <Link href={`/manager/projects/${project.id}`}>
+                          <Link href={`/manager/projects/details?id=${project.id}`}>
                             <Button variant="ghost" size="sm" className="h-11 rounded-xl px-5 font-black text-[var(--accent-primary)] text-[10px] uppercase tracking-[0.2em] hover:bg-[var(--bg-subtle)] transition-all">
                               Details
                               <ExternalLink className="ml-2 h-3.5 w-3.5 text-[var(--accent-primary)]" />

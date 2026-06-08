@@ -389,7 +389,7 @@ export default function AdminUsersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          <Link href={`/admin/users/${user.id}`}>
+                          <Link href={`/admin/users/profile?id=${user.id}`}>
                             <Button variant="ghost" size="sm" className="h-8 text-[var(--accent-primary)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)]">
                               View Profile
                             </Button>

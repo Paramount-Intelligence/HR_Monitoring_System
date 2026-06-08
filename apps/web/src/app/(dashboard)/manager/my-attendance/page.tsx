@@ -667,7 +667,7 @@ export default function AttendancePage() {
 
       {/* Checkout Justification Dialog */}
       <Dialog open={checkoutDialog.isOpen} onOpenChange={(open) => setCheckoutDialog({ isOpen: open })}>
-        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] overflow-hidden p-0 animate-in slide-in-from-bottom-8 duration-500">
+        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] max-h-[90vh] overflow-y-auto p-0 animate-in slide-in-from-bottom-8 duration-500">
           <div className="h-3 bg-gradient-to-r from-amber-400 to-orange-500 w-full" />
           <div className="p-12">
             <DialogHeader className="space-y-4">
