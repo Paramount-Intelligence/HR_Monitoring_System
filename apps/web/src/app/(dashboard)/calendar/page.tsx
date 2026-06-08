@@ -472,17 +472,22 @@ export default function CalendarPage() {
                     return <div key={`empty-${idx}`} className="bg-[var(--bg-surface)]/20 rounded-2xl border border-transparent" />;
                   }
 
-                  const isToday = day.toDateString() === new Date().toDateString();
+                  const getPKTDateString = (d: Date) => {
+                    return new Intl.DateTimeFormat('en-CA', {
+                      timeZone: 'Asia/Karachi',
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                    }).format(d);
+                  };
+
+                  const isToday = getPKTDateString(day) === getPKTDateString(new Date());
                   
                   // Find meetings on this day
                   const dayMeetings = meetings.filter((m) => {
                     if (m.status === 'cancelled') return false;
                     const mDate = new Date(m.start_at);
-                    return (
-                      mDate.getFullYear() === day.getFullYear() &&
-                      mDate.getMonth() === day.getMonth() &&
-                      mDate.getDate() === day.getDate()
-                    );
+                    return getPKTDateString(mDate) === getPKTDateString(day);
                   });
 
                   return (

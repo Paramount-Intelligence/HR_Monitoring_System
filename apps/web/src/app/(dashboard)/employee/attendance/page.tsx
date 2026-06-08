@@ -90,6 +90,25 @@ const BreakTimer = ({ startedAt, breakType }: { startedAt: string, breakType: st
   );
 };
 
+function formatDuration(session: AttendanceSession) {
+  if (session.session_status === 'active') {
+    return 'Active';
+  }
+  if (session.worked_minutes !== null && session.worked_minutes !== undefined) {
+    const hours = Math.floor(session.worked_minutes / 60);
+    const minutes = session.worked_minutes % 60;
+    return `${hours}h ${minutes}m`;
+  }
+  if (session.check_in_at && session.check_out_at) {
+    const diffMs = new Date(session.check_out_at).getTime() - new Date(session.check_in_at).getTime();
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  }
+  return '—';
+}
+
 export default function AttendancePage() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -558,7 +577,7 @@ export default function AttendancePage() {
                       </TableCell>
                       <TableCell>
                         <div className="font-mono text-xs font-black text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-3 py-1.5 rounded-xl w-fit border border-[var(--border-subtle)] shadow-inner">
-                          {formatDuration(session.total_hours)}
+                          {formatDuration(session)}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -568,7 +587,7 @@ export default function AttendancePage() {
                           </div>
                           {session.breaks && session.breaks.length > 0 && (
                             <div className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-tighter opacity-60">
-                              {session.breaks.filter(b => b.ended_at).map(b => `${b.break_type[0].toUpperCase()}: ${b.duration_minutes}m`).join(', ')}
+                              {session.breaks.filter(b => b.ended_at).map(b => `${b.break_type.charAt(0).toUpperCase() + b.break_type.slice(1)}: ${b.duration_minutes}m`).join(', ')}
                             </div>
                           )}
                         </div>
@@ -587,7 +606,10 @@ export default function AttendancePage() {
                           {session.is_corrected && (
                             <Badge className="bg-slate-100 text-[var(--text-secondary)] border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Adjusted</Badge>
                           )}
-                          {!session.is_late_login && !session.is_early_logout && !session.is_corrected && (
+                          {session.checkout_after_shift_reason === 'auto_checkout' && (
+                            <Badge className="bg-amber-100 text-amber-700 border-none shadow-none text-[9px] font-black uppercase tracking-widest px-2 py-0.5">Auto Closed</Badge>
+                          )}
+                          {!session.is_late_login && !session.is_early_logout && !session.is_corrected && session.checkout_after_shift_reason !== 'auto_checkout' && (
                             <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest opacity-40">None</span>
                           )}
                         </div>

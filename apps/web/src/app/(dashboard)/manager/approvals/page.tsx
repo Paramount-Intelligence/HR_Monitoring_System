@@ -6,7 +6,7 @@ import { attendanceApi } from '@/lib/api/attendance';
 import { LeaveRequest, AttendanceSession } from '@/types';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api/client';
-import { cn } from '@/lib/utils';
+import { cn, cleanReason } from '@/lib/utils';
 import { 
   CheckCircle, HelpCircle, XCircle, MessageSquare, Loader2, Clock, 
   User, Calendar, Info, ShieldCheck, Zap, AlertCircle, Inbox,
@@ -214,7 +214,7 @@ export default function ManagerApprovalsPage() {
                               </TableCell>
                               <TableCell className="max-w-[300px]">
                                 <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
-                                    "{req.reason}"
+                                    {cleanReason(req.reason)}
                                 </p>
                               </TableCell>
                               <TableCell>
@@ -312,7 +312,7 @@ export default function ManagerApprovalsPage() {
                               </TableCell>
                               <TableCell className="max-w-[350px]">
                                 <p className="text-xs font-bold text-[var(--text-secondary)] leading-relaxed italic line-clamp-2 pr-6">
-                                    "{corr.correction_reason}"
+                                    {cleanReason(corr.correction_reason)}
                                 </p>
                               </TableCell>
                               <TableCell className="text-right pr-10">

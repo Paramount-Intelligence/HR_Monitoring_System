@@ -190,11 +190,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-[var(--bg-soft)] shadow-[var(--shadow-soft)] ring-1 ring-[var(--border-subtle)] overflow-hidden shrink-0">
             <img src="/logo.png" alt="Paramount Logo" className="h-full w-full object-contain p-1" />
           </div>
-          {!collapsed && (
-            <span className="text-base font-extrabold tracking-tight text-[var(--text-sidebar)]">PIMS</span>
-          )}
+          <span className={cn(
+            "text-base font-extrabold tracking-tight text-[var(--text-sidebar)] transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden",
+            collapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
+          )}>
+            PIMS
+          </span>
         </Link>
-        {!collapsed && (
+        <div className={cn(
+          "transition-all duration-300 ease-in-out overflow-hidden",
+          collapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
+        )}>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -204,7 +210,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-        )}
+        </div>
       </div>
       
       {/* Navigation */}
@@ -230,7 +236,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                   "h-5 w-5 shrink-0 transition-colors", 
                   isActive ? "text-[var(--text-sidebar)]" : "text-[var(--text-sidebar-muted)] group-hover:text-[var(--text-sidebar)]"
                 )} />
-                {!collapsed && <span>{item.title}</span>}
+                <span className={cn(
+                  "transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden text-sm",
+                  collapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
+                )}>
+                  {item.title}
+                </span>
                 {item.title === 'Messages' && unreadMsgCount > 0 && (
                   <span className="ml-auto h-5 min-w-[20px] px-1.5 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] text-[10px] font-black flex items-center justify-center border border-[var(--status-danger-border)]">
                     {unreadMsgCount}
@@ -238,9 +249,10 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 )}
                 {isActive && (
                   <>
-                    {!collapsed && (
-                      <div className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)] shadow-[0_0_8px_rgba(30,102,193,0.5)]" />
-                    )}
+                    <div className={cn(
+                      "ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent-primary)] shadow-[0_0_8px_rgba(30,102,193,0.5)] transition-all duration-300 ease-in-out",
+                      collapsed ? "scale-0 opacity-0 pointer-events-none" : "scale-100 opacity-100"
+                    )} />
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-[var(--accent-primary)] rounded-r-full" />
                   </>
                 )}
@@ -252,8 +264,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       
       {/* Footer / User Area */}
       <div className="mt-auto border-t border-[var(--border-subtle)] bg-[var(--bg-sidebar)] p-4 transition-all duration-300">
-        {!collapsed ? (
-          <div className="flex flex-col gap-4">
+        <div className="relative overflow-hidden w-full transition-all duration-300">
+          <div className={cn(
+            "flex flex-col gap-4 transition-all duration-300 ease-in-out",
+            collapsed ? "opacity-0 scale-95 pointer-events-none h-0 overflow-hidden" : "opacity-100 scale-100"
+          )}>
             <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[var(--bg-soft)] border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] flex items-center justify-center text-xs font-black text-white ring-2 ring-[var(--bg-sidebar)] shadow-lg shrink-0">
                 {user?.full_name?.charAt(0).toUpperCase()}
@@ -273,14 +288,17 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             
             <button
               onClick={() => setShowLogoutDialog(true)}
-              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-[var(--text-sidebar-muted)] hover:bg-[var(--status-danger-bg)]/40 hover:text-[var(--status-danger-text)] transition-all duration-200 w-full border border-[var(--border-subtle)] hover:border-[var(--status-danger-border)] group bg-[var(--bg-soft)] shadow-[var(--shadow-soft)]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-[var(--text-sidebar-muted)] hover:bg-[var(--status-danger-bg)]/40 hover:text-[var(--status-danger-text)] transition-all duration-200 w-full border border-[var(--border-subtle)] hover:border-[var(--status-danger-border)] group bg-[var(--bg-soft)] shadow-[var(--shadow-soft)] whitespace-nowrap overflow-hidden"
             >
               <LogOut className="h-4 w-4 transition-transform group-hover:-translate-x-0.5 shrink-0 text-[var(--text-sidebar-muted)] group-hover:text-[var(--status-danger-text)]" />
-              LOGOUT SESSION
+              <span>LOGOUT SESSION</span>
             </button>
           </div>
-        ) : (
-          <div className="flex flex-col items-center gap-5 pb-2">
+          
+          <div className={cn(
+            "flex flex-col items-center gap-5 pb-2 transition-all duration-300 ease-in-out",
+            !collapsed ? "opacity-0 scale-95 pointer-events-none h-0 overflow-hidden" : "opacity-100 scale-100"
+          )}>
             <Button 
               variant="ghost" 
               size="icon" 
@@ -299,7 +317,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
               <LogOut className="h-5 w-5" />
             </button>
           </div>
-        )}
+        </div>
       </div>
 
       <ConfirmDialog
@@ -331,7 +349,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* Desktop Sidebar */}
       <aside
         className={cn(
-          "hidden md:flex flex-col h-screen transition-all duration-300 ease-in-out border-r border-[var(--border-subtle)] bg-[var(--bg-sidebar)]",
+          "hidden md:flex flex-col h-screen transition-all duration-300 ease-in-out border-r border-[var(--border-subtle)] bg-[var(--bg-sidebar)] overflow-hidden shrink-0",
           isCollapsed ? "w-20" : "w-64"
         )}
       >

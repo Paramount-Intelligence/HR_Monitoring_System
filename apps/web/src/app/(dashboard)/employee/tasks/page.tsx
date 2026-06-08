@@ -60,6 +60,8 @@ export default function EmployeeTasksPage() {
   const [activeBreak, setActiveBreak] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState<string | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -430,7 +432,15 @@ export default function EmployeeTasksPage() {
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
                           <div className="flex items-center gap-3">
-                            <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{task.title}</span>
+                             <button
+                               onClick={() => {
+                                 setSelectedTask(task);
+                                 setIsDetailOpen(true);
+                               }}
+                               className="font-black text-[var(--text-primary)] text-sm tracking-tight hover:underline text-left focus:outline-none"
+                             >
+                               {task.title}
+                             </button>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -515,6 +525,129 @@ export default function EmployeeTasksPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Task Details Dialog */}
+      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+        <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)]">
+          {selectedTask && (
+            <>
+              <DialogHeader className="space-y-3">
+                <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
+                  {selectedTask.title}
+                </DialogTitle>
+                <DialogDescription className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">
+                  Task Details
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6 py-6 text-sm">
+                {selectedTask.description && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Description</span>
+                    <p className="font-medium text-[var(--text-primary)] leading-relaxed bg-[var(--bg-subtle)] p-4 rounded-xl">
+                      {selectedTask.description}
+                    </p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Project</span>
+                    <span className="block font-bold text-[var(--text-primary)]">
+                      {selectedTask.project_title || 'General / Internal'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Priority</span>
+                    <span className="block font-bold capitalize text-[var(--text-primary)]">
+                      {selectedTask.priority}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Status</span>
+                    <span className="block font-bold capitalize text-[var(--text-primary)]">
+                      {selectedTask.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Due Date</span>
+                    <span className="block font-bold text-[var(--text-primary)]">
+                      {selectedTask.due_date ? format(parseISO(selectedTask.due_date), 'MMM d, yyyy') : 'No Deadline'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Assigned To</span>
+                    <span className="block font-bold text-[var(--text-primary)]">
+                      {selectedTask.assigned_to_name || 'Unassigned'}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Complexity Level</span>
+                    <span className="block font-bold text-[var(--text-primary)]">
+                      {selectedTask.complexity_level ? `${selectedTask.complexity_level}/10` : 'Not Set'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end gap-4 border-t border-[var(--border-subtle)] pt-6">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setIsDetailOpen(false)}
+                  className="h-12 rounded-xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1"
+                >
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setIsDetailOpen(false);
+                    handleDiscussTask(selectedTask);
+                  }}
+                  className="h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none"
+                >
+                  Discuss
+                </Button>
+                {activeTimer && activeTimer.task_id === selectedTask.id ? (
+                  activeTimer.status === 'running' ? (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setIsDetailOpen(false);
+                        handlePauseTimer(selectedTask.id);
+                      }}
+                      className="h-12 bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none"
+                    >
+                      Pause Timer
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        setIsDetailOpen(false);
+                        handleResumeTimer(selectedTask.id);
+                      }}
+                      className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none"
+                    >
+                      Resume Timer
+                    </Button>
+                  )
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setIsDetailOpen(false);
+                      handleStartTimer(selectedTask.id);
+                    }}
+                    disabled={activeTimer !== null || !isCheckedIn}
+                    className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none disabled:opacity-50"
+                  >
+                    Start Timer
+                  </Button>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

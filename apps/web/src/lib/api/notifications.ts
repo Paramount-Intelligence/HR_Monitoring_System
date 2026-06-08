@@ -15,7 +15,7 @@ export interface Notification {
 
 export const notificationsApi = {
   getNotifications: async (limit: number = 50): Promise<Notification[]> => {
-    const response = await apiClient.get<Notification[]>('/notifications', {
+    const response = await apiClient.get<Notification[]>('/notifications/', {
       params: { limit },
     });
     return response.data;

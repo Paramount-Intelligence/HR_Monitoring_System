@@ -4,6 +4,7 @@ import { LucideIcon } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import Link from 'next/link';
 
 interface KPICardProps {
   title: string;
@@ -13,6 +14,7 @@ interface KPICardProps {
     value: string | number;
     label: string;
     isPositive?: boolean;
+    href?: string;
   };
   lastUpdated?: string | Date;
   color?: 'indigo' | 'emerald' | 'amber' | 'rose' | 'slate';
@@ -59,13 +61,27 @@ export function KPICard({
 
         {trend && (
           <div className="mt-4 flex items-center justify-center gap-1.5">
-            <span className={cn(
-              "text-xs font-bold px-1.5 py-0.5 rounded",
-              trend.isPositive ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]" : "bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]"
-            )}>
-              {trend.isPositive ? '+' : ''}{trend.value}
-            </span>
-            <span className="text-xs text-[var(--text-secondary)] font-medium">{trend.label}</span>
+            {trend.href ? (
+              <Link href={trend.href} className="inline-flex items-center gap-1.5 hover:opacity-85 transition-opacity group">
+                <span className={cn(
+                  "text-xs font-bold px-1.5 py-0.5 rounded cursor-pointer group-hover:underline",
+                  trend.isPositive ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]" : "bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]"
+                )}>
+                  {trend.isPositive ? '+' : ''}{trend.value}
+                </span>
+                <span className="text-xs text-[var(--text-secondary)] font-medium group-hover:text-[var(--text-primary)] transition-colors">{trend.label}</span>
+              </Link>
+            ) : (
+              <>
+                <span className={cn(
+                  "text-xs font-bold px-1.5 py-0.5 rounded",
+                  trend.isPositive ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]" : "bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]"
+                )}>
+                  {trend.isPositive ? '+' : ''}{trend.value}
+                </span>
+                <span className="text-xs text-[var(--text-secondary)] font-medium">{trend.label}</span>
+              </>
+            )}
           </div>
         )}
       </CardContent>

@@ -57,7 +57,7 @@ class TaskService:
 
     def list_tasks(self, *, project_id: uuid.UUID | None = None, assigned_to: uuid.UUID | None = None, task_status: TaskStatus | None = None, actor: User) -> list[Task]:
         q = self.db.query(Task)
-        if actor.role == UserRole.EMPLOYEE:
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
             q = q.filter(Task.assigned_to == actor.id)
         elif actor.role == UserRole.MANAGER:
             member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]
@@ -79,7 +79,7 @@ class TaskService:
 
     def update_task(self, task_id: uuid.UUID, payload: TaskUpdate, actor: User) -> Task:
         task = self.get_task(task_id, actor)
-        if actor.role == UserRole.EMPLOYEE:
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
             allowed = {"status", "blocked_reason"}
             if set(payload.model_dump(exclude_unset=True).keys()) - allowed:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employees can only update status and blocked_reason")
@@ -95,7 +95,7 @@ class TaskService:
         return task
 
     def set_complexity(self, task_id: uuid.UUID, payload: TaskComplexity, actor: User) -> Task:
-        if actor.role == UserRole.EMPLOYEE:
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employees cannot set complexity")
         task = self.get_task(task_id, actor)
         old = {"complexity_level": task.complexity_level, "expected_duration_minutes": task.expected_duration_minutes}
@@ -130,7 +130,7 @@ class TaskService:
     def _check_read_access(self, task: Task, actor: User) -> None:
         if actor.role == UserRole.ADMIN:
             return
-        if actor.role == UserRole.EMPLOYEE and task.assigned_to != actor.id:
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE) and task.assigned_to != actor.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         if actor.role == UserRole.MANAGER:
             member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]

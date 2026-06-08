@@ -174,9 +174,18 @@ export default function TimeLogsPage() {
   };
 
   const formatDurationString = (minutes: number) => {
-    if (minutes === 0) return '0m';
-    const duration = intervalToDuration({ start: 0, end: minutes * 60 * 1000 });
-    return formatDuration(duration, { format: ['hours', 'minutes'] });
+    const totalSeconds = Math.round(minutes * 60);
+    if (totalSeconds <= 0) return '0m';
+    if (totalSeconds < 60) return '< 1m';
+    
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    
+    let parts = [];
+    if (hrs > 0) parts.push(`${hrs}h`);
+    if (mins > 0) parts.push(`${mins}m`);
+    
+    return parts.length > 0 ? parts.join(' ') : '< 1m';
   };
 
   const getPauseLabel = (reason: string | null) => {

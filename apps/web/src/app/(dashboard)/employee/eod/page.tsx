@@ -8,6 +8,7 @@ import { Loader2, ShieldCheck, Clock, CheckSquare, Briefcase, FileText, Send, Al
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatPKDateTime } from '@/lib/time';
 
 export default function MyEODPage() {
   const [eod, setEod] = useState<EODReport | null>(null);
@@ -168,11 +169,11 @@ export default function MyEODPage() {
                   </div>
                   <div className="flex justify-between items-center border-b border-[var(--border-subtle)] pb-4">
                     <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Check-in Time</span>
-                    <span className="text-sm font-black text-[var(--text-primary)]">{eod.login_time}</span>
+                    <span className="text-sm font-black text-[var(--text-primary)]">{eod.login_time ? formatPKDateTime(eod.login_time) : '—'}</span>
                   </div>
                   <div className="flex justify-between items-center border-b border-[var(--border-subtle)] pb-4">
                     <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Check-out Time</span>
-                    <span className="text-sm font-black text-[var(--text-primary)]">{eod.logout_time || 'Active Session'}</span>
+                    <span className="text-sm font-black text-[var(--text-primary)]">{eod.login_time ? (eod.logout_time ? formatPKDateTime(eod.logout_time) : 'Active Session') : '—'}</span>
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className="text-sm font-black text-[var(--text-primary)] uppercase tracking-tighter">Total Tracked Hours</span>
@@ -227,7 +228,7 @@ export default function MyEODPage() {
                   </div>
                   <div>
                     <p className="text-[10px] text-[var(--text-muted)] font-black uppercase tracking-[0.2em] mb-1">Productivity Index</p>
-                    <p className="text-5xl font-black tracking-tighter text-white">{eod.productivity_score}<span className="text-lg text-[var(--text-muted)] font-black ml-1 uppercase">/100</span></p>
+                    <p className="text-5xl font-black tracking-tighter text-white">{eod.productivity_score ?? 0}<span className="text-lg text-[var(--text-muted)] font-black ml-1 uppercase">/100</span></p>
                   </div>
                 </div>
                 <div className="text-center md:text-right">

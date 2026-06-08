@@ -34,9 +34,13 @@ export function Breadcrumbs() {
     
     // Check if the current path segment is a UUID
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(path);
-    const label = isUuid 
+    let label = isUuid 
       ? (customLabel || 'Employee Profile')
       : path.replace(/-/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+      
+    if (path.toLowerCase() === 'eod') {
+      label = 'EOD';
+    }
       
     const isLast = index === paths.length - 1;
 

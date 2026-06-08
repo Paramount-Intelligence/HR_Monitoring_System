@@ -230,6 +230,7 @@ class AttendanceService:
         date_from: date | None = None,
         date_to: date | None = None,
     ) -> list[AttendanceSession]:
+        self._check_and_auto_close_stale_sessions(actor.id)
         q = self.db.query(AttendanceSession).filter(
             AttendanceSession.user_id == actor.id
         )
@@ -405,7 +406,82 @@ class AttendanceService:
         self.db.refresh(session)
         return session
 
+    def _check_and_auto_close_stale_sessions(self, user_id: uuid.UUID) -> None:
+        """Automatically close stale active sessions."""
+        active_sessions = (
+            self.db.query(AttendanceSession)
+            .filter(
+                AttendanceSession.user_id == user_id,
+                AttendanceSession.session_status == AttendanceSessionStatus.ACTIVE
+            )
+            .all()
+        )
+        
+        now = datetime.now(timezone.utc)
+        
+        for session in active_sessions:
+            is_stale = False
+            # Determine threshold
+            if session.expected_shift_end_at:
+                # expected shift end + 4 hours grace period
+                threshold = session.expected_shift_end_at
+                if threshold.tzinfo is None:
+                    threshold = threshold.replace(tzinfo=timezone.utc)
+                threshold = threshold + timedelta(hours=4)
+                if now > threshold:
+                    is_stale = True
+            else:
+                # 24 hours fallback
+                threshold = session.check_in_at
+                if threshold.tzinfo is None:
+                    threshold = threshold.replace(tzinfo=timezone.utc)
+                threshold = threshold + timedelta(hours=24)
+                if now > threshold:
+                    is_stale = True
+                    
+            if is_stale:
+                # Auto checkout
+                if session.expected_shift_end_at:
+                    co_time = session.expected_shift_end_at + timedelta(minutes=15)
+                else:
+                    co_time = session.check_in_at + timedelta(hours=8)
+                
+                # Cap checkout time at current time to avoid future checkouts
+                if co_time > now:
+                    co_time = now
+                    
+                session.check_out_at = co_time
+                session.session_status = AttendanceSessionStatus.COMPLETED
+                session.attendance_classification = AttendanceClassification.INSUFFICIENT
+                
+                # Calculate duration based on auto checkout time
+                delta = co_time - session.check_in_at
+                total_seconds = max(0, int(delta.total_seconds()))
+                session.worked_minutes = total_seconds // 60
+                session.total_hours = total_seconds / 3600.0
+                
+                # Mark as auto-closed
+                session.checkout_after_shift_reason = "auto_checkout"
+                session.checkout_after_shift_note = "This session was automatically closed because it exceeded the maximum allowed duration."
+                
+                self.db.commit()
+                
+                # Create a system notification for the user
+                from app.models.notifications import Notification
+                from app.models.enums import NotificationType
+                notif = Notification(
+                    user_id=user_id,
+                    title="Attendance Auto-Checkout",
+                    message="Your attendance session started on {} was automatically closed because you forgot to check out.".format(session.check_in_at.strftime('%Y-%m-%d')),
+                    notification_type=NotificationType.SYSTEM,
+                    related_entity_type="attendance_session",
+                    related_entity_id=session.id
+                )
+                self.db.add(notif)
+                self.db.commit()
+
     def _get_active_session(self, user_id: uuid.UUID) -> AttendanceSession | None:
+        self._check_and_auto_close_stale_sessions(user_id)
         return (
             self.db.query(AttendanceSession)
             .filter(

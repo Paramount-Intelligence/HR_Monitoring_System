@@ -94,6 +94,25 @@ function getErrorMessage(error: any) {
   return error.response?.data?.detail || error.message;
 }
 
+function formatDuration(session: AttendanceSession) {
+  if (session.session_status === 'active') {
+    return 'Active';
+  }
+  if (session.worked_minutes !== null && session.worked_minutes !== undefined) {
+    const hours = Math.floor(session.worked_minutes / 60);
+    const minutes = session.worked_minutes % 60;
+    return `${hours}h ${minutes}m`;
+  }
+  if (session.check_in_at && session.check_out_at) {
+    const diffMs = new Date(session.check_out_at).getTime() - new Date(session.check_in_at).getTime();
+    const totalMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes}m`;
+  }
+  return '—';
+}
+
 export default function AttendancePage() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -539,7 +558,7 @@ export default function AttendancePage() {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="font-mono text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-2 py-1 rounded-lg w-fit border border-[var(--border-subtle)] shadow-inner">
-                          {formatDuration(session.total_hours)}
+                          {formatDuration(session)}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
@@ -557,7 +576,10 @@ export default function AttendancePage() {
                           {session.is_late_login && (
                             <StatusBadge status="late" className="bg-rose-50 text-rose-600 border-rose-100" />
                           )}
-                          {!session.is_late_login && !session.is_corrected && (
+                          {session.checkout_after_shift_reason === 'auto_checkout' && (
+                            <StatusBadge status="auto_closed" className="bg-amber-50 text-amber-700 border-amber-100" />
+                          )}
+                          {!session.is_late_login && !session.is_corrected && session.checkout_after_shift_reason !== 'auto_checkout' && (
                             <span className="text-[9px] font-bold text-[var(--text-muted)] uppercase">None</span>
                           )}
                         </div>

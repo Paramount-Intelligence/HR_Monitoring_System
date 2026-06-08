@@ -116,14 +116,14 @@ export default function EmployeeDashboard() {
           value={formatHours(summary.total_time_today)}
           icon={Timer}
           color="indigo"
-          trend={{ value: formatHours(summary.productive_time_today), label: 'Productive work', isPositive: true }}
+          trend={{ value: formatHours(summary.productive_time_today), label: 'Productive work', isPositive: true, href: '/employee/time-logs' }}
         />
         <KPICard 
           title="Tasks In Progress"
           value={summary.tasks_in_progress}
           icon={CheckSquare}
           color="amber"
-          trend={{ value: 'Task Load', label: 'Active tasks', isPositive: true }}
+          trend={{ value: 'Task Load', label: 'Active tasks', isPositive: true, href: '/employee/tasks' }}
         />
         <KPICard 
           title="Critical Tasks"

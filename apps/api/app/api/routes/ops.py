@@ -163,15 +163,20 @@ def generate_my_eod(db: Session = Depends(get_db), actor: User = Depends(get_cur
         .first()
     )
 
+    from app.core.time_utils import pk_day_start
+    from datetime import timedelta
+    start_dt = pk_day_start(today)
+    end_dt = start_dt + timedelta(days=1)
+
     session = (
         db.query(AttendanceSession)
-        .filter(AttendanceSession.user_id == actor.id, func.date(AttendanceSession.check_in_at) == today)
+        .filter(AttendanceSession.user_id == actor.id, AttendanceSession.check_in_at >= start_dt, AttendanceSession.check_in_at < end_dt)
         .order_by(AttendanceSession.check_in_at.desc())
         .first()
     )
     tasks = db.query(Task).filter(Task.assigned_to == actor.id).all()
     duties = db.query(PersonalNote).filter(PersonalNote.user_id == actor.id, PersonalNote.note_date == today).all()
-    time_logs = db.query(TimeLog).filter(TimeLog.user_id == actor.id, func.date(TimeLog.started_at) == today).all()
+    time_logs = db.query(TimeLog).filter(TimeLog.user_id == actor.id, TimeLog.started_at >= start_dt, TimeLog.started_at < end_dt).all()
 
     completed_tasks = sum(1 for t in tasks if t.status == TaskStatus.COMPLETED)
     pending_tasks = sum(1 for t in tasks if t.status in (TaskStatus.CREATED, TaskStatus.APPROVED, TaskStatus.IN_PROGRESS, TaskStatus.REOPENED))

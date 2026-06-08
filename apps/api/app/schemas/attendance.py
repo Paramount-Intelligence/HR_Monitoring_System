@@ -88,6 +88,7 @@ class AttendanceSessionRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     duration_minutes: int | None = None
+    total_hours: float | None = None
     
     # Breaks
     total_break_minutes: int = 0

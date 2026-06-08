@@ -119,10 +119,10 @@
     /* ==========================================
        PIMS CANONICAL THEME TOKENS (DARK MODE)
        ========================================== */
-    --accent-primary: #38BDF8;
-    --accent-primary-hover: #60A5FA;
-    --accent-secondary: #60A5FA;
-    --accent-soft: rgba(56, 189, 248, 0.16);
+    --accent-primary: #1E66C1;
+    --accent-primary-hover: #174F9B;
+    --accent-secondary: #38BDF8;
+    --accent-soft: rgba(30, 102, 193, 0.16);
 
     --bg-base: #061226;
     --bg-page: #07152C;

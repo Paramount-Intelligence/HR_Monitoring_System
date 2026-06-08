@@ -36,7 +36,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ApprovalTimeline } from '@/components/approvals/approval-timeline';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { cn } from '@/lib/utils';
+import { cn, cleanReason } from '@/lib/utils';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 
@@ -279,14 +279,14 @@ export default function EmployeeLeavesPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, i) => (
-          <Card key={i} className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2rem] overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
-            <CardContent className="p-8">
+          <Card key={i} className="h-full border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2rem] overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
+            <CardContent className="p-8 h-full flex items-center">
               <div className="flex items-center gap-5">
-                <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center ring-8 ring-white shadow-sm", stat.bg, stat.color)}>
+                <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center ring-8 ring-white shadow-sm shrink-0", stat.bg, stat.color)}>
                   <stat.icon className="h-6 w-6" />
                 </div>
-                <div>
-                  <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1">{stat.label}</div>
+                <div className="min-w-0">
+                  <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1 truncate">{stat.label}</div>
                   <div className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">{stat.value}</div>
                 </div>
               </div>
@@ -357,7 +357,7 @@ export default function EmployeeLeavesPage() {
                       </TableCell>
                       <TableCell className="max-w-[300px]">
                         <p className="text-xs font-bold text-[var(--text-secondary)] line-clamp-2 leading-relaxed italic pr-4">
-                          "{req.reason}"
+                          {cleanReason(req.reason)}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -426,7 +426,7 @@ export default function EmployeeLeavesPage() {
                   </div>
                   <div className="col-span-2 space-y-1">
                     <Label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason Notes</Label>
-                    <p className="text-sm font-bold text-[var(--text-secondary)] leading-relaxed italic">"{selectedRequest.reason}"</p>
+                    <p className="text-sm font-bold text-[var(--text-secondary)] leading-relaxed italic">{cleanReason(selectedRequest.reason)}</p>
                   </div>
                   {selectedRequest.manager_comment && (
                     <div className="col-span-2 space-y-1 pt-4 border-t border-[var(--border-subtle)]">

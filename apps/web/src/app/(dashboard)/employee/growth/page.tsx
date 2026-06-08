@@ -237,99 +237,113 @@ export default function EmployeeGrowthPage() {
       </div>
 
       <Tabs defaultValue="goals" className="w-full" onValueChange={setActiveTab}>
-        <div className="flex justify-center mb-10">
-            <TabsList className="h-16 p-2 bg-[var(--bg-subtle)] rounded-[2rem] border border-[var(--border-subtle)]">
-                <TabsTrigger value="goals" className="h-12 px-10 rounded-full font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:shadow-[var(--shadow-soft)] text-[var(--text-muted)] transition-all">
-                    <Target className="mr-2 h-4 w-4" />
-                    Goals
-                </TabsTrigger>
-                <TabsTrigger value="notes" className="h-12 px-10 rounded-full font-black text-[10px] uppercase tracking-widest data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:shadow-[var(--shadow-soft)] text-[var(--text-muted)] transition-all">
-                    <StickyNote className="mr-2 h-4 w-4" />
-                    Daily Notes
-                </TabsTrigger>
+        <div className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden border border-[var(--border-subtle)]">
+          {/* Integrated Connected Tab Bar */}
+          <div className="flex flex-col sm:flex-row items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/30 px-8 py-5 gap-4">
+            <TabsList className="bg-transparent h-auto p-0 flex gap-2 border-none">
+              <TabsTrigger 
+                value="goals" 
+                className="h-12 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-transparent data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:border-[var(--border-subtle)] data-[state=active]:shadow-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <Target className="mr-2 h-4 w-4" />
+                Goals
+              </TabsTrigger>
+              <TabsTrigger 
+                value="notes" 
+                className="h-12 px-8 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all border border-transparent data-[state=active]:bg-[var(--bg-surface)] data-[state=active]:text-[var(--accent-primary)] data-[state=active]:border-[var(--border-subtle)] data-[state=active]:shadow-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
+              >
+                <StickyNote className="mr-2 h-4 w-4" />
+                Daily Notes
+              </TabsTrigger>
             </TabsList>
+            <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] sm:pr-2">
+              {activeTab === 'goals' ? `${goals.length} Goals Tracked` : `${notes.length} Insights Logged`}
+            </div>
+          </div>
+
+          <div className="p-8 sm:p-10">
+            <TabsContent value="goals" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-0 focus-visible:outline-none">
+              {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"><TableSkeleton rows={6} cols={1} /></div>
+              ) : goals.length === 0 ? (
+                <div className="p-20 bg-[var(--bg-subtle)]/20 rounded-[3rem] shadow-inner border border-[var(--border-subtle)]"><EmptyState title="No career goals" message="Establish career goals or learning items to track your career evolution." icon={Trophy} /></div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {goals.map((goal) => (
+                    <Card key={goal.id} className="border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden group hover:shadow-[var(--shadow-hard)] hover:border-[var(--border-default)] transition-all duration-500 text-[var(--text-primary)]">
+                      <CardHeader className="p-8 pb-4">
+                        <div className="flex justify-between items-start mb-6">
+                          <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-[var(--accent-primary)] group-hover:scale-110 transition-transform duration-500 shadow-inner">
+                            {goal.status === 'completed' ? <Star className="h-6 w-6" /> : <Rocket className="h-6 w-6" />}
+                          </div>
+                          <StatusBadge status={goal.status} />
+                        </div>
+                        <CardTitle className="text-xl font-black tracking-tight leading-snug group-hover:text-[var(--accent-primary)] transition-colors">
+                          {goal.title}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="px-8 pb-8 space-y-6">
+                        <p className="text-[var(--text-secondary)] font-medium text-sm leading-relaxed h-20 overflow-hidden line-clamp-3 italic">
+                          {goal.description}
+                        </p>
+                        <div className="flex items-center justify-between pt-6 border-t border-[var(--border-subtle)]">
+                          <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                            <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                            Target: {goal.target_date ? format(parseISO(goal.target_date), 'MMM d, yyyy') : 'No date'}
+                          </div>
+                          {goal.status !== 'completed' && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-9 px-4 rounded-xl font-black text-emerald-600 text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all border-none"
+                                onClick={() => handleUpdateGoalStatus(goal.id, 'completed')}
+                            >
+                                Complete
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="notes" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-0 focus-visible:outline-none">
+              {isLoading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8"><TableSkeleton rows={4} cols={1} /></div>
+              ) : notes.length === 0 ? (
+                <div className="p-20 bg-[var(--bg-subtle)]/20 rounded-[3rem] shadow-inner border border-[var(--border-subtle)]"><EmptyState title="No daily notes" message="Record professional thoughts or learnings here." icon={Brain} /></div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {notes.map((note) => (
+                    <Card key={note.id} className="border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden p-10 group relative text-[var(--text-primary)] hover:border-[var(--border-default)] transition-all duration-300">
+                      <div className="absolute top-0 right-0 p-8">
+                          <Badge variant="outline" className="h-6 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
+                            {note.category}
+                          </Badge>
+                      </div>
+                      <CardHeader className="p-0 mb-6 text-[var(--text-primary)]">
+                        <CardTitle className="text-2xl font-black tracking-tight group-hover:text-[var(--accent-primary)] transition-colors">
+                          {note.title}
+                        </CardTitle>
+                        <CardDescription className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mt-2">
+                            <History className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+                            Logged on {format(parseISO(note.created_at), 'PPP')}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="p-0">
+                        <p className="text-[var(--text-secondary)] font-medium text-sm leading-relaxed whitespace-pre-wrap italic">
+                          "{note.content}"
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </div>
         </div>
-
-        <TabsContent value="goals" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"><TableSkeleton rows={6} cols={1} /></div>
-          ) : goals.length === 0 ? (
-            <div className="p-20 bg-[var(--bg-surface)] rounded-[3rem] shadow-[var(--shadow-soft)]"><EmptyState title="No career goals" message="Establish career goals or learning items to track your career evolution." icon={Trophy} /></div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {goals.map((goal) => (
-                <Card key={goal.id} className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden group hover:shadow-[var(--shadow-hard)] transition-all duration-500 text-[var(--text-primary)]">
-                  <CardHeader className="p-8 pb-4">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-[var(--accent-primary)] group-hover:scale-110 transition-transform duration-500">
-                        {goal.status === 'completed' ? <Star className="h-6 w-6" /> : <Rocket className="h-6 w-6" />}
-                      </div>
-                      <StatusBadge status={goal.status} />
-                    </div>
-                    <CardTitle className="text-xl font-black tracking-tight leading-snug group-hover:text-[var(--accent-primary)] transition-colors">
-                      {goal.title}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-8 pb-8 space-y-6">
-                    <p className="text-[var(--text-secondary)] font-medium text-sm leading-relaxed h-20 overflow-hidden line-clamp-3 italic">
-                      {goal.description}
-                    </p>
-                    <div className="flex items-center justify-between pt-6 border-t border-[var(--border-subtle)]">
-                      <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                        <Calendar className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-                        Target: {goal.target_date ? format(parseISO(goal.target_date), 'MMM d, yyyy') : 'No date'}
-                      </div>
-                      {goal.status !== 'completed' && (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-9 px-4 rounded-xl font-black text-emerald-600 text-[10px] uppercase tracking-widest hover:bg-emerald-50 transition-all border-none"
-                            onClick={() => handleUpdateGoalStatus(goal.id, 'completed')}
-                        >
-                            Complete
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="notes" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8"><TableSkeleton rows={4} cols={1} /></div>
-          ) : notes.length === 0 ? (
-            <div className="p-20 bg-[var(--bg-surface)] rounded-[3rem] shadow-[var(--shadow-soft)]"><EmptyState title="No daily notes" message="Record professional thoughts or learnings here." icon={Brain} /></div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {notes.map((note) => (
-                <Card key={note.id} className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden p-10 group relative text-[var(--text-primary)]">
-                  <div className="absolute top-0 right-0 p-8">
-                      <Badge variant="outline" className="h-6 rounded-lg text-[8px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
-                        {note.category}
-                      </Badge>
-                  </div>
-                  <CardHeader className="p-0 mb-6 text-[var(--text-primary)]">
-                    <CardTitle className="text-2xl font-black tracking-tight group-hover:text-[var(--accent-primary)] transition-colors">
-                      {note.title}
-                    </CardTitle>
-                    <CardDescription className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mt-2">
-                        <History className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-                        Logged on {format(parseISO(note.created_at), 'PPP')}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <p className="text-[var(--text-secondary)] font-medium text-sm leading-relaxed whitespace-pre-wrap italic">
-                      "{note.content}"
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
       </Tabs>
     </div>
   );

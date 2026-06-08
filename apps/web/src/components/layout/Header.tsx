@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { 
   Menu, LogOut, User as UserIcon, Bell, Check, 
-  MessageSquare, Calendar, ShieldCheck, MailOpen, AlertCircle 
+  MessageSquare, Calendar, ShieldCheck, MailOpen, AlertCircle, Settings 
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { messagesApi } from '@/lib/api/messages';
@@ -36,6 +36,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifLoading, setNotifLoading] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const [notifError, setNotifError] = useState<string | null>(null);
 
   const fetchUnreadCount = async () => {
     try {
@@ -58,10 +59,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const loadNotifications = async () => {
     try {
       setNotifLoading(true);
+      setNotifError(null);
       const data = await notificationsApi.getNotifications(8);
       setNotifications(data);
     } catch (err) {
       console.error('[Header] Failed to load notifications:', err);
+      setNotifError('Could not load notifications.');
     } finally {
       setNotifLoading(false);
     }
@@ -232,6 +235,10 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   <div className="py-8 text-center text-xs text-[var(--text-muted)] font-semibold">
                     Syncing updates...
                   </div>
+                ) : notifError ? (
+                  <div className="py-8 text-center text-xs text-red-500 font-semibold">
+                    {notifError}
+                  </div>
                 ) : notifications.length === 0 ? (
                   <div className="py-8 text-center text-xs text-[var(--text-muted)] italic font-semibold">
                     No active notifications
@@ -271,7 +278,8 @@ export function Header({ onMenuToggle }: HeaderProps) {
           <div className="h-6 w-px bg-[var(--border-default)] hidden sm:block" />
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="group relative flex items-center gap-3 rounded-full py-1 pl-1 pr-3 hover:bg-[var(--bg-subtle)] transition-all focus:outline-none ring-1 ring-transparent hover:ring-[var(--border-default)]">
+            <DropdownMenuTrigger asChild>
+              <button className="group relative flex items-center gap-3 rounded-full py-1 pl-1 pr-3 hover:bg-[var(--bg-subtle)] transition-all focus:outline-none ring-1 ring-transparent hover:ring-[var(--border-default)] text-left">
                 <Avatar className="h-8 w-8 border-2 border-[var(--bg-elevated)] shadow-sm ring-1 ring-[var(--border-default)] group-hover:ring-[var(--accent-primary)] transition-all">
                   <AvatarFallback className="bg-[var(--text-secondary)] text-[10px] font-black text-white">
                     {user ? getInitials(user.full_name) : 'U'}
@@ -285,6 +293,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                     {user?.role?.replace('_', ' ')}
                   </span>
                 </div>
+              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-64 mt-2 p-1.5 rounded-2xl shadow-[var(--shadow-card)] border border-[var(--border-default)] backdrop-blur-xl bg-[var(--bg-elevated)] text-[var(--text-primary)]" align="end">
               <DropdownMenuGroup>
@@ -304,6 +313,13 @@ export function Header({ onMenuToggle }: HeaderProps) {
                 <Link href="/profile">
                   <UserIcon className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
                   <span>My Profile</span>
+                </Link>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem asChild className="focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3 group flex items-center gap-2 transition-colors duration-150 text-[var(--text-primary)]">
+                <Link href="/profile">
+                  <Settings className="h-4 w-4 text-[var(--text-muted)] group-hover:text-[var(--text-primary)]" />
+                  <span>Settings</span>
                 </Link>
               </DropdownMenuItem>
 
