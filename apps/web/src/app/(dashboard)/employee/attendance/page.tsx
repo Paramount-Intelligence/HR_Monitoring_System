@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { cn } from '@/lib/utils';
+import { cn, formatAttendanceDuration } from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatPKDate, formatPKDateTime } from '@/lib/time';
 import { TableSkeleton } from '@/components/ui/skeletons';
@@ -90,24 +90,6 @@ const BreakTimer = ({ startedAt, breakType }: { startedAt: string, breakType: st
   );
 };
 
-function formatDuration(session: AttendanceSession) {
-  if (session.session_status === 'active') {
-    return 'Active';
-  }
-  if (session.worked_minutes !== null && session.worked_minutes !== undefined) {
-    const hours = Math.floor(session.worked_minutes / 60);
-    const minutes = session.worked_minutes % 60;
-    return `${hours}h ${minutes}m`;
-  }
-  if (session.check_in_at && session.check_out_at) {
-    const diffMs = new Date(session.check_out_at).getTime() - new Date(session.check_in_at).getTime();
-    const totalMinutes = Math.floor(diffMs / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours}h ${minutes}m`;
-  }
-  return '—';
-}
 
 export default function AttendancePage() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -293,14 +275,6 @@ export default function AttendancePage() {
     }
   };
 
-  const formatDuration = (hours: number | null | undefined) => {
-    if (hours === null || hours === undefined) return '-';
-    const totalSeconds = Math.floor(hours * 3600);
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
-  };
 
   return (
     <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
@@ -537,7 +511,7 @@ export default function AttendancePage() {
             <div className="p-10"><TableSkeleton rows={5} cols={7} /></div>
           ) : sessions.length === 0 ? (
             <div className="p-20 text-center">
-              <EmptyState message="No session history discovered in the organizational records." />
+              <EmptyState title="No session history" description="No session history discovered in the organizational records." />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -577,7 +551,7 @@ export default function AttendancePage() {
                       </TableCell>
                       <TableCell>
                         <div className="font-mono text-xs font-black text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-3 py-1.5 rounded-xl w-fit border border-[var(--border-subtle)] shadow-inner">
-                          {formatDuration(session)}
+                          {formatAttendanceDuration(session)}
                         </div>
                       </TableCell>
                       <TableCell>

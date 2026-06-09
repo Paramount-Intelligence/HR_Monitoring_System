@@ -13,7 +13,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { formatPKDate, formatPKDateTime } from '@/lib/time';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
-import { cn } from '@/lib/utils';
+import { cn, formatAttendanceDuration } from '@/lib/utils';
 import apiClient from '@/lib/api/client';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -94,24 +94,7 @@ function getErrorMessage(error: any) {
   return error.response?.data?.detail || error.message;
 }
 
-function formatDuration(session: AttendanceSession) {
-  if (session.session_status === 'active') {
-    return 'Active';
-  }
-  if (session.worked_minutes !== null && session.worked_minutes !== undefined) {
-    const hours = Math.floor(session.worked_minutes / 60);
-    const minutes = session.worked_minutes % 60;
-    return `${hours}h ${minutes}m`;
-  }
-  if (session.check_in_at && session.check_out_at) {
-    const diffMs = new Date(session.check_out_at).getTime() - new Date(session.check_in_at).getTime();
-    const totalMinutes = Math.floor(diffMs / 60000);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    return `${hours}h ${minutes}m`;
-  }
-  return '—';
-}
+
 
 export default function AttendancePage() {
   const [sessions, setSessions] = useState<AttendanceSession[]>([]);
@@ -296,14 +279,7 @@ export default function AttendancePage() {
     }
   };
 
-  const formatDuration = (hours: number | null | undefined) => {
-    if (hours === null || hours === undefined) return '-';
-    const totalSeconds = Math.floor(hours * 3600);
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    return `${h}h ${m.toString().padStart(2, '0')}m ${s.toString().padStart(2, '0')}s`;
-  };
+
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 text-[var(--text-primary)]">
@@ -558,7 +534,7 @@ export default function AttendancePage() {
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="font-mono text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--bg-subtle)] px-2 py-1 rounded-lg w-fit border border-[var(--border-subtle)] shadow-inner">
-                          {formatDuration(session)}
+                          {formatAttendanceDuration(session)}
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
