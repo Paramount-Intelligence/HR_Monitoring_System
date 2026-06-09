@@ -20,11 +20,8 @@ import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 
-interface HRReportsPageProps {
-  role?: 'hr' | 'admin';
-}
-
-export default function HRReportsPage({ role = 'hr' }: HRReportsPageProps) {
+export default function HRReportsPage() {
+  const role = 'hr' as 'hr' | 'admin';
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [period, setPeriod] = useState<'this_week' | 'last_week' | 'this_month'>('this_week');
@@ -154,7 +151,7 @@ export default function HRReportsPage({ role = 'hr' }: HRReportsPageProps) {
               {isLoading ? (
                 <div className="p-10"><TableSkeleton rows={8} cols={4} /></div>
               ) : reports.length === 0 ? (
-                <div className="py-20"><EmptyState title="No records found" icon={FileText} /></div>
+                <div className="py-20"><EmptyState title="No records found" description="No attendance data found for the selected period." icon={FileText} /></div>
               ) : (
                 <Table>
                   <TableHeader className="bg-[var(--bg-subtle)]">

@@ -54,7 +54,7 @@ const shiftSchema = z.object({
   name: z.string().min(2, 'Name is required'),
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().min(1, 'End time is required'),
-  grace_period_minutes: z.coerce.number().min(0),
+  grace_period_minutes: z.string().min(0),
   working_days: z.string().min(1, 'Working days required (e.g. 1,2,3,4,5)'),
   timezone: z.string().min(1, 'Timezone is required'),
 });
@@ -165,10 +165,10 @@ export default function AdminOrgPage() {
   };
 
   const shiftForm = useForm<z.infer<typeof shiftSchema>>({
-    resolver: zodResolver(shiftSchema),
+    resolver: zodResolver(shiftSchema) as any,
     defaultValues: { 
       name: '', start_time: '', end_time: '', 
-      grace_period_minutes: 15, working_days: '1,2,3,4,5', 
+      grace_period_minutes: '15', working_days: '1,2,3,4,5', 
       timezone: 'Asia/Karachi' 
     }
   });
@@ -209,7 +209,7 @@ export default function AdminOrgPage() {
 
   const onShiftSubmit = async (data: any) => {
     try {
-      await shiftsApi.createShift({ ...data, is_active: true });
+      await shiftsApi.createShift({ ...data, grace_period_minutes: Number(data.grace_period_minutes), is_active: true });
       toast.success('Work shift configured');
       setIsShiftDialogOpen(false);
       shiftForm.reset();
@@ -393,7 +393,7 @@ export default function AdminOrgPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {departments.length === 0 && <TableRow><TableCell colSpan={5} className="p-20"><EmptyState title="No Departments" icon={Building} /></TableCell></TableRow>}
+                      {departments.length === 0 && <TableRow><TableCell colSpan={5} className="p-20"><EmptyState title="No Departments" description="Create your first department to get started." icon={Building} /></TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 )}
@@ -567,7 +567,7 @@ export default function AdminOrgPage() {
                     </Card>
                   ))}
                 </div>
-                {shifts.length === 0 && <div className="py-20"><EmptyState title="No Shifts Configured" icon={Clock} /></div>}
+                {shifts.length === 0 && <div className="py-20"><EmptyState title="No Shifts Configured" description="Add a work shift to assign to employees." icon={Clock} /></div>}
               </CardContent>
             </Card>
           </TabsContent>
@@ -628,7 +628,7 @@ export default function AdminOrgPage() {
                           </TableCell>
                         </TableRow>
                       ))}
-                      {holidays.length === 0 && <TableRow><TableCell colSpan={3} className="p-20"><EmptyState title="No Holidays Recorded" icon={Calendar} /></TableCell></TableRow>}
+                      {holidays.length === 0 && <TableRow><TableCell colSpan={3} className="p-20"><EmptyState title="No Holidays Recorded" description="Add public and company holidays here." icon={Calendar} /></TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 )}

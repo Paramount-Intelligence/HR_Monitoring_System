@@ -144,7 +144,7 @@ export default function AdminAnnouncementsPage() {
           <div className="p-10"><TableSkeleton rows={4} cols={1} /></div>
         ) : announcements.length === 0 ? (
           <div className="py-20 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[3rem] shadow-[var(--shadow-soft)]">
-              <EmptyState title="No announcements published yet" message="Broadcast updates will appear here." icon={Megaphone} />
+              <EmptyState title="No announcements published yet" description="Broadcast updates will appear here." icon={Megaphone} />
           </div>
         ) : (
           announcements.map((ann) => (

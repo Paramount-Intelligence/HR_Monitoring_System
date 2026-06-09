@@ -59,7 +59,7 @@ export default function AdminHolidaysPage() {
   const handleDeleteHoliday = async (id: string) => {
     if (!confirm('Are you sure you want to delete this holiday?')) return;
     try {
-      await holidaysApi.deleteHoliday(id);
+      await holidaysApi.deactivateHoliday(id);
       toast.success('Holiday deleted');
       fetchHolidays();
     } catch (error) {

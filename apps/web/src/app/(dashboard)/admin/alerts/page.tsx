@@ -5,6 +5,7 @@ import { alertsApi, Alert } from '@/lib/api/alerts';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Clock, CheckCircle2, Bell, AlertTriangle, ShieldCheck, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -66,7 +67,7 @@ export default function AlertsPage() {
         <div className="py-20">
           <EmptyState 
               title="No active alerts"
-              message="All system signals are nominal. No active exceptions detected in the current cycle."
+              description="All system signals are nominal. No active exceptions detected in the current cycle."
               icon={ShieldCheck}
           />
         </div>
@@ -105,12 +106,10 @@ export default function AlertsPage() {
                             <Clock className="h-3.5 w-3.5" />
                             DETECTION: {alert.created_at ? formatPKDateTime(alert.created_at) : 'PENDING'}
                         </div>
-                        {alert.category && (
-                            <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-widest">
-                                <ShieldCheck className="h-3.5 w-3.5" />
-                                {alert.category}
-                            </div>
-                        )}
+                        <div className="flex items-center gap-2 text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-widest">
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            {alert.alert_type}
+                        </div>
                     </div>
                   </div>
                 </div>
