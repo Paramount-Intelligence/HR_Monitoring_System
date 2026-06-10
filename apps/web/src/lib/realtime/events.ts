@@ -22,10 +22,13 @@ export type RealtimeEventType =
   | 'task_completed'
   | 'dashboard_refresh_hint'
   | 'call_incoming'
+  | 'incoming_call'
   | 'call_accepted'
   | 'call_declined'
   | 'call_ended'
   | 'call_missed'
+  | 'call_failed'
+  | 'call_ringing'
   | 'call_signal';
 
 export interface RealtimeEvent {

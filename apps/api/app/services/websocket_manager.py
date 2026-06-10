@@ -1,6 +1,6 @@
-"""In-memory WebSocket connection manager.
+"""In-memory WebSocket connection manager (local delivery per worker).
 
-TODO: Add Redis pub/sub for multi-instance Railway deployments.
+Cross-worker fanout is handled by app.services.realtime_bridge (Redis pub/sub).
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ class WebSocketManager:
         async with self._lock:
             self._connections[user_id].add(websocket)
             self._meta[websocket] = {"user_id": user_id, "role": role}
-        logger.info("WS connected user_id=%s (total=%s)", user_id, len(self._connections[user_id]))
+        logger.info("[WS] user connected user_id=%s (connections=%s)", user_id, len(self._connections[user_id]))
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
@@ -47,7 +47,7 @@ class WebSocketManager:
                 conns.discard(websocket)
                 if not conns:
                     del self._connections[user_id]
-        logger.info("WS disconnected user_id=%s", meta.get("user_id"))
+        logger.info("[WS] user disconnected user_id=%s", meta.get("user_id"))
 
     async def _send_json(self, websocket: WebSocket, event: dict[str, Any]) -> None:
         try:
@@ -105,9 +105,7 @@ ws_manager = WebSocketManager()
 
 
 def schedule_coroutine(coro) -> None:
-    """Schedule an async coroutine from sync FastAPI route handlers."""
-    try:
-        loop = asyncio.get_running_loop()
-        loop.create_task(coro)
-    except RuntimeError:
-        asyncio.run(coro)
+    """Schedule an async coroutine on the main uvicorn event loop."""
+    from app.services.realtime_bridge import schedule_on_main_loop
+
+    schedule_on_main_loop(coro)

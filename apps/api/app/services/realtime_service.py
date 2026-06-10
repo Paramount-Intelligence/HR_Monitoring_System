@@ -11,7 +11,7 @@ from app.models.enums import UserRole, UserStatus
 from app.models.notifications import Notification
 from app.models.user import User
 from app.schemas.realtime import RealtimeEvent
-from app.services.websocket_manager import schedule_coroutine, ws_manager
+from app.services.realtime_bridge import schedule_emit_to_user, schedule_emit_to_users
 
 
 class RealtimeService:
@@ -38,11 +38,11 @@ class RealtimeService:
 
     @staticmethod
     def emit_to_user(user_id: uuid.UUID | str, event: dict[str, Any]) -> None:
-        schedule_coroutine(ws_manager.send_to_user(str(user_id), event))
+        schedule_emit_to_user(str(user_id), event)
 
     @staticmethod
     def emit_to_users(user_ids: list[uuid.UUID | str] | set[uuid.UUID | str], event: dict[str, Any]) -> None:
-        schedule_coroutine(ws_manager.send_to_users({str(u) for u in user_ids}, event))
+        schedule_emit_to_users({str(u) for u in user_ids}, event)
 
     @staticmethod
     def emit_to_conversation_participants(

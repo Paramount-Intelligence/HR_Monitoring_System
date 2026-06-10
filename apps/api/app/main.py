@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -26,6 +27,12 @@ logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Seed permissions and bootstrap admin on startup."""
+    from app.services.realtime_bridge import set_main_event_loop, start_bridge, stop_bridge
+
+    loop = asyncio.get_running_loop()
+    set_main_event_loop(loop)
+    await start_bridge()
+
     assert_utf8_database(engine)
     db = SessionLocal()
     try:
@@ -60,6 +67,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    await stop_bridge()
 
     # Shutdown Celery worker
     if celery_worker:
@@ -136,6 +144,7 @@ default_cors_origins = [
     "https://aware-harmony-production-b1c1.up.railway.app",
     "https://workforce-intelligence-os.up.railway.app",
     "https://pims-os.up.railway.app",
+    "https://diligent-elegance-production-52de.up.railway.app",
 ]
 configured_cors_origins = [
     *default_cors_origins,

@@ -167,23 +167,9 @@ export function startRingtone(): void {
   });
 }
 
-/** Outgoing caller ringing — same asset, slightly quieter, looped. */
+/** Outgoing caller — no ringtone (ringback disabled). */
 export function startOutgoingRing(): void {
-  if (!isSoundEnabled()) return;
   stopOutgoingRing();
-
-  void playSoundFile(SOUND_ASSETS.ringtone, { loop: true, volume: 0.65 }).then((audio) => {
-    if (audio) {
-      outgoingRingAudio = audio;
-      return;
-    }
-    const playBurst = () => {
-      playTone(520, 350, 0.14);
-      setTimeout(() => playTone(620, 350, 0.12), 400);
-    };
-    playBurst();
-    outgoingRingInterval = setInterval(playBurst, 2500);
-  });
 }
 
 export function stopOutgoingRing(): void {

@@ -6,12 +6,11 @@ import { getErrorMessage } from '@/lib/api/client';
 import { useRealtimeEvent } from '@/hooks/useRealtime';
 import {
   playCallEndSound,
-  startOutgoingRing,
   startRingtone,
   stopAllCallSounds,
-  stopOutgoingRing,
   stopRingtone,
 } from '@/lib/calls/sounds';
+import { buildIceServers } from '@/lib/calls/webrtc-config';
 
 export type CallRole = 'caller' | 'callee' | null;
 export type CallConnectionStatus =
@@ -24,10 +23,8 @@ export type CallConnectionStatus =
   | 'failed';
 
 const MISSED_CALL_TIMEOUT_MS = 45000;
-const STUN_URL =
-  process.env.NEXT_PUBLIC_STUN_URL ||
-  process.env.NEXT_PUBLIC_WEBRTC_STUN_URL ||
-  'stun:stun.l.google.com:19302';
+const SIGNAL_POLL_MS = 500;
+const INCOMING_POLL_MS = 3000;
 
 function parsePayload(payload: unknown): RTCSessionDescriptionInit | RTCIceCandidateInit {
   if (typeof payload === 'string') {
@@ -153,7 +150,7 @@ export function useCallManager({
   const createPeerConnection = useCallback(
     (session: CallSession, stream: MediaStream, recipientId: string) => {
       const pc = new RTCPeerConnection({
-        iceServers: [{ urls: STUN_URL }],
+        iceServers: buildIceServers(),
       });
 
       pc.onicecandidate = (event) => {
@@ -238,7 +235,6 @@ export function useCallManager({
             setConnectionStatus('connecting');
             await pc.setRemoteDescription(new RTCSessionDescription(payload));
             await drainPendingCandidates(pc);
-            stopOutgoingRing();
           }
         } else if (sig.signal_type === 'ice_candidate') {
           const ice = payload as RTCIceCandidateInit;
@@ -299,7 +295,6 @@ export function useCallManager({
         setCallSession(session);
         setCallRole('caller');
         setConnectionStatus('calling');
-        startOutgoingRing();
 
         const pc = createPeerConnection(session, stream, recipient.id);
         const offer = await pc.createOffer();
@@ -420,30 +415,37 @@ export function useCallManager({
     }
   }, [localStream]);
 
-  // Realtime: incoming call
-  useRealtimeEvent('call_incoming', (ev) => {
-    if (callSessionRef.current) return;
-    setCallSession({
-      id: String(ev.payload.call_session_id),
-      conversation_id: String(ev.payload.conversation_id),
-      call_type: (ev.payload.call_type as 'voice' | 'video') || 'voice',
-      started_by_id: String(ev.actor_id || ''),
-      status: 'ringing',
-      started_at: null,
-      accepted_at: null,
-      ended_at: null,
-      created_at: ev.timestamp,
-    });
-    setCallRole('callee');
-    setConnectionStatus('incoming');
-    setIncomingCallerName(String(ev.payload.started_by_name || 'Someone'));
-    startRingtone();
-  });
+  const handleIncomingCallEvent = useCallback(
+    (ev: { actor_id?: string | null; payload: Record<string, unknown>; timestamp?: string }) => {
+      if (callSessionRef.current) return;
+      if (ev.actor_id && userId && String(ev.actor_id) === String(userId)) return;
+
+      setCallSession({
+        id: String(ev.payload.call_session_id),
+        conversation_id: String(ev.payload.conversation_id),
+        call_type: (ev.payload.call_type as 'voice' | 'video') || 'voice',
+        started_by_id: String(ev.actor_id || ''),
+        status: 'ringing',
+        started_at: null,
+        accepted_at: null,
+        ended_at: null,
+        created_at: ev.timestamp || new Date().toISOString(),
+      });
+      setCallRole('callee');
+      setConnectionStatus('incoming');
+      setIncomingCallerName(String(ev.payload.started_by_name || 'Someone'));
+      startRingtone();
+    },
+    [userId]
+  );
+
+  // Realtime: incoming call (backend emits call_incoming; support incoming_call alias)
+  useRealtimeEvent('call_incoming', handleIncomingCallEvent);
+  useRealtimeEvent('incoming_call', handleIncomingCallEvent);
 
   useRealtimeEvent('call_accepted', (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
       setCallSession((prev) => (prev ? { ...prev, status: 'active' } : prev));
-      stopOutgoingRing();
       setConnectionStatus('connecting');
       void fetchAndProcessSignals();
     }
@@ -483,7 +485,7 @@ export function useCallManager({
     const interval = setInterval(async () => {
       try {
         const incoming = await messagesApi.getIncomingCall();
-        if (incoming && !callSessionRef.current) {
+        if (incoming && !callSessionRef.current && incoming.started_by_id !== userId) {
           setCallSession(incoming);
           setCallRole('callee');
           setConnectionStatus('incoming');
@@ -495,9 +497,9 @@ export function useCallManager({
       } catch {
         /* silent */
       }
-    }, 5000);
+    }, INCOMING_POLL_MS);
     return () => clearInterval(interval);
-  }, [callSession, conversations]);
+  }, [callSession, conversations, userId]);
 
   // Signal polling — caller always; callee only after peer connection exists
   useEffect(() => {
@@ -506,7 +508,7 @@ export function useCallManager({
 
     const interval = setInterval(() => {
       void fetchAndProcessSignals();
-    }, 1000);
+    }, SIGNAL_POLL_MS);
 
     return () => clearInterval(interval);
   }, [callSession, callRole, fetchAndProcessSignals]);

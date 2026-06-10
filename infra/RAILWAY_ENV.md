@@ -49,13 +49,23 @@ Set these on the Next.js service:
 ```env
 NEXT_PUBLIC_APP_NAME=Workforce Intelligence & Execution OS
 NEXT_PUBLIC_API_URL=https://<your-api-service>.up.railway.app/api/v1
+NEXT_PUBLIC_WS_URL=wss://<your-api-service>.up.railway.app/api/v1/ws
 APP_ENV=production
+
+# Optional — required for calls across strict NAT/firewalls
+# NEXT_PUBLIC_STUN_URL=stun:stun.l.google.com:19302
+# NEXT_PUBLIC_TURN_URL=turn:your-turn.example.com:3478
+# NEXT_PUBLIC_TURN_USERNAME=
+# NEXT_PUBLIC_TURN_CREDENTIAL=
 ```
 
 Notes:
 
 - `NEXT_PUBLIC_API_URL` must exist when Railway builds the web app. Next.js bakes
   `NEXT_PUBLIC_*` values into the client bundle at build time.
+- `NEXT_PUBLIC_WS_URL` must point at the **API** service WebSocket endpoint
+  (`wss://<api-host>/api/v1/ws`), not the frontend domain. Redeploy the web service
+  after changing either `NEXT_PUBLIC_*` URL.
 - Do not put database, SMTP, bootstrap admin, or backend secrets on the web service.
 
 ## After URLs Change
@@ -64,6 +74,6 @@ If Railway gives you new domains:
 
 1. Update API service `FRONTEND_BASE_URL`.
 2. Update API service `CORS_ORIGINS`.
-3. Update web service `NEXT_PUBLIC_API_URL`.
-4. Redeploy both services, especially the web service because `NEXT_PUBLIC_API_URL`
-   is build-time config.
+3. Update web service `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+4. Redeploy both services, especially the web service because `NEXT_PUBLIC_*` values
+   are build-time config.

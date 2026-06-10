@@ -3,6 +3,28 @@ import type { ConnectionStatus, RealtimeEvent } from './events';
 const MAX_DEDUPE = 2000;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
+const DEV = process.env.NODE_ENV === 'development';
+
+const CALL_EVENT_TYPES = new Set([
+  'call_incoming',
+  'incoming_call',
+  'call_accepted',
+  'call_declined',
+  'call_ended',
+  'call_missed',
+  'call_failed',
+  'call_signal',
+  'call_ringing',
+]);
+
+function logRealtime(message: string, detail?: string) {
+  if (!DEV) return;
+  if (detail) {
+    console.log(`[Realtime] ${message}`, detail);
+  } else {
+    console.log(`[Realtime] ${message}`);
+  }
+}
 
 export function resolveWebSocketUrl(): string {
   if (typeof window === 'undefined') return '';
@@ -52,6 +74,7 @@ export class RealtimeWebSocketClient {
 
     const baseUrl = resolveWebSocketUrl();
     const url = `${baseUrl}?token=${encodeURIComponent(token)}`;
+    logRealtime('WS URL:', baseUrl);
 
     try {
       this.ws = new WebSocket(url);
@@ -63,6 +86,7 @@ export class RealtimeWebSocketClient {
     this.ws.onopen = () => {
       this.reconnectAttempt = 0;
       this.setStatus('connected');
+      logRealtime('connected');
       this.startPing();
     };
 
@@ -86,6 +110,9 @@ export class RealtimeWebSocketClient {
             if (first) this.seenEventIds.delete(first);
           }
         }
+        if (DEV && CALL_EVENT_TYPES.has(data.type)) {
+          logRealtime(`event received: ${data.type}`);
+        }
         this.eventHandlers.forEach((handler) => handler(data));
         window.dispatchEvent(new CustomEvent('pims-realtime', { detail: data }));
       } catch {
@@ -97,6 +124,7 @@ export class RealtimeWebSocketClient {
       this.stopPing();
       if (!this.intentionalClose) {
         this.setStatus('disconnected');
+        logRealtime('disconnected');
         this.scheduleReconnect();
       } else {
         this.setStatus('idle');

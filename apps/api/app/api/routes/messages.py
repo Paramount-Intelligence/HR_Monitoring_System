@@ -20,7 +20,10 @@ from app.models.approval import Approval
 from app.models.notifications import Notification
 
 from app.services.realtime_service import RealtimeService
+from app.services.websocket_manager import ws_manager
 from app.services import message_receipt_service as receipt_svc
+
+logger = logging.getLogger(__name__)
 
 from app.schemas.communication import (
     ConversationRead,
@@ -1638,6 +1641,14 @@ def start_call(
     db.refresh(call_session)
 
     if recipient:
+        receiver_connected = ws_manager.connection_count(str(recipient.user_id)) > 0
+        logger.info(
+            "[CALL] start call_id=%s caller=%s receiver=%s receiver_connected=%s",
+            call_session.id,
+            current_user.id,
+            recipient.user_id,
+            receiver_connected,
+        )
         RealtimeService.emit_call_event(
             "call_incoming",
             call_session_id=call_session.id,
@@ -1650,6 +1661,11 @@ def start_call(
         if call_notification:
             db.refresh(call_notification)
             RealtimeService.emit_notification_created(call_notification)
+        logger.info(
+            "[CALL] sent call_incoming to user_id=%s call_id=%s",
+            recipient.user_id,
+            call_session.id,
+        )
 
     return call_session
 
@@ -1708,6 +1724,12 @@ def accept_call(
     db.commit()
     db.refresh(call_session)
 
+    logger.info(
+        "[CALL] accepted call_id=%s receiver=%s caller=%s",
+        call_session.id,
+        current_user.id,
+        call_session.started_by_id,
+    )
     RealtimeService.emit_call_event(
         "call_accepted",
         call_session_id=call_session.id,
@@ -1715,6 +1737,11 @@ def accept_call(
         call_type=call_session.call_type,
         target_user_ids=[call_session.started_by_id],
         actor_id=current_user.id,
+    )
+    logger.info(
+        "[CALL] sent call_accepted to caller=%s call_id=%s",
+        call_session.started_by_id,
+        call_session.id,
     )
 
     return call_session
@@ -1962,6 +1989,16 @@ def send_call_signal(
     db.add(signal)
     db.commit()
     db.refresh(signal)
+
+    recipient_connected = ws_manager.connection_count(str(req.recipient_id)) > 0
+    logger.info(
+        "[CALL] ICE/signal from=%s to=%s call_id=%s type=%s delivered_target_connected=%s",
+        current_user.id,
+        req.recipient_id,
+        call_id,
+        req.signal_type,
+        recipient_connected,
+    )
 
     RealtimeService.emit_to_user(
         req.recipient_id,
