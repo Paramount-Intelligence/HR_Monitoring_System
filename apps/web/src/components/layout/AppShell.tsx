@@ -11,6 +11,7 @@ import {
 import { RealtimeProvider } from '@/providers/RealtimeProvider';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { cn } from '@/lib/utils';
+import { unlockSounds } from '@/lib/calls/sounds';
 
 function NotificationBridge() {
   const { user } = useAuth();
@@ -36,6 +37,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const pathname = usePathname();
   const isMessagesRoute = pathname?.startsWith('/messages');
+
+  useEffect(() => {
+    const unlock = () => { void unlockSounds(); };
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   return (
     <RealtimeProvider>

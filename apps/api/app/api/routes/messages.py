@@ -1718,6 +1718,9 @@ def accept_call(
     )
 
     return call_session
+
+
+@router.post("/calls/{call_id}/decline", response_model=CallSessionRead)
 def decline_call(
     call_id: uuid.UUID,
     db: Session = Depends(get_db),
@@ -1852,6 +1855,18 @@ def end_call(
             )
             db.add(missed_notif)
 
+            RealtimeService.emit_call_event(
+                "call_missed",
+                call_session_id=call_session.id,
+                conversation_id=call_session.conversation_id,
+                call_type=call_session.call_type,
+                target_user_ids=[call_session.started_by_id, receiver_part.user_id],
+                actor_id=current_user.id,
+            )
+            if missed_notif:
+                db.flush()
+                RealtimeService.emit_notification_created(missed_notif)
+
     elif call_session.status == "active":
         # Call was active and is being ended
         call_session.status = "ended"
@@ -1947,6 +1962,25 @@ def send_call_signal(
     db.add(signal)
     db.commit()
     db.refresh(signal)
+
+    RealtimeService.emit_to_user(
+        req.recipient_id,
+        RealtimeService.event(
+            "call_signal",
+            {
+                "call_session_id": str(call_id),
+                "signal_type": req.signal_type,
+                "signal_id": str(signal.id),
+                "sender_id": str(current_user.id),
+                "payload": req.payload,
+            },
+            actor_id=current_user.id,
+            conversation_id=call_session.conversation_id,
+            entity_type="call",
+            entity_id=call_session.id,
+        ),
+    )
+
     return signal
 
 

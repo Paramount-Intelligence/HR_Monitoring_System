@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { notificationsApi, Notification as AppNotification } from '@/lib/api/notifications';
 import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
+import { playNotificationSound } from '@/lib/calls/sounds';
 
 const STORAGE_KEY = 'pims_browser_notifications_enabled';
 const POLL_INTERVAL_CONNECTED_MS = 60000;
@@ -75,6 +76,8 @@ export function BrowserNotificationProvider({ enabled }: BrowserNotificationProv
 
   useRealtimeEvent('notification_created', (ev) => {
     const p = ev.payload;
+    const notificationType = String(p.notification_type);
+    playNotificationSound(notificationType);
     showBrowserNotification({
       id: String(p.id),
       title: String(p.title),

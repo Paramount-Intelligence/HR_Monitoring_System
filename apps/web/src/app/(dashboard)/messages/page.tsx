@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
+import { useCallManager } from '@/hooks/useCallManager';
+import { unlockSounds } from '@/lib/calls/sounds';
 import { usersApi } from '@/lib/api/users';
 import {
   messagesApi,
@@ -357,24 +359,38 @@ function MessagesContent() {
   const canIManageSettings = isMeAdminOrOwner;
   const isGroupOrChannel = activeConv?.type === 'group' || activeConv?.type === 'channel';
 
-  // WebRTC / Call states
-  const [callSession, setCallSession] = useState<any | null>(null);
-  const [callRole, setCallRole] = useState<'caller' | 'callee' | null>(null);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [localMuted, setLocalMuted] = useState(false);
-  const [localVideoDisabled, setLocalVideoDisabled] = useState(false);
-  const [iceConnectionState, setIceConnectionState] = useState<string>('new');
-  const [isOutgoingRinging, setIsOutgoingRinging] = useState(false);
-  const [isIncomingRinging, setIsIncomingRinging] = useState(false);
-  const [incomingCallerName, setIncomingCallerName] = useState('');
-  const [showPremiumCallModal, setShowPremiumCallModal] = useState(false);
+  const {
+    callSession,
+    localStream,
+    remoteStream,
+    localMuted,
+    localVideoDisabled,
+    iceConnectionState,
+    connectionStatus,
+    incomingCallerName,
+    otherCallParticipantName,
+    isIncomingRinging,
+    isOutgoingRinging,
+    showPremiumCallModal,
+    setShowPremiumCallModal,
+    callDurationSec,
+    localVideoRef,
+    remoteVideoRef,
+    remoteAudioRef,
+    handleStartCall,
+    handleAcceptCall,
+    handleDeclineCall,
+    handleEndCall,
+    toggleMute,
+    toggleVideo,
+  } = useCallManager({
+    userId: user?.id,
+    conversations,
+    activeConv,
+    onError: setError,
+  });
 
-  // WebRTC refs
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const pendingCandidates = useRef<any[]>([]);
-  const localVideoRef = useRef<HTMLVideoElement | null>(null);
-  const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
+  const otherCallParticipantInitial = otherCallParticipantName.charAt(0).toUpperCase() || 'C';
 
   // Ref to always hold the latest selected conversation ID for intervals
   const latestSelectedConvId = useRef<string | null>(null);
@@ -385,11 +401,6 @@ function MessagesContent() {
   const { isConnected } = useRealtimeStatus();
   const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const callSessionRef = useRef<any | null>(null);
-
-  useEffect(() => {
-    callSessionRef.current = callSession;
-  }, [callSession]);
 
   const isNearBottom = useCallback(() => {
     const el = messagesContainerRef.current;
@@ -641,45 +652,6 @@ function MessagesContent() {
 
   useRealtimeReconnect(() => {
     pollUpdates();
-  });
-
-  useRealtimeEvent('call_incoming', (ev) => {
-    if (callSessionRef.current) return;
-    setCallSession({
-      id: ev.payload.call_session_id,
-      conversation_id: ev.payload.conversation_id,
-      call_type: ev.payload.call_type,
-      started_by_id: ev.actor_id,
-      status: 'ringing',
-    });
-    setCallRole('callee');
-    setIsIncomingRinging(true);
-    setIncomingCallerName(String(ev.payload.started_by_name || 'Someone'));
-  });
-
-  useRealtimeEvent('call_accepted', (ev) => {
-    if (callSessionRef.current?.id === ev.payload.call_session_id) {
-      setCallSession((prev: any) => (prev ? { ...prev, status: 'active' } : prev));
-      setIsOutgoingRinging(false);
-    }
-  });
-
-  useRealtimeEvent('call_declined', (ev) => {
-    if (callSessionRef.current?.id === ev.payload.call_session_id) {
-      setCallSession(null);
-      setCallRole(null);
-      setIsOutgoingRinging(false);
-      setIsIncomingRinging(false);
-    }
-  });
-
-  useRealtimeEvent('call_ended', (ev) => {
-    if (callSessionRef.current?.id === ev.payload.call_session_id) {
-      setCallSession(null);
-      setCallRole(null);
-      setIsOutgoingRinging(false);
-      setIsIncomingRinging(false);
-    }
   });
 
   const loadMessages = async (convId: string) => {
@@ -950,366 +922,23 @@ function MessagesContent() {
     u.full_name.toLowerCase().includes(mentionFilter.toLowerCase())
   );
 
-  // ─── WebRTC Call Helpers & Handlers ─────────────────────────────────────
+  // Unlock audio on first interaction (browser autoplay policy)
+  useEffect(() => {
+    const unlock = () => { void unlockSounds(); };
+    window.addEventListener('click', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
+
+  // ─── Utility helpers ────────────────────────────────────────────────────
 
   const getDirectChatRecipient = (conv: Conversation | null) => {
     if (!conv || conv.type !== 'direct') return null;
     return conv.participants.find(p => p.user_id !== user?.id)?.user ?? null;
   };
-
-  // Safe resolved helper values for call participant information to prevent crashes
-  const currentCallConv = conversations.find(c => c.id === callSession?.conversation_id) || activeConv;
-  const otherCallParticipant = getDirectChatRecipient(currentCallConv);
-  const otherCallParticipantName = otherCallParticipant?.full_name || incomingCallerName || 'Direct Call';
-  const otherCallParticipantInitial = otherCallParticipantName.charAt(0).toUpperCase() || 'C';
-
-  const handleTeardownCall = useCallback(() => {
-    if (peerConnectionRef.current) {
-      peerConnectionRef.current.close();
-      peerConnectionRef.current = null;
-    }
-    setCallSession(null);
-    setCallRole(null);
-    setIsOutgoingRinging(false);
-    setIsIncomingRinging(false);
-    setLocalMuted(false);
-    setLocalVideoDisabled(false);
-    setIceConnectionState('new');
-    setIncomingCallerName('');
-    pendingCandidates.current = [];
-
-    setLocalStream(prev => {
-      if (prev) prev.getTracks().forEach(track => track.stop());
-      return null;
-    });
-    setRemoteStream(prev => {
-      if (prev) prev.getTracks().forEach(track => track.stop());
-      return null;
-    });
-  }, []);
-
-  const handleStartCall = async (callType: 'voice' | 'video') => {
-    if (!activeConv || activeConv.type !== 'direct') return;
-    const recipient = getDirectChatRecipient(activeConv);
-    if (!recipient) return;
-
-    let stream: MediaStream | null = null;
-    try {
-      setError(null);
-
-      // 1. Device and API compatibility checks
-      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
-        setError("This browser does not support audio/video calls.");
-        return;
-      }
-
-      const constraints = {
-        audio: true,
-        video: callType === 'video'
-      };
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        setLocalStream(stream);
-      } catch (permErr: any) {
-        console.warn('Media devices access denied:', permErr);
-        setError("Microphone/camera permission is required to join this call.");
-        return;
-      }
-
-      const session = await messagesApi.startCall(activeConv.id, callType);
-      setCallSession(session);
-      setCallRole('caller');
-      setIsOutgoingRinging(true);
-
-      const stunUrl = process.env.NEXT_PUBLIC_WEBRTC_STUN_URL || 'stun:stun.l.google.com:19302';
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: stunUrl }]
-      });
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          messagesApi.sendSignal(session.id, recipient.id, 'ice_candidate', event.candidate);
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        setIceConnectionState(pc.iceConnectionState);
-      };
-
-      const remoteMediaStream = new MediaStream();
-      pc.ontrack = (event) => {
-        event.streams[0].getTracks().forEach(track => {
-          remoteMediaStream.addTrack(track);
-        });
-        setRemoteStream(remoteMediaStream);
-      };
-
-      stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream!);
-      });
-
-      peerConnectionRef.current = pc;
-
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      await messagesApi.sendSignal(session.id, recipient.id, 'offer', offer);
-
-    } catch (err: any) {
-      console.error('Failed to start call:', err);
-      setError(getErrorMessage(err) || 'Could not initiate audio/video call session.');
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
-      handleTeardownCall();
-    }
-  };
-
-  const handleAcceptCall = async () => {
-    if (!callSession?.id) {
-      setError("Invalid call session.");
-      return;
-    }
-
-    const callerId = callSession.started_by_id;
-    let stream: MediaStream | null = null;
-    try {
-      setIsIncomingRinging(false);
-      setError(null);
-
-      // 1. Device and API compatibility checks
-      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
-        setError("This browser does not support audio/video calls.");
-        return;
-      }
-
-      // 2. Request media permissions safely
-      const constraints = {
-        audio: true,
-        video: callSession.call_type === 'video'
-      };
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-        setLocalStream(stream);
-      } catch (permErr: any) {
-        console.warn('Media devices access denied:', permErr);
-        setError("Microphone/camera permission is required to join this call.");
-        return;
-      }
-
-      // 3. Accept call via API
-      let acceptedSession;
-      try {
-        acceptedSession = await messagesApi.acceptCall(callSession.id);
-        setCallSession(acceptedSession);
-      } catch (apiErr: any) {
-        console.error('Accept API call failed:', apiErr);
-        setError("Unable to accept call. Call session expired or no longer available.");
-        if (stream) stream.getTracks().forEach(t => t.stop());
-        return;
-      }
-
-      // 4. Initialize RTCPeerConnection safely with fallback STUN URL
-      const stunUrl = process.env.NEXT_PUBLIC_WEBRTC_STUN_URL || 'stun:stun.l.google.com:19302';
-      const pc = new RTCPeerConnection({
-        iceServers: [{ urls: stunUrl }]
-      });
-
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          messagesApi.sendSignal(callSession.id, callerId, 'ice_candidate', event.candidate);
-        }
-      };
-
-      pc.oniceconnectionstatechange = () => {
-        setIceConnectionState(pc.iceConnectionState);
-      };
-
-      const remoteMediaStream = new MediaStream();
-      pc.ontrack = (event) => {
-        event.streams[0].getTracks().forEach(track => {
-          remoteMediaStream.addTrack(track);
-        });
-        setRemoteStream(remoteMediaStream);
-      };
-
-      stream.getTracks().forEach(track => {
-        pc.addTrack(track, stream!);
-      });
-
-      peerConnectionRef.current = pc;
-
-    } catch (err: any) {
-      console.error('Failed to accept call:', err);
-      setError(getErrorMessage(err) || 'Call could not connect. This may happen on restricted networks.');
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
-      handleDeclineCall();
-    }
-  };
-
-  const handleDeclineCall = async () => {
-    if (!callSession) return;
-    const callerId = callSession.started_by_id;
-    try {
-      if (callerId) {
-        await messagesApi.sendSignal(callSession.id, callerId, 'end', {});
-      }
-      await messagesApi.declineCall(callSession.id);
-    } catch (err) {
-      console.error('Failed to decline call:', err);
-    } finally {
-      handleTeardownCall();
-    }
-  };
-
-  const handleEndCall = async () => {
-    if (!callSession) return;
-    const conv = conversations.find(c => c.id === callSession.conversation_id) || activeConv;
-    const otherParticipant = conv?.participants.find(p => p.user_id !== user?.id);
-    const recipientId = callRole === 'caller'
-      ? otherParticipant?.user_id
-      : callSession.started_by_id;
-    try {
-      if (recipientId) {
-        await messagesApi.sendSignal(callSession.id, recipientId, 'end', {});
-      }
-      await messagesApi.endCall(callSession.id);
-    } catch (err) {
-      console.error('Failed to end call:', err);
-    } finally {
-      handleTeardownCall();
-    }
-  };
-
-  const toggleMute = () => {
-    if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
-        setLocalMuted(!audioTrack.enabled);
-      }
-    }
-  };
-
-  const toggleVideo = () => {
-    if (localStream) {
-      const videoTrack = localStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.enabled = !videoTrack.enabled;
-        setLocalVideoDisabled(!videoTrack.enabled);
-      }
-    }
-  };
-
-  // Video track assignment refs
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream]);
-
-  useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
-  }, [remoteStream]);
-
-  // Polling loop 1: Incoming calls (fallback when WebSocket unavailable)
-  useEffect(() => {
-    if (callSession) return;
-    const pollMs = isConnected ? 15000 : 5000;
-    const interval = setInterval(async () => {
-      try {
-        const incoming = await messagesApi.getIncomingCall();
-        if (incoming) {
-          setCallSession(incoming);
-          setCallRole('callee');
-          setIsIncomingRinging(true);
-          const conv = conversations.find(c => c.id === incoming.conversation_id) || activeConv;
-          const callerPart = conv?.participants.find(p => p.user_id === incoming.started_by_id);
-          setIncomingCallerName(callerPart?.user?.full_name || 'Someone');
-        }
-      } catch (err) {
-        console.error('Failed to check incoming calls:', err);
-      }
-    }, pollMs);
-    return () => clearInterval(interval);
-  }, [callSession, conversations, activeConv, isConnected]);
-
-  // Polling loop 2: Consume signaling messages (every 1 second)
-  useEffect(() => {
-    if (!callSession) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const signals = await messagesApi.getSignals(callSession.id);
-        for (const sig of signals) {
-          const pc = peerConnectionRef.current;
-          let payload = sig.payload;
-          if (typeof payload === 'string') {
-            try {
-              payload = JSON.parse(payload);
-            } catch (e) {
-              console.warn('Failed to parse signal payload:', e);
-            }
-          }
-          if (sig.signal_type === 'offer' && callRole === 'callee' && pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            const callerId = callSession.started_by_id;
-            await messagesApi.sendSignal(callSession.id, callerId, 'answer', answer);
-            // Drain pending candidates
-            while (pendingCandidates.current.length > 0) {
-              const cand = pendingCandidates.current.shift();
-              await pc.addIceCandidate(new RTCIceCandidate(cand));
-            }
-          } else if (sig.signal_type === 'answer' && callRole === 'caller' && pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(payload));
-            // Drain pending candidates
-            while (pendingCandidates.current.length > 0) {
-              const cand = pendingCandidates.current.shift();
-              await pc.addIceCandidate(new RTCIceCandidate(cand));
-            }
-          } else if (sig.signal_type === 'ice_candidate' && pc) {
-            if (pc.remoteDescription) {
-              await pc.addIceCandidate(new RTCIceCandidate(payload));
-            } else {
-              pendingCandidates.current.push(payload);
-            }
-          } else if (sig.signal_type === 'end') {
-            handleTeardownCall();
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching signaling messages:', err);
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [callSession, callRole, handleTeardownCall]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-      setLocalStream(prev => {
-        if (prev) prev.getTracks().forEach(t => t.stop());
-        return null;
-      });
-      setRemoteStream(prev => {
-        if (prev) prev.getTracks().forEach(t => t.stop());
-        return null;
-      });
-    };
-  }, []);
-
-  // ─── Utility helpers ────────────────────────────────────────────────────
 
   const getConvIcon = (type: ConversationType) => {
     switch (type) {
@@ -2422,8 +2051,15 @@ function MessagesContent() {
                     {otherCallParticipantName}
                   </h3>
                   <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    Call in progress · {callSession.call_type === 'video' ? 'Video' : 'Voice'}
+                    <span className={cn(
+                      'h-1.5 w-1.5 rounded-full',
+                      connectionStatus === 'connected' ? 'bg-emerald-500 animate-ping' : 'bg-amber-400 animate-pulse'
+                    )} />
+                    {connectionStatus === 'connected'
+                      ? `Connected · ${Math.floor(callDurationSec / 60).toString().padStart(2, '0')}:${(callDurationSec % 60).toString().padStart(2, '0')}`
+                      : connectionStatus === 'connecting'
+                        ? 'Connecting…'
+                        : `${callSession.call_type === 'video' ? 'Video' : 'Voice'} call`}
                   </p>
                 </div>
               </div>
@@ -2450,6 +2086,7 @@ function MessagesContent() {
           </div>
 
           {/* Media Stream Layout */}
+          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
           <div className="flex-1 my-6 flex items-center justify-center overflow-hidden relative rounded-2xl bg-white/5 border border-white/10">
             {callSession.call_type === 'video' ? (
               <div className="relative w-full h-full flex items-center justify-center">
@@ -2505,18 +2142,9 @@ function MessagesContent() {
                     {otherCallParticipantName}
                   </h4>
                   <p className="text-xs text-gray-400 font-semibold mt-1">
-                    {iceConnectionState === 'connected' ? 'Connected' : 'Connecting audio...'}
+                    {connectionStatus === 'connected' ? 'Connected' : 'Connecting audio…'}
                   </p>
                 </div>
-                {/* Audio tag for remote stream */}
-                {remoteStream && (
-                  <audio
-                    ref={el => {
-                      if (el) el.srcObject = remoteStream;
-                    }}
-                    autoPlay
-                  />
-                )}
               </div>
             )}
           </div>
