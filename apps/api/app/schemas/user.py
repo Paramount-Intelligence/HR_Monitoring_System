@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.models.enums import UserRole, UserStatus
 
@@ -46,6 +46,23 @@ class UserProfileUpdate(BaseModel):
     phone: str | None = Field(None, max_length=50)
 
 
+class UserProfilePictureUpdate(BaseModel):
+    """Legacy JSON body for URL-based updates (deprecated). Prefer multipart upload."""
+    avatar_url: str | None = Field(None, max_length=2048)
+
+    @field_validator("avatar_url")
+    @classmethod
+    def validate_avatar_url(cls, v: str | None) -> str | None:
+        if v is None or v.strip() == "":
+            return None
+        v = v.strip()
+        if v.startswith("/media/profile-pictures/"):
+            return v
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("Profile picture URL must be a valid HTTP or HTTPS URL.")
+        return v
+
+
 class UserPasswordChange(BaseModel):
     current_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=8)
@@ -70,8 +87,53 @@ class UserRead(BaseModel):
     shift_id: uuid.UUID | None
     shift_name: str | None = None
     shift_timing: str | None = None
+    avatar_url: str | None = None
+    avatar_updated_at: datetime | None = None
+    profile_picture_url: str | None = None
+    profile_picture_updated_at: datetime | None = None
+    profile_picture_content_type: str | None = None
+    profile_picture_size: int | None = None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_profile_picture_fields(cls, data):
+        if isinstance(data, dict):
+            url = data.get("avatar_url") or data.get("profile_picture_url")
+            data.setdefault("profile_picture_url", url)
+            data.setdefault("avatar_url", url)
+            data.setdefault("profile_picture_updated_at", data.get("avatar_updated_at"))
+            data.setdefault("profile_picture_content_type", data.get("avatar_content_type"))
+            data.setdefault("profile_picture_size", data.get("avatar_size"))
+            return data
+        if hasattr(data, "avatar_url"):
+            return {
+                "id": data.id,
+                "full_name": data.full_name,
+                "phone": data.phone,
+                "email": data.email,
+                "role": data.role,
+                "status": data.status,
+                "department": data.department,
+                "department_id": data.department_id,
+                "department_name": getattr(data, "department_name", None),
+                "designation": data.designation,
+                "manager_id": data.manager_id,
+                "manager_name": getattr(data, "manager_name", None),
+                "shift_id": data.shift_id,
+                "shift_name": getattr(data, "shift_name", None),
+                "shift_timing": getattr(data, "shift_timing", None),
+                "avatar_url": data.avatar_url,
+                "avatar_updated_at": data.avatar_updated_at,
+                "profile_picture_url": data.avatar_url,
+                "profile_picture_updated_at": data.avatar_updated_at,
+                "profile_picture_content_type": getattr(data, "avatar_content_type", None),
+                "profile_picture_size": getattr(data, "avatar_size", None),
+                "created_at": data.created_at,
+                "updated_at": data.updated_at,
+            }
+        return data
 
 
 class UserDirectoryRead(BaseModel):
@@ -82,6 +144,27 @@ class UserDirectoryRead(BaseModel):
     email: str
     role: UserRole
     department: str | None = None
+    avatar_url: str | None = None
+    profile_picture_url: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_profile_picture(cls, data):
+        if hasattr(data, "avatar_url"):
+            return {
+                "id": data.id,
+                "full_name": data.full_name,
+                "email": data.email,
+                "role": data.role,
+                "department": data.department,
+                "avatar_url": data.avatar_url,
+                "profile_picture_url": data.avatar_url,
+            }
+        if isinstance(data, dict):
+            url = data.get("avatar_url") or data.get("profile_picture_url")
+            data.setdefault("profile_picture_url", url)
+            data.setdefault("avatar_url", url)
+        return data
 
 
 

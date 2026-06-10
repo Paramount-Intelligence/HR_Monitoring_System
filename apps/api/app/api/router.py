@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import alerts, attendance, audit_logs, auth, dashboard, projects, tasks, time_logs, users, shifts, leaves, departments, holidays, announcements, reports, analytics, growth, permissions as perm_routes, ops, meetings, notifications, support, messages
+from app.api.routes import alerts, attendance, audit_logs, auth, dashboard, projects, tasks, time_logs, users, shifts, leaves, departments, holidays, announcements, reports, analytics, growth, permissions as perm_routes, ops, meetings, notifications, support, messages, ws
 
 api_router = APIRouter()
 api_router.include_router(auth.router,       prefix="/auth",        tags=["auth"])
@@ -25,5 +25,6 @@ api_router.include_router(meetings.router,      prefix="/meetings",      tags=["
 api_router.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
 api_router.include_router(support.router,       prefix="/support",       tags=["support"])
 api_router.include_router(messages.router,      prefix="/messages",      tags=["messages"])
+api_router.include_router(ws.router,              prefix="/ws",            tags=["realtime"])
 api_router.include_router(ops.router,           tags=["ops"])
 

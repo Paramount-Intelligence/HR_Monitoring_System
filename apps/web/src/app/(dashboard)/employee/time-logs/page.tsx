@@ -1,16 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { timeLogsApi, TimeLog, TaskTimerSession } from '@/lib/api/timeLogs';
 import { tasksApi, Task } from '@/lib/api/tasks';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format, parseISO, formatDuration, intervalToDuration } from 'date-fns';
+import { format, parseISO, formatDuration, intervalToDuration, startOfDay, startOfWeek } from 'date-fns';
 import { Loader2, PlayCircle, StopCircle, Clock, Plus, Zap, History, Briefcase, Calendar, CheckCircle, Play } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { TaskTimer } from '@/components/tasks/TaskTimer';
 import { toast } from 'sonner';
 import apiClient, { getErrorMessage } from '@/lib/api/client';
@@ -22,7 +22,12 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
-import { cn } from '@/lib/utils';
+import { cn, formatSafeDurationFromSeconds } from '@/lib/utils';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
+import { EmployeeMetricCard } from '@/components/employee/EmployeeMetricCard';
+import { EmployeeSectionCard } from '@/components/employee/EmployeeSectionCard';
 import { AttendanceSession } from '@/lib/api/attendance';
 
 const manualLogSchema = z.object({
@@ -174,18 +179,9 @@ export default function TimeLogsPage() {
   };
 
   const formatDurationString = (minutes: number) => {
-    const totalSeconds = Math.round(minutes * 60);
-    if (totalSeconds <= 0) return '0m';
-    if (totalSeconds < 60) return '< 1m';
-    
-    const hrs = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    
-    let parts = [];
-    if (hrs > 0) parts.push(`${hrs}h`);
-    if (mins > 0) parts.push(`${mins}m`);
-    
-    return parts.length > 0 ? parts.join(' ') : '< 1m';
+    const m = Number(minutes);
+    if (!Number.isFinite(m) || m < 0) return '—';
+    return formatSafeDurationFromSeconds(Math.round(m * 60));
   };
 
   const getPauseLabel = (reason: string | null) => {
@@ -195,253 +191,220 @@ export default function TimeLogsPage() {
     return 'Paused';
   };
 
+  const logStats = useMemo(() => {
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const weekStart = startOfWeek(now);
+    const getMinutes = (log: TimeLog) => {
+      if (log.status === 'active') return 0;
+      const m = Number(log.duration_minutes);
+      return Number.isFinite(m) ? m : 0;
+    };
+    const logDate = (log: TimeLog) => {
+      try {
+        return parseISO(log.started_at);
+      } catch {
+        return null;
+      }
+    };
+    const todayMinutes = logs
+      .filter((log) => {
+        const d = logDate(log);
+        return d && d >= todayStart;
+      })
+      .reduce((acc, log) => acc + getMinutes(log), 0);
+    const weekMinutes = logs
+      .filter((log) => {
+        const d = logDate(log);
+        return d && d >= weekStart;
+      })
+      .reduce((acc, log) => acc + getMinutes(log), 0);
+    return {
+      todayLogged: formatSafeDurationFromSeconds(Math.round(todayMinutes * 60)),
+      weekLogged: formatSafeDurationFromSeconds(Math.round(weekMinutes * 60)),
+      manualEntries: logs.filter((l) => l.source_type === 'manual').length,
+      timerEntries: logs.filter((l) => l.source_type === 'timer').length,
+    };
+  }, [logs]);
+
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <History className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Time Logs</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Time Logs</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Log of tracked hours and manual entries</p>
-        </div>
+    <EmployeePageShell>
+      <EmployeePageHeader
+        title="Time Logs"
+        subtitle="Tracked work sessions and manual entries"
+        icon={History}
+        actions={
+          <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" variant="outline" className="rounded-lg text-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Manual Entry
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Manual Time Entry</DialogTitle>
+                <DialogDescription>Log hours manually for missed task trackings</DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <Form {...manualForm}>
+                  <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className="space-y-4" id="manual-log-form">
+                    <FormField control={manualForm.control} name="task_id" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Task</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="Select task" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {tasks.filter(t => t.status !== 'completed').map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <FormField control={manualForm.control} name="started_at" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Session Start</FormLabel>
+                          <FormControl><Input type="datetime-local" className="h-9 rounded-lg" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={manualForm.control} name="ended_at" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Session End</FormLabel>
+                          <FormControl><Input type="datetime-local" className="h-9 rounded-lg" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                    <FormField control={manualForm.control} name="notes" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Notes</FormLabel>
+                        <FormControl><Textarea placeholder="What was accomplished?" className="min-h-[80px] rounded-lg resize-none" {...field} /></FormControl>
+                      </FormItem>
+                    )} />
+                  </form>
+                </Form>
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsManualDialogOpen(false)}>Discard</Button>
+                <Button type="submit" form="manual-log-form" size="sm" disabled={manualForm.formState.isSubmitting}>
+                  {manualForm.formState.isSubmitting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                  Save Log
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-        <Dialog open={isManualDialogOpen} onOpenChange={setIsManualDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-14 bg-[var(--bg-surface)] border border-[var(--border-default)] hover:bg-[var(--bg-subtle)] text-[var(--text-primary)] font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl transition-all active:scale-95">
-              <Plus className="mr-2 h-4 w-4" />
-              Manual Entry
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)] animate-in zoom-in-95 duration-300">
-            <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Manual Time Entry</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">
-                Log hours manually for missed task trackings
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...manualForm}>
-              <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className="space-y-8 pt-6">
-                <FormField control={manualForm.control} name="task_id" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Task</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)]">
-                          <SelectValue placeholder="Select an active task">
-                            {tasks.find(t => t.id === field.value)?.title}
-                          </SelectValue>
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
-                        {tasks.filter(t => t.status !== 'completed').map(t => (
-                          <SelectItem key={t.id} value={t.id} className="text-xs font-bold">{t.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-6">
-                  <FormField control={manualForm.control} name="started_at" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Session Start</FormLabel>
-                      <FormControl><Input type="datetime-local" className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
-                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                    </FormItem>
-                  )} />
-                  <FormField control={manualForm.control} name="ended_at" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Session End</FormLabel>
-                      <FormControl><Input type="datetime-local" className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
-                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                    </FormItem>
-                  )} />
-                </div>
-                <FormField control={manualForm.control} name="notes" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Audit Notes</FormLabel>
-                    <FormControl><Textarea placeholder="What was accomplished during this session?" className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)] border-[var(--border-default)] min-h-[100px] font-bold text-sm leading-relaxed p-6 text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <div className="flex justify-end pt-6 gap-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsManualDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
-                  <Button type="submit" disabled={manualForm.formState.isSubmitting} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl transition-all active:scale-95 flex-1 border-none">
-                    {manualForm.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Log
+      <EmployeeMetricGrid>
+        <EmployeeMetricCard title="Today Logged" value={logStats.todayLogged} icon={Clock} />
+        <EmployeeMetricCard title="This Week Logged" value={logStats.weekLogged} icon={Calendar} />
+        <EmployeeMetricCard title="Manual Entries" value={logStats.manualEntries} icon={Plus} />
+        <EmployeeMetricCard title="Timer Entries" value={logStats.timerEntries} icon={Zap} />
+      </EmployeeMetricGrid>
+
+      <EmployeeSectionCard title="Active Session" icon={PlayCircle}>
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="flex-1 w-full min-w-0">
+            {activeTimer ? (
+              <div className="space-y-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  {activeTimer.status === 'running' ? 'Currently tracking' : getPauseLabel(activeTimer.pause_reason)}
+                </p>
+                <p className="text-sm font-semibold truncate">{activeTimer.task_title || 'General Execution'}</p>
+                <p className="text-[11px] text-[var(--text-secondary)]">
+                  Started {formatDateTime(activeTimer.started_at)}
+                </p>
+              </div>
+            ) : (
+              <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
+                <SelectTrigger className="h-9 rounded-lg bg-[var(--bg-subtle)] border-[var(--border-default)] text-sm">
+                  <SelectValue placeholder="Select a task to track..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tasks.filter((t) => t.status !== 'completed').map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+          <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0">
+            {activeTimer && (
+              <div className="text-lg font-bold text-[var(--accent-primary)] tabular-nums">
+                <TaskTimer
+                  startedAt={activeTimer.started_at}
+                  lastResumedAt={activeTimer.last_resumed_at}
+                  accumulatedSeconds={activeTimer.accumulated_seconds}
+                  status={activeTimer.status}
+                />
+              </div>
+            )}
+            {activeTimer ? (
+              <div className="flex items-center gap-2">
+                {activeTimer.status === 'running' ? (
+                  <Button size="sm" variant="outline" className="rounded-lg" onClick={handlePauseTimer} disabled={isTimerActionLoading}>
+                    {isTimerActionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Pause'}
                   </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden relative">
-        {activeTimer && activeTimer.status === 'running' && (
-          <div className="absolute top-0 left-0 w-2 h-full bg-[var(--accent-primary)] animate-pulse" />
-        )}
-        {activeTimer && activeTimer.status === 'paused' && (
-          <div className="absolute top-0 left-0 w-2 h-full bg-slate-400" />
-        )}
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-          <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
-            <Clock className="h-6 w-6 text-[var(--accent-primary)]" />
-            Active Session
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-10">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
-            <div className="flex-1 w-full">
-              {activeTimer ? (
-                <div className="space-y-4">
-                    <div className="flex flex-col gap-1">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">
-                            {activeTimer.status === 'running' ? 'Currently tracking task' : getPauseLabel(activeTimer.pause_reason)}
-                        </span>
-                        <h3 className="text-2xl font-black text-[var(--text-primary)] tracking-tight">{activeTimer.task_title || 'General Execution'}</h3>
-                    </div>
-                    <div className="flex items-center gap-4 text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-widest">
-                        {activeTimer.status === 'running' && <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />}
-                        Started at {formatDateTime(activeTimer.started_at)}
-                    </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] ml-1">Initiate New Session</div>
-                    <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-                      <SelectTrigger className="h-14 rounded-2xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all text-sm px-6">
-                        <SelectValue placeholder="Select a task...">
-                          {tasks.find(t => t.id === selectedTaskId)?.title}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
-                        {tasks.filter(t => t.status !== 'completed').map(t => (
-                          <SelectItem key={t.id} value={t.id} className="text-xs font-bold">{t.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex flex-col sm:flex-row items-center gap-10">
-              {activeTimer && (
-                <div className="text-center sm:text-right">
-                    <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] mb-2">Session Duration</span>
-                    <div className="text-5xl font-black text-[var(--accent-primary)] tracking-tighter tabular-nums">
-                        <TaskTimer 
-                          startedAt={activeTimer.started_at} 
-                          lastResumedAt={activeTimer.last_resumed_at}
-                          accumulatedSeconds={activeTimer.accumulated_seconds}
-                          status={activeTimer.status}
-                        />
-                    </div>
-                </div>
-              )}
-              <div className="flex items-center gap-3">
-                {activeTimer ? (
-                    <>
-                        {activeTimer.status === 'running' ? (
-                            <Button 
-                                size="lg" 
-                                variant="outline"
-                                onClick={handlePauseTimer}
-                                disabled={isTimerActionLoading}
-                                className="h-16 px-8 rounded-2xl border-[var(--border-default)] bg-[var(--bg-surface)] hover:bg-[var(--bg-subtle)] text-[var(--text-primary)] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
-                            >
-                                {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Clock className="mr-2 h-5 w-5 text-[var(--accent-primary)]" />}
-                                Pause
-                            </Button>
-                        ) : (
-                            <Button 
-                                size="lg" 
-                                variant="outline"
-                                onClick={handleResumeTimer}
-                                disabled={isTimerActionLoading || !isCheckedIn}
-                                className="h-16 px-8 rounded-2xl border-none bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:bg-slate-300"
-                            >
-                                {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Play className="mr-2 h-5 w-5" />}
-                                Resume
-                            </Button>
-                        )}
-                        <Button 
-                            size="lg" 
-                            variant="destructive"
-                            onClick={handleStopTimer}
-                            disabled={isTimerActionLoading}
-                            className="h-16 px-8 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-rose-100 transition-all active:scale-95"
-                        >
-                            {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <StopCircle className="mr-2 h-5 w-5" />}
-                            Stop
-                        </Button>
-                    </>
                 ) : (
-                    <Button 
-                        size="lg" 
-                        variant="default"
-                        onClick={handleStartTimer}
-                        disabled={isTimerActionLoading || !selectedTaskId || !isCheckedIn}
-                        className="h-16 px-10 rounded-2xl bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 border-none"
-                    >
-                        {isTimerActionLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlayCircle className="mr-2 h-5 w-5" />}
-                        Start Timer
-                    </Button>
+                  <Button size="sm" className="rounded-lg" onClick={handleResumeTimer} disabled={isTimerActionLoading || !isCheckedIn}>
+                    Resume
+                  </Button>
                 )}
+                <Button size="sm" variant="destructive" className="rounded-lg" onClick={handleStopTimer} disabled={isTimerActionLoading}>
+                  Stop
+                </Button>
               </div>
-            </div>
+            ) : (
+              <Button size="sm" className="rounded-lg" onClick={handleStartTimer} disabled={isTimerActionLoading || !selectedTaskId || !isCheckedIn}>
+                {isTimerActionLoading ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Play className="mr-1.5 h-3 w-3" />}
+                Start Timer
+              </Button>
+            )}
           </div>
-          {activeTimer && !isCheckedIn && activeTimer.status === 'paused' && (
-              <div className="mt-8 p-4 bg-amber-50 rounded-2xl border border-amber-100 text-center animate-in fade-in">
-                  <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Attendance Offline: Please check in to resume tracking focus</p>
-              </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        {activeTimer && !isCheckedIn && activeTimer.status === 'paused' && (
+          <p className="mt-3 text-[11px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-950/30 rounded-lg px-3 py-2">
+            Attendance offline — check in to resume tracking.
+          </p>
+        )}
+      </EmployeeSectionCard>
 
-      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-          <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Time Logs</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <EmployeeSectionCard title="Session History" icon={History} noPadding contentClassName="p-0">
           {isLoading ? (
-            <div className="p-10"><TableSkeleton rows={8} cols={5} /></div>
+            <div className="p-6"><TableSkeleton rows={8} cols={5} /></div>
           ) : logs.length === 0 ? (
-            <div className="p-20">
-              <EmptyState 
-                  title="No execution logs"
-                  message="No time logs found. Start a task timer or submit a manual entry."
-                  icon={History}
+            <div className="p-10">
+              <EmptyState
+                title="No execution logs"
+                description="No time logs found. Start a task timer or submit a manual entry."
+                icon={History}
               />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto app-table-shell">
               <Table>
                 <TableHeader className="bg-[var(--bg-subtle)]">
-                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
-                    <TableHead className="w-[40%] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Task Title</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Timeline</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Duration</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Source</TableHead>
-                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
+                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-11">
+                    <TableHead className="font-semibold text-[10px] uppercase tracking-wider text-[var(--text-muted)] pl-4">Task</TableHead>
+                    <TableHead className="font-semibold text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Timeline</TableHead>
+                    <TableHead className="font-semibold text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Duration</TableHead>
+                    <TableHead className="font-semibold text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Source</TableHead>
+                    <TableHead className="text-right pr-4 font-semibold text-[10px] uppercase tracking-wider text-[var(--text-muted)]">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {logs.map((log) => (
                     <TableRow key={log.id} className={cn(
-                        "hover:bg-[var(--bg-subtle)]/50 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28",
-                        log.status === 'active' && "bg-indigo-50/20"
+                      'hover:bg-[var(--bg-subtle)]/50 border-b border-[var(--border-subtle)] last:border-0 h-14',
+                      log.status === 'active' && 'bg-[var(--accent-soft)]/30'
                     )}>
-                      <TableCell className="pl-10">
-                        <div className="flex flex-col gap-1.5">
-                          <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{log.task_title || 'General Execution'}</span>
-                          <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                            <Briefcase className="h-3.5 w-3.5 opacity-60" />
-                            Task
-                          </div>
-                        </div>
+                      <TableCell className="pl-4">
+                        <span className="text-sm font-medium">{log.task_title || 'General Execution'}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
@@ -464,7 +427,7 @@ export default function TimeLogsPage() {
                           {log.source_type}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right pr-10">
+                      <TableCell className="text-right pr-4">
                         {log.status === 'active' ? (
                             <div className="flex items-center justify-end gap-2 text-[var(--accent-primary)] font-black text-[10px] uppercase tracking-widest">
                                 <span className="h-2 w-2 rounded-full bg-[var(--accent-primary)] animate-pulse" />
@@ -483,8 +446,7 @@ export default function TimeLogsPage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
+      </EmployeeSectionCard>
+    </EmployeePageShell>
   );
 }

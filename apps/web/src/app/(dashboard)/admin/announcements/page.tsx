@@ -21,6 +21,7 @@ import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useRealtimeEvent, useRealtimeReconnect } from '@/hooks/useRealtime';
 
 const announceSchema = z.object({
   title: z.string().min(3, 'Title is required'),
@@ -55,6 +56,14 @@ export default function AdminAnnouncementsPage() {
       setIsLoading(false);
     }
   };
+
+  useRealtimeEvent(['announcement_created', 'announcement_updated'], () => {
+    fetchAnnouncements();
+  });
+
+  useRealtimeReconnect(() => {
+    fetchAnnouncements();
+  });
 
   const onSubmit = async (data: any) => {
     try {

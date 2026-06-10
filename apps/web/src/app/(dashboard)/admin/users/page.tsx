@@ -7,43 +7,33 @@ import { getErrorMessage } from '@/lib/api/client';
 import { User, Shift } from '@/types';
 import { Department, departmentsApi } from '@/lib/api/departments';
 import { shiftsApi } from '@/lib/api/shifts';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Loader2, UserPlus, ShieldOff, CheckCircle2, AlertOctagon } from 'lucide-react';
+import { Loader2, UserPlus, MoreHorizontal, UserCog, Building2, Shield, Mail, ShieldOff, CheckCircle2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { FormDescription } from '@/components/ui/form';
-import { Mail, Link as LinkIcon, Copy } from 'lucide-react';
-
-const ALL_ROLES = ['admin', 'hr_operations', 'manager', 'team_lead', 'employee', 'intern', 'junior_employee'] as const;
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Admin',
-  hr_operations: 'HR & Operations',
-  manager: 'Manager',
-  team_lead: 'Team Lead',
-  employee: 'Employee',
-  intern: 'Intern',
-  junior_employee: 'Junior Employee',
-};
-
-const ROLE_BADGE_COLORS: Record<string, string> = {
-  admin: 'bg-[var(--status-info-bg)] text-[var(--status-info-text)] border-[var(--status-info-border)]',
-  hr_operations: 'bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] border-[var(--status-danger-border)]',
-  manager: 'bg-[var(--accent-secondary)]/15 text-[var(--accent-secondary)] border-[var(--accent-secondary)]/30',
-  team_lead: 'bg-[var(--status-warning-bg)] text-[var(--status-warning-text)] border-[var(--status-warning-border)]',
-  employee: 'bg-[var(--status-success-bg)] text-[var(--status-success-text)] border-[var(--status-success-border)]',
-  intern: 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)]',
-  junior_employee: 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)]',
-};
+import { Copy } from 'lucide-react';
+import { UserProfilePicture } from '@/components/user/UserProfilePicture';
+import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
+import { getProfilePictureUrl } from '@/lib/profile-picture';
+import { AdminUserControlPanel } from '@/components/admin/users/AdminUserControlPanel';
+import { ALL_ROLES, ROLE_LABELS, ROLE_BADGE_COLORS } from '@/lib/admin-users/constants';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const userSchema = z.object({
   full_name: z.string().min(1, 'Name is required'),
@@ -67,9 +57,16 @@ export default function AdminUsersPage() {
   const [lastCreatedToken, setLastCreatedToken] = useState<string | null>(null);
   const [isTokenDialogOpen, setIsTokenDialogOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [controlPanelUserId, setControlPanelUserId] = useState<string | null>(null);
+  const [controlPanelTab, setControlPanelTab] = useState<'profile' | 'access' | 'department' | 'permissions' | 'security' | 'activity' | 'audit'>('profile');
+  const [controlPanelOpen, setControlPanelOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ id: string, action: 'deactivate' | 'activate' | 'suspend' } | null>(null);
   const [origin, setOrigin] = useState('');
+  const [editAvatarUser, setEditAvatarUser] = useState<User | null>(null);
   const { user: currentUser } = useAuth();
 
   useEffect(() => {
@@ -180,6 +177,30 @@ export default function AdminUsersPage() {
     setIsConfirmDialogOpen(true);
   };
 
+  const handleUploadUserProfilePicture = async (file: File) => {
+    if (!editAvatarUser) return;
+    try {
+      const updated = await usersApi.uploadUserProfilePicture(editAvatarUser.id, file);
+      toast.success('Profile picture updated');
+      setEditAvatarUser({ ...editAvatarUser, ...updated });
+      await fetchUsers();
+    } catch (error: unknown) {
+      throw new Error(getErrorMessage(error));
+    }
+  };
+
+  const handleRemoveUserProfilePicture = async () => {
+    if (!editAvatarUser) return;
+    try {
+      const updated = await usersApi.deleteUserProfilePicture(editAvatarUser.id);
+      toast.success('Profile picture removed');
+      setEditAvatarUser({ ...editAvatarUser, ...updated });
+      await fetchUsers();
+    } catch (error: unknown) {
+      throw new Error(getErrorMessage(error));
+    }
+  };
+
   const executeStatusAction = async () => {
     if (!pendingAction) return;
     const { id, action } = pendingAction;
@@ -199,11 +220,25 @@ export default function AdminUsersPage() {
     }
   };
 
-  const filteredUsers = users.filter(u => 
-    u.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    u.role.toLowerCase().includes(search.toLowerCase())
-  );
+  const openControlPanel = (userId: string, tab: typeof controlPanelTab = 'profile') => {
+    setControlPanelUserId(userId);
+    setControlPanelTab(tab);
+    setControlPanelOpen(true);
+  };
+
+  const filteredUsers = users.filter(u => {
+    const matchesSearch =
+      u.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase()) ||
+      u.role.toLowerCase().includes(search.toLowerCase());
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    const matchesDept =
+      departmentFilter === 'all' ||
+      u.department_id === departmentFilter ||
+      u.department === departments.find(d => d.id === departmentFilter)?.name;
+    const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
+    return matchesSearch && matchesRole && matchesDept && matchesStatus;
+  });
 
   const getStatusBadge = (status: string) => {
     if (status === 'active') return <Badge className="bg-[var(--status-success-bg)] text-[var(--status-success-text)] border-[var(--status-success-border)] hover:bg-[var(--status-success-bg)]">Active</Badge>;
@@ -216,8 +251,8 @@ export default function AdminUsersPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-primary)]">User Management</h1>
-          <p className="text-sm text-[var(--text-secondary)]">Manage accounts, roles, and access for all {users.length} users.</p>
+          <h1 className="app-page-title">User Management</h1>
+          <p className="app-page-subtitle">Manage accounts, roles, and access for all {users.length} users.</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -333,14 +368,42 @@ export default function AdminUsersPage() {
         </Dialog>
       </div>
 
-      {/* Search */}
-      <div className="relative">
+      {/* Search & Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <Input
           placeholder="Search by name, email, or role..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm pl-4 bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-primary)]"
         />
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Role" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All roles</SelectItem>
+            {ALL_ROLES.map(r => (
+              <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Department" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All departments</SelectItem>
+            {departments.map(d => (
+              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
+            <SelectItem value="invited">Invited</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <Card className="app-surface">
@@ -358,19 +421,20 @@ export default function AdminUsersPage() {
                     <TableHead className="text-[var(--text-primary)] font-bold">Email</TableHead>
                     <TableHead className="text-[var(--text-primary)] font-bold">Role</TableHead>
                     <TableHead className="text-[var(--text-primary)] font-bold">Department</TableHead>
-                    <TableHead className="text-[var(--text-primary)] font-bold">Work Shift</TableHead>
-                    <TableHead className="text-[var(--text-primary)] font-bold">Status</TableHead>
                     <TableHead className="text-[var(--text-primary)] font-bold">Manager</TableHead>
-                    <TableHead className="text-right text-[var(--text-primary)] font-bold">Actions</TableHead>
+                    <TableHead className="text-right text-[var(--text-primary)] font-bold w-[80px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user) => (
                     <TableRow key={user.id} className={`${user.status === 'inactive' ? 'opacity-50' : ''} border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]/50`}>
                       <TableCell>
-                        <div>
-                          <p className="font-medium text-[var(--text-primary)]">{user.full_name}</p>
-                          {user.designation && <p className="text-xs text-[var(--text-muted)]">{user.designation}</p>}
+                        <div className="flex items-center gap-3">
+                          <UserProfilePicture user={user} name={user.full_name} size="sm" />
+                          <div>
+                            <p className="font-medium text-[var(--text-primary)]">{user.full_name}</p>
+                            {user.designation && <p className="text-xs text-[var(--text-muted)]">{user.designation}</p>}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="text-[var(--text-secondary)]">{user.email}</TableCell>
@@ -380,57 +444,58 @@ export default function AdminUsersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-[var(--text-secondary)] text-sm">{user.department_name || user.department || '-'}</TableCell>
-                      <TableCell className="text-[var(--text-secondary)] text-sm">
-                        {user.shift_name ? `${user.shift_name} ${user.shift_timing ? `(${user.shift_timing})` : ''}` : '-'}
-                      </TableCell>
                       <TableCell>{getStatusBadge(user.status)}</TableCell>
                       <TableCell className="text-[var(--text-secondary)] text-sm truncate max-w-[130px]">
                         {user.manager_name || (user.manager_id ? filteredUsers.find(u => u.id === user.manager_id)?.full_name : '-')}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Link href={`/admin/users/profile?id=${user.id}`}>
-                            <Button variant="ghost" size="sm" className="h-8 text-[var(--accent-primary)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)]">
-                              View Profile
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
                             </Button>
-                          </Link>
-                          {user.status !== 'active' && (
-                            <Button
-                              variant="ghost" size="sm"
-                              className="text-[var(--status-success-text)] hover:text-[var(--status-success-text)] hover:bg-[var(--status-success-bg)]/20 h-8"
-                              onClick={() => handleStatusAction(user.id, 'activate')}
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-1" /> Activate
-                            </Button>
-                          )}
-                          {user.status === 'invited' && (
-                            <Button
-                              variant="ghost" size="sm"
-                              className="text-[var(--accent-secondary)] hover:text-[var(--accent-secondary)] hover:bg-[var(--bg-subtle)] h-8"
-                              onClick={() => handleResendInvite(user.id)}
-                            >
-                              <Mail className="h-4 w-4 mr-1" /> Resend
-                            </Button>
-                          )}
-                          {user.status === 'active' && user.id !== currentUser?.id && (
-                            <>
-                              <Button
-                                variant="ghost" size="sm"
-                                className="text-[var(--status-warning-text)] hover:text-[var(--status-warning-text)] hover:bg-[var(--status-warning-bg)]/20 h-8"
-                                onClick={() => handleStatusAction(user.id, 'suspend')}
-                              >
-                                <AlertOctagon className="h-4 w-4 mr-1" /> Suspend
-                              </Button>
-                              <Button
-                                variant="ghost" size="sm"
-                                className="text-[var(--status-danger-text)] hover:text-[var(--status-danger-text)] hover:bg-[var(--status-danger-bg)]/20 h-8"
-                                onClick={() => handleStatusAction(user.id, 'deactivate')}
-                              >
-                                <ShieldOff className="h-4 w-4 mr-1" /> Deactivate
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'profile')}>
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'profile')}>
+                              Edit Profile
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'access')}>
+                              <UserCog className="mr-2 h-4 w-4" /> Change Role
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'department')}>
+                              <Building2 className="mr-2 h-4 w-4" /> Change Department
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'permissions')}>
+                              <Shield className="mr-2 h-4 w-4" /> Manage Permissions
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'security')}>
+                              <Mail className="mr-2 h-4 w-4" /> Send Password Reset
+                            </DropdownMenuItem>
+                            {user.status === 'invited' && (
+                              <DropdownMenuItem onClick={() => handleResendInvite(user.id)}>
+                                Resend Setup Link
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            {user.status !== 'active' && (
+                              <DropdownMenuItem onClick={() => handleStatusAction(user.id, 'activate')}>
+                                <CheckCircle2 className="mr-2 h-4 w-4" /> Activate
+                              </DropdownMenuItem>
+                            )}
+                            {user.status === 'active' && user.id !== currentUser?.id && (
+                              <DropdownMenuItem onClick={() => handleStatusAction(user.id, 'deactivate')}>
+                                <ShieldOff className="mr-2 h-4 w-4" /> Deactivate
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem asChild>
+                              <Link href={`/admin/users/profile?id=${user.id}`}>360° Profile View</Link>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -501,6 +566,39 @@ export default function AdminUsersPage() {
             >
               Confirm {pendingAction?.action === 'activate' ? 'Reactivation' : pendingAction?.action}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AdminUserControlPanel
+        userId={controlPanelUserId}
+        open={controlPanelOpen}
+        onOpenChange={setControlPanelOpen}
+        onUserUpdated={fetchUsers}
+        initialTab={controlPanelTab}
+        users={users}
+        departments={departments}
+        shifts={shifts}
+      />
+
+      <Dialog open={!!editAvatarUser} onOpenChange={(open) => !open && setEditAvatarUser(null)}>
+        <DialogContent className="sm:max-w-md bg-[var(--bg-elevated)] border-[var(--border-default)]">
+          <DialogHeader>
+            <DialogTitle>Profile Picture</DialogTitle>
+            <DialogDescription>
+              Upload or update the profile picture for {editAvatarUser?.full_name}
+            </DialogDescription>
+          </DialogHeader>
+          {editAvatarUser && (
+            <ProfilePictureUpload
+              name={editAvatarUser.full_name}
+              profilePictureUrl={getProfilePictureUrl(editAvatarUser)}
+              onUpload={handleUploadUserProfilePicture}
+              onRemove={handleRemoveUserProfilePicture}
+            />
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditAvatarUser(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

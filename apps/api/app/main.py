@@ -6,11 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from pathlib import Path
 
 from app.core.config import settings
 from app.api.router import api_router
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine
+from app.db.encoding import assert_utf8_database
 from app.core.permission_seeder import seed_permissions
 from app.core.bootstrapper import bootstrap_admin
 
@@ -23,6 +26,7 @@ logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Seed permissions and bootstrap admin on startup."""
+    assert_utf8_database(engine)
     db = SessionLocal()
     try:
         from sqlalchemy import text
@@ -31,7 +35,7 @@ async def lifespan(app: FastAPI):
             db.commit()
             logger.info("Database evolved successfully: added users.phone column.")
         except Exception:
-            pass
+            db.rollback()
         seed_permissions(db)
         bootstrap_admin(db)
     finally:
@@ -161,3 +165,11 @@ def healthcheck() -> dict[str, str]:
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+profile_pictures_dir = Path(settings.profile_image_upload_dir)
+profile_pictures_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/media/profile-pictures",
+    StaticFiles(directory=str(profile_pictures_dir)),
+    name="profile_pictures",
+)

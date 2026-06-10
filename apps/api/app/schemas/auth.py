@@ -15,6 +15,8 @@ class TokenUser(BaseModel):
     role: str
     department: str | None = None
     designation: str | None = None
+    avatar_url: str | None = None
+    profile_picture_url: str | None = None
 
 
 class LoginResponse(BaseModel):

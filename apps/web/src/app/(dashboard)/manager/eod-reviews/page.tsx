@@ -18,6 +18,9 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPKDate } from '@/lib/time';
+import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
+import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
+import { DialogBody, DialogFooter } from '@/components/ui/dialog';
 
 export default function EODReviewsPage() {
   const [eods, setEods] = useState<EODReport[]>([]);
@@ -75,19 +78,18 @@ export default function EODReviewsPage() {
   const pendingEods = eods.filter(e => e.status === 'Pending Approval');
   const pastEods = eods.filter(e => e.status !== 'Pending Approval' && e.status !== 'Generated' && e.status !== 'Draft');
 
-  return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Management</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">EOD Review</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Review and verify daily EOD reports from your team.</p>
-        </div>
-      </div>
+  const formatProductivity = (score: number | null | undefined) => {
+    if (score == null || Number.isNaN(score)) return '—';
+    return `${Math.round(score)}/100`;
+  };
 
+  return (
+    <ManagerPageShell>
+      <ManagerPageHeader
+        title="EOD Review"
+        subtitle="Review and verify daily EOD reports from your team"
+        icon={ShieldCheck}
+      />
       {isLoading ? (
         <div className="space-y-8">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -203,15 +205,16 @@ export default function EODReviewsPage() {
 
       {selectedEod && (
         <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-          <DialogContent className="max-w-2xl rounded-[2.5rem] border-none bg-[var(--bg-surface)] shadow-[var(--shadow-hard)] text-[var(--text-primary)] p-10">
+          <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">EOD Review: {selectedEod.user_name}</DialogTitle>
-              <DialogDescription className="text-sm font-medium text-[var(--text-muted)] mt-1">
+              <DialogTitle>EOD Review: {selectedEod.user_name}</DialogTitle>
+              <DialogDescription>
                 Reviewing EOD report for {formatPKDate(selectedEod.date)}.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-4 my-6">
+            <DialogBody>
+            <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-[var(--bg-subtle)]/50 rounded-xl border border-[var(--border-subtle)] flex flex-col gap-1">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
                     <Clock className="h-3.5 w-3.5" />
@@ -228,7 +231,7 @@ export default function EODReviewsPage() {
                     <TrendingUp className="h-3.5 w-3.5" />
                     Productivity Index
                 </div>
-                <p className="font-bold text-[var(--text-primary)] mt-1">{selectedEod.productivity_score} score</p>
+                <p className="font-bold text-[var(--text-primary)] mt-1">{formatProductivity(selectedEod.productivity_score)}</p>
                 <div className="mt-2 inline-flex items-center gap-2">
                     <span className="bg-slate-900 text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold border-none">{selectedEod.duties_performed} KEY ACTIONS</span>
                 </div>
@@ -255,7 +258,7 @@ export default function EODReviewsPage() {
               </div>
             </div>
 
-            <div className="space-y-4 pt-6 border-t border-[var(--border-subtle)]">
+            <div className="space-y-4 pt-4 mt-4 border-t border-[var(--border-subtle)]">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Manager Feedback</Label>
                 <Textarea 
@@ -265,11 +268,14 @@ export default function EODReviewsPage() {
                   className="min-h-[100px] rounded-xl border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] focus:ring-[var(--accent-primary)] focus:border-[var(--accent-primary)] font-semibold p-4"
                 />
               </div>
+            </div>
+            </DialogBody>
 
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               {selectedEod.status === 'Pending Approval' ? (
-                <div className="flex gap-3 pt-2">
+                <>
                   <Button 
-                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold h-11 border-none shadow-sm text-white" 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold h-9 border-none text-white" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Approved'); setTimeout(submitReview, 0); }}
                   >
@@ -278,7 +284,7 @@ export default function EODReviewsPage() {
                   </Button>
                   <Button 
                     variant="outline"
-                    className="flex-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-xl font-bold h-11 border-none shadow-sm" 
+                    className="flex-1 rounded-xl font-bold h-9" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Needs Revision'); setTimeout(submitReview, 0); }}
                   >
@@ -287,30 +293,28 @@ export default function EODReviewsPage() {
                   </Button>
                   <Button 
                     variant="outline"
-                    className="flex-1 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl font-bold h-11 border-none shadow-sm" 
+                    className="flex-1 rounded-xl font-bold h-9 text-rose-700" 
                     disabled={isSubmitting}
                     onClick={() => { setReviewAction('Rejected'); setTimeout(submitReview, 0); }}
                   >
                     {isSubmitting && reviewAction === 'Rejected' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
                     Reject
                   </Button>
-                </div>
+                </>
               ) : (
-                <div className="flex gap-3 pt-2">
-                  <Button 
-                    className="w-full bg-[var(--text-primary)] hover:opacity-90 rounded-xl font-bold h-11 border-none shadow-sm text-white uppercase tracking-widest text-xs" 
-                    disabled={isSubmitting}
-                    onClick={() => { setReviewAction(selectedEod.status as any); setTimeout(submitReview, 0); }}
-                  >
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : null}
-                    Update Comments
-                  </Button>
-                </div>
+                <Button 
+                  className="w-full bg-[var(--text-primary)] hover:opacity-90 rounded-xl font-bold h-9 border-none text-white text-xs" 
+                  disabled={isSubmitting}
+                  onClick={() => { setReviewAction(selectedEod.status as any); setTimeout(submitReview, 0); }}
+                >
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : null}
+                  Update Comments
+                </Button>
               )}
-            </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </ManagerPageShell>
   );
 }

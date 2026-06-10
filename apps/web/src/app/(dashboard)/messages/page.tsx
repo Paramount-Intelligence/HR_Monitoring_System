@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
 import { usersApi } from '@/lib/api/users';
 import {
   messagesApi,
   Conversation,
   Message,
+  MessageInfo,
   ConversationType,
   ConversationParticipant,
   ConversationParticipantRole,
@@ -19,14 +21,49 @@ import apiClient from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import {
   Send, Search, Plus, Hash, User, Users, Briefcase, CheckSquare,
-  Calendar, AlertCircle, Edit2, Trash2, Loader2, Sparkles, Smile, Info,
+  Calendar, AlertCircle, Edit2, Trash2, Loader2, Sparkles, Info,
   MessageSquare, ChevronRight, X, UserCheck, Bell, BellOff,
   UserPlus, Settings, Shield, ShieldCheck, ShieldOff, Crown, Eye, ArrowLeft,
   Paperclip, FileText, Image, Download, File,
   Phone, PhoneOff, Video, VideoOff, Mic, MicOff, Volume2, AlertTriangle,
+  Star, MoreHorizontal, AtSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserProfilePicture } from '@/components/user/UserProfilePicture';
+import { MessagesWorkspaceSidebar } from '@/components/messages/MessagesWorkspaceSidebar';
+import { MessagesNotificationPrompt } from '@/components/messages/MessagesNotificationPrompt';
+import { MessageActionsMenu } from '@/components/messages/MessageActionsMenu';
+import { MessageReplyComposerPreview } from '@/components/messages/MessageReplyComposerPreview';
+import { MessageQuotedReply } from '@/components/messages/MessageQuotedReply';
+import { MessageInfoDialog } from '@/components/messages/MessageInfoDialog';
+import { MessageStatusIndicator } from '@/components/messages/MessageStatusIndicator';
+import { MessageBody } from '@/components/messages/MessageBody';
+import { ComposerFormattingToolbar } from '@/components/messages/ComposerFormattingToolbar';
+import { ComposerEmojiPicker } from '@/components/messages/ComposerEmojiPicker';
+import {
+  applyTextSelection,
+  handleFormattingAction,
+  insertAtCursor,
+  type FormatAction,
+} from '@/components/messages/composer-formatting';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogBody,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  SidebarFilter,
+  ConversationPanelTab,
+  getConversationDisplayName,
+  groupMessagesByDate,
+  collectAttachments,
+  collectCallEvents,
+  formatMessageTime,
+} from '@/components/messages/messages-utils';
 
 // ─── Permission helpers ───────────────────────────────────────────────────────
 
@@ -55,6 +92,20 @@ function sendBlockedReason(conv: Conversation | null, myRole: ConversationPartic
   if (conv.type === 'channel') return 'Only channel admins can post in this channel.';
   if (conv.type === 'group') return 'Only group admins can send messages in this group.';
   return 'You do not have permission to send messages here.';
+}
+
+function canDeleteMessage(
+  msg: Message,
+  conv: Conversation | null,
+  userId: string | undefined,
+  userRole?: string
+): boolean {
+  if (!userId || !conv) return false;
+  if (msg.is_deleted) return false;
+  if (msg.sender_id === userId) return true;
+  if (userRole === 'admin') return true;
+  const myPart = getMyParticipant(conv, userId);
+  return myPart ? isAdminOrOwner(myPart.role) : false;
 }
 
 function roleBadge(role: ConversationParticipantRole) {
@@ -198,6 +249,7 @@ function MessagesContent() {
 
   // Attachment upload states
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,7 +301,19 @@ function MessagesContent() {
   const [isSending, setIsSending] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
+  const [threadLoadError, setThreadLoadError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Message actions (reply, delete, info)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [deleteConfirmMessage, setDeleteConfirmMessage] = useState<Message | null>(null);
+  const [isDeletingMessage, setIsDeletingMessage] = useState(false);
+  const [messageInfoOpen, setMessageInfoOpen] = useState(false);
+  const [messageInfoTargetId, setMessageInfoTargetId] = useState<string | null>(null);
+  const [messageInfoData, setMessageInfoData] = useState<MessageInfo | null>(null);
+  const [messageInfoLoading, setMessageInfoLoading] = useState(false);
+  const [messageInfoError, setMessageInfoError] = useState<string | null>(null);
 
   // Create conversation modal
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -257,7 +321,8 @@ function MessagesContent() {
   const [newConvTitle, setNewConvTitle] = useState('');
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [submittingConv, setSubmittingConv] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'direct' | 'group' | 'channel' | 'context'>('all');
+  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>('home');
+  const [conversationPanelTab, setConversationPanelTab] = useState<ConversationPanelTab>('messages');
 
   // Mention system
   const [showMentionPicker, setShowMentionPicker] = useState(false);
@@ -316,6 +381,21 @@ function MessagesContent() {
   useEffect(() => {
     latestSelectedConvId.current = selectedConversationId;
   }, [selectedConversationId]);
+
+  const { isConnected } = useRealtimeStatus();
+  const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const callSessionRef = useRef<any | null>(null);
+
+  useEffect(() => {
+    callSessionRef.current = callSession;
+  }, [callSession]);
+
+  const isNearBottom = useCallback(() => {
+    const el = messagesContainerRef.current;
+    if (!el) return true;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  }, []);
 
   // Initialize browser notifications state
   useEffect(() => {
@@ -378,9 +458,10 @@ function MessagesContent() {
   useEffect(() => {
     loadConversations();
     loadActiveDirectory();
-    const interval = setInterval(pollUpdates, 15000);
+    const pollMs = isConnected ? 60000 : 15000;
+    const interval = setInterval(pollUpdates, pollMs);
     return () => clearInterval(interval);
-  }, []);
+  }, [isConnected]);
 
   const queryConvId = searchParams.get('conversation_id');
   useEffect(() => {
@@ -401,15 +482,15 @@ function MessagesContent() {
 
   // Load messages + mark read + mentionable users on conversation change
   useEffect(() => {
-    if (!selectedConversationId) { setMessages([]); setMentionableUsers([]); return; }
+    if (!selectedConversationId) { setMessages([]); setMentionableUsers([]); setReplyingTo(null); return; }
     let active = true;
 
     const fetchThread = async () => {
       try {
-        setLoadingMsgs(true); setError(null); setMessages([]);
+        setLoadingMsgs(true); setThreadLoadError(null); setMessages([]);
         const data = await messagesApi.getMessages(selectedConversationId, { limit: 50 });
         if (active) setMessages(data);
-      } catch (err) { if (active) setError(getErrorMessage(err)); }
+      } catch (err) { if (active) setThreadLoadError(getErrorMessage(err)); }
       finally { if (active) setLoadingMsgs(false); }
     };
 
@@ -434,14 +515,21 @@ function MessagesContent() {
     return () => { active = false; };
   }, [selectedConversationId]);
 
-  useEffect(() => { messageEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    if (!hasNewMessagesBelow) {
+      messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, hasNewMessagesBelow]);
 
   const loadConversations = async () => {
     try {
       setLoadingConvs(true);
       const data = await messagesApi.getConversations();
-      setConversations(data);
-      handleNotificationsForConversations(data);
+      const sorted = [...data].sort(
+        (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      );
+      setConversations(sorted);
+      handleNotificationsForConversations(sorted);
       setError(null);
     } catch (err) { setError(getErrorMessage(err)); }
     finally { setLoadingConvs(false); }
@@ -467,28 +555,158 @@ function MessagesContent() {
     } catch (err) { console.warn('[Messages Polling] Failed:', err); }
   };
 
+  useRealtimeEvent('new_message', (ev) => {
+    const convId = String(ev.payload.conversation_id);
+    const messageId = String(ev.payload.message_id);
+
+    setConversations(prev =>
+      prev.map(c =>
+        c.id === convId
+          ? {
+              ...c,
+              updated_at: String(ev.payload.created_at || new Date().toISOString()),
+            }
+          : c
+      )
+    );
+    window.dispatchEvent(new CustomEvent('pims-messages-unread-update'));
+
+    if (convId !== latestSelectedConvId.current) return;
+
+    if (isNearBottom()) {
+      messagesApi.getMessages(convId, { limit: 50 }).then(fresh => {
+        setMessages(prev => {
+          if (prev.some(m => m.id === messageId)) return prev;
+          return fresh;
+        });
+        setHasNewMessagesBelow(false);
+      }).catch(() => {});
+    } else {
+      setHasNewMessagesBelow(true);
+    }
+  });
+
+  useRealtimeEvent(['message_updated', 'message_deleted'], (ev) => {
+    const convId = String(ev.payload.conversation_id);
+    const messageId = String(ev.payload.message_id);
+    if (convId === latestSelectedConvId.current) {
+      if (ev.type === 'message_deleted') {
+        setMessages(prev =>
+          prev.map(m =>
+            m.id === messageId
+              ? { ...m, is_deleted: true, body: '', attachments: [] }
+              : m
+          )
+        );
+      } else {
+        messagesApi.getMessages(convId, { limit: 50 }).then(setMessages).catch(() => {});
+      }
+    }
+  });
+
+  useRealtimeEvent(['message_seen', 'message_delivered'], (ev) => {
+    const convId = String(ev.payload.conversation_id);
+    const messageId = String(ev.payload.message_id);
+    if (convId !== latestSelectedConvId.current) return;
+
+    setMessages(prev =>
+      prev.map(m => {
+        if (m.id !== messageId || m.sender_id !== user?.id) return m;
+        const total = m.total_recipients ?? 1;
+        if (ev.type === 'message_delivered') {
+          const delivered = Math.min((m.delivered_count ?? 0) + 1, total);
+          return {
+            ...m,
+            delivered_count: delivered,
+            delivery_status: delivered >= total ? 'delivered' : 'delivered',
+          };
+        }
+        const seen = Math.min((m.seen_count ?? 0) + 1, total);
+        return {
+          ...m,
+          seen_count: seen,
+          delivered_count: Math.max(m.delivered_count ?? 0, seen),
+          delivery_status: seen >= total ? 'seen' : m.delivery_status ?? 'delivered',
+        };
+      })
+    );
+  });
+
+  useRealtimeEvent('conversation_updated', () => {
+    messagesApi.getConversations().then(data => {
+      setConversations(data);
+      handleNotificationsForConversations(data);
+    }).catch(() => {});
+  });
+
+  useRealtimeReconnect(() => {
+    pollUpdates();
+  });
+
+  useRealtimeEvent('call_incoming', (ev) => {
+    if (callSessionRef.current) return;
+    setCallSession({
+      id: ev.payload.call_session_id,
+      conversation_id: ev.payload.conversation_id,
+      call_type: ev.payload.call_type,
+      started_by_id: ev.actor_id,
+      status: 'ringing',
+    });
+    setCallRole('callee');
+    setIsIncomingRinging(true);
+    setIncomingCallerName(String(ev.payload.started_by_name || 'Someone'));
+  });
+
+  useRealtimeEvent('call_accepted', (ev) => {
+    if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      setCallSession((prev: any) => (prev ? { ...prev, status: 'active' } : prev));
+      setIsOutgoingRinging(false);
+    }
+  });
+
+  useRealtimeEvent('call_declined', (ev) => {
+    if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      setCallSession(null);
+      setCallRole(null);
+      setIsOutgoingRinging(false);
+      setIsIncomingRinging(false);
+    }
+  });
+
+  useRealtimeEvent('call_ended', (ev) => {
+    if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      setCallSession(null);
+      setCallRole(null);
+      setIsOutgoingRinging(false);
+      setIsIncomingRinging(false);
+    }
+  });
+
   const loadMessages = async (convId: string) => {
     try {
-      setLoadingMsgs(true); setError(null); setMessages([]);
+      setLoadingMsgs(true); setThreadLoadError(null); setMessages([]);
       const data = await messagesApi.getMessages(convId, { limit: 50 });
       setMessages(data);
-    } catch (err) { setError(getErrorMessage(err)); }
+    } catch (err) { setThreadLoadError(getErrorMessage(err)); }
     finally { setLoadingMsgs(false); }
   };
 
   const handleSelectConversation = (convId: string) => {
     setSelectedConversationId(convId);
+    setConversationPanelTab('messages');
     router.replace(`/messages?conversation_id=${convId}`);
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedConversationId || isSending || !canISend) return;
-    if (!newMessage.trim() && selectedFiles.length === 0) return;
+
+    const messageText = newMessage.trim();
+    if (!messageText && selectedFiles.length === 0) return;
 
     try {
       setIsSending(true);
-      setError(null);
+      setSendError(null);
 
       let attachment_ids: string[] = [];
       if (selectedFiles.length > 0) {
@@ -499,25 +717,31 @@ function MessagesContent() {
           );
           attachment_ids = uploaded.map(att => att.id);
         } catch (uploadErr) {
-          setError("Unable to upload attachment.");
+          setSendError("Unable to upload attachment.");
           return;
         }
       }
 
       const mentioned_user_ids: string[] = [];
       mentionableUsers.forEach(u => {
-        if (newMessage.includes(`@${u.full_name}`) && u.id) mentioned_user_ids.push(u.id);
+        if (messageText.includes(`@${u.full_name}`) && u.id) mentioned_user_ids.push(u.id);
       });
 
-      const sentMsg = await messagesApi.sendMessage(selectedConversationId, {
-        body: newMessage,
+      const payload: Parameters<typeof messagesApi.sendMessage>[1] = {
+        body: messageText,
         mentioned_user_ids,
         attachment_ids,
-      });
+      };
+      if (replyingTo?.id) {
+        payload.reply_to_message_id = replyingTo.id;
+      }
+
+      const sentMsg = await messagesApi.sendMessage(selectedConversationId, payload);
 
       setMessages(prev => [...prev, sentMsg]);
       setNewMessage('');
       setSelectedFiles([]);
+      setReplyingTo(null);
       setConversations(prev =>
         prev.map(c =>
           c.id === selectedConversationId
@@ -526,7 +750,7 @@ function MessagesContent() {
         )
       );
     } catch (err) {
-      setError("Unable to send message.");
+      setSendError(getErrorMessage(err) || "Unable to send message.");
     } finally {
       setIsSending(false);
     }
@@ -557,12 +781,40 @@ function MessagesContent() {
     });
   };
 
-  const handleDeleteMessage = async (msgId: string) => {
-    if (!confirm('Delete this message?')) return;
+  const handleDeleteMessage = async () => {
+    if (!deleteConfirmMessage) return;
     try {
-      await messagesApi.deleteMessage(msgId);
-      setMessages(prev => prev.filter(m => m.id !== msgId));
-    } catch (err) { alert(getErrorMessage(err)); }
+      setIsDeletingMessage(true);
+      await messagesApi.deleteMessage(deleteConfirmMessage.id);
+      setMessages(prev =>
+        prev.map(m =>
+          m.id === deleteConfirmMessage.id
+            ? { ...m, is_deleted: true, body: '', attachments: [] }
+            : m
+        )
+      );
+      setDeleteConfirmMessage(null);
+    } catch (err) {
+      alert(getErrorMessage(err));
+    } finally {
+      setIsDeletingMessage(false);
+    }
+  };
+
+  const openMessageInfo = async (msg: Message) => {
+    setMessageInfoTargetId(msg.id);
+    setMessageInfoOpen(true);
+    setMessageInfoLoading(true);
+    setMessageInfoError(null);
+    setMessageInfoData(null);
+    try {
+      const info = await messagesApi.getMessageInfo(msg.id);
+      setMessageInfoData(info);
+    } catch (err) {
+      setMessageInfoError(getErrorMessage(err));
+    } finally {
+      setMessageInfoLoading(false);
+    }
   };
 
   // ─── Manage Members actions ─────────────────────────────────────────────
@@ -667,6 +919,31 @@ function MessagesContent() {
     words[words.length - 1] = `@${fullName} `;
     setNewMessage(words.join(' '));
     setShowMentionPicker(false);
+  };
+
+  const handleComposerFormatting = (action: FormatAction) => {
+    const textarea = composerTextareaRef.current;
+    if (!textarea || !canISend) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    let linkUrl: string | undefined;
+
+    if (action === 'link') {
+      const url = window.prompt('Enter link URL', 'https://');
+      if (url === null) return;
+      linkUrl = url.trim() || 'url';
+    }
+
+    const result = handleFormattingAction(action, newMessage, start, end, linkUrl);
+    applyTextSelection(textarea, result, setNewMessage);
+  };
+
+  const handleEmojiInsert = (emoji: string) => {
+    const textarea = composerTextareaRef.current;
+    if (!textarea || !canISend) return;
+    const result = insertAtCursor(newMessage, textarea.selectionStart, textarea.selectionEnd, emoji);
+    applyTextSelection(textarea, result, setNewMessage);
   };
 
   const filteredMentionUsers = mentionableUsers.filter(u =>
@@ -940,9 +1217,10 @@ function MessagesContent() {
     }
   }, [remoteStream]);
 
-  // Polling loop 1: Incoming calls (every 5 seconds)
+  // Polling loop 1: Incoming calls (fallback when WebSocket unavailable)
   useEffect(() => {
     if (callSession) return;
+    const pollMs = isConnected ? 15000 : 5000;
     const interval = setInterval(async () => {
       try {
         const incoming = await messagesApi.getIncomingCall();
@@ -957,9 +1235,9 @@ function MessagesContent() {
       } catch (err) {
         console.error('Failed to check incoming calls:', err);
       }
-    }, 5000);
+    }, pollMs);
     return () => clearInterval(interval);
-  }, [callSession, conversations, activeConv]);
+  }, [callSession, conversations, activeConv, isConnected]);
 
   // Polling loop 2: Consume signaling messages (every 1 second)
   useEffect(() => {
@@ -1053,17 +1331,6 @@ function MessagesContent() {
     return 'Chat';
   };
 
-  // Filter conversations by tab and search
-  const filteredConversations = conversations.filter(c => {
-    const matchesSearch = c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ?? true;
-    if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'direct') return c.type === 'direct' && matchesSearch;
-    if (activeTab === 'group') return c.type === 'group' && matchesSearch;
-    if (activeTab === 'channel') return c.type === 'channel' && matchesSearch;
-    if (activeTab === 'context') return c.type.endsWith('_thread') && matchesSearch;
-    return matchesSearch;
-  });
-
   // Users available to add (not already in current conversation)
   const existingParticipantIds = new Set(activeConv?.participants.map(p => p.user_id) ?? []);
   const addableUsers = usersList.filter((u: any) => !existingParticipantIds.has(u.id));
@@ -1072,164 +1339,76 @@ function MessagesContent() {
     u.email.toLowerCase().includes(memberSearch.toLowerCase())
   );
 
+  const sharedAttachments = useMemo(() => collectAttachments(messages), [messages]);
+  const callEvents = useMemo(() => collectCallEvents(messages), [messages]);
+  const groupedMessages = useMemo(() => groupMessagesByDate(messages), [messages]);
+  const activeConvName = activeConv ? getConversationDisplayName(activeConv, user?.id) : '';
+
+  const PANEL_TABS: { id: ConversationPanelTab; label: string }[] = [
+    { id: 'messages', label: 'Messages' },
+    { id: 'files', label: 'Files' },
+    { id: 'calls', label: 'Calls' },
+    { id: 'details', label: 'Details' },
+  ];
+
   // ─── RENDER ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100vh-5rem)] gap-6 overflow-hidden app-page">
+    <div className="flex h-full min-h-0 overflow-hidden bg-[var(--bg-page)]">
+      <MessagesWorkspaceSidebar
+        conversations={conversations}
+        loading={loadingConvs}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        sidebarFilter={sidebarFilter}
+        onSidebarFilterChange={setSidebarFilter}
+        selectedConversationId={selectedConversationId}
+        onSelectConversation={handleSelectConversation}
+        onNewMessage={() => setShowCreateModal(true)}
+        currentUserId={user?.id}
+        visible={!isMobile || !selectedConversationId}
+      />
 
-      {/* ═══ Left panel: Conversations List ═══ */}
-      <div className={cn("flex flex-col w-full lg:w-80 xl:w-96 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-[var(--shadow-soft)] overflow-hidden shrink-0", selectedConversationId ? "hidden lg:flex" : "flex")}>
-        {/* Header and Actions */}
-        <div className="p-4 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]/30 space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-lg font-black uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-[var(--accent-primary)]" /> Messages
-            </h1>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className={`h-8 w-8 rounded-xl border-[var(--border-default)] transition-all ${
-                  notificationsEnabled
-                    ? 'text-[var(--accent-primary)] border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/5 hover:bg-[var(--accent-primary)]/10'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sidebar-hover)]'
-                }`}
-                onClick={handleToggleNotifications}
-                title={
-                  permissionStatus === 'denied'
-                    ? 'Notifications Blocked'
-                    : notificationsEnabled ? 'Disable Browser Notifications' : 'Enable Browser Notifications'
-                }
-              >
-                {notificationsEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)]"
-                onClick={() => setShowCreateModal(true)}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Search bar */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--text-secondary)]" />
-            <input
-              type="text"
-              placeholder="Search conversations..."
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)]/30 focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)]"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* Tab filters */}
-          <div className="flex gap-1 overflow-x-auto pb-1 custom-scrollbar">
-            {(['all', 'direct', 'group', 'channel', 'context'] as const).map(tab => (
-              <button
-                key={tab}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider border leading-none transition-all shrink-0 ${
-                  activeTab === tab
-                    ? 'bg-[var(--accent-primary)] text-white border-transparent'
-                    : 'bg-transparent text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)]'
-                }`}
-                onClick={() => setActiveTab(tab)}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Conversation list */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
-          {loadingConvs ? (
-            <div className="py-8 text-center text-xs text-[var(--text-muted)] font-semibold flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-[var(--accent-primary)]" /> Syncing conversations...
-            </div>
-          ) : filteredConversations.length === 0 ? (
-            <div className="py-12 text-center text-xs text-[var(--text-muted)] italic font-semibold space-y-2">
-              <Info className="h-8 w-8 mx-auto text-[var(--text-secondary)] opacity-60" />
-              <p>No conversations found.</p>
-            </div>
-          ) : (
-            filteredConversations.map(conv => {
-              const isSelected = activeConv?.id === conv.id;
-              return (
-                <button
-                  key={conv.id}
-                  onClick={() => handleSelectConversation(conv.id)}
-                  className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'bg-[var(--bg-sidebar-active)]/80 text-[var(--text-primary)] border-[var(--accent-primary)] shadow-sm'
-                      : 'bg-transparent hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-primary)] border-transparent'
-                  }`}
-                >
-                  <div className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 ${
-                    isSelected ? 'bg-[var(--accent-primary)] text-white' : 'bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--text-secondary)]'
-                  }`}>
-                    {getConvIcon(conv.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-black truncate text-[var(--text-primary)]">
-                        {conv.title || 'Direct Message'}
-                      </span>
-                      <span className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)]">
-                        {new Date(conv.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-[var(--text-secondary)] truncate leading-none">
-                        {getConvTypeLabel(conv.type)} Chat
-                      </span>
-                      {conv.unread_count && conv.unread_count > 0 ? (
-                        <span className="h-4 min-w-[16px] px-1 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] text-[9px] font-black border border-[var(--border-default)] flex items-center justify-center shadow-sm">
-                          {conv.unread_count}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* ═══ Main panel: Chat area ═══ */}
-      <div className={cn("flex-1 flex flex-col rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-default)] shadow-[var(--shadow-soft)] overflow-hidden", selectedConversationId ? "flex" : "hidden lg:flex")}>
+      {/* Active conversation panel */}
+      <div
+        className={cn(
+          'flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-[var(--bg-surface)] dark:bg-[#111827]',
+          selectedConversationId ? 'flex' : 'hidden lg:flex'
+        )}
+      >
         {activeConv ? (
           <>
-            {/* Chat header */}
-            <div className="px-6 py-4 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]/30 flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            {/* Fixed conversation header */}
+            <div className="shrink-0 px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/80 backdrop-blur-sm flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedConversationId(null);
                     router.replace('/messages');
                   }}
-                  className="lg:hidden p-1 mr-1 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-sidebar-hover)] transition-all shrink-0"
-                  aria-label="Back to conversations"
+                  className="lg:hidden p-1.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] shrink-0"
+                  aria-label="Back to messages"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4" />
                 </button>
-                <div className="h-10 w-10 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--accent-primary)] flex items-center justify-center shrink-0 shadow-sm">
+                <div className="h-9 w-9 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--accent-primary)] flex items-center justify-center shrink-0">
                   {getConvIcon(activeConv.type)}
                 </div>
-                <div>
-                  <h2 className="text-sm font-black text-[var(--text-primary)] mb-0.5">
-                    {activeConv.title || 'Direct Message'}
-                  </h2>
-                  <p className="text-[10px] text-[var(--text-secondary)] font-semibold flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    {activeConv.participants.length} participants
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
+                      {activeConvName}
+                    </h2>
+                    <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
+                      {getConvTypeLabel(activeConv.type)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5 truncate">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    {activeConv.participants.length} members
                     {myRole && (
-                      <span className={`ml-1 px-1.5 py-0.5 rounded-md border text-[8px] font-black uppercase ${roleBadge(myRole).cls}`}>
+                      <span className={`px-1 py-0.5 rounded border text-[8px] font-bold uppercase ${roleBadge(myRole).cls}`}>
                         {roleBadge(myRole).label}
                       </span>
                     )}
@@ -1237,103 +1416,103 @@ function MessagesContent() {
                 </div>
               </div>
 
-              {/* Call and settings buttons */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 shrink-0">
                 {activeConv.type === 'direct' ? (
                   <>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] hover:text-emerald-500 transition-colors"
-                      onClick={() => handleStartCall('voice')}
-                      title="Voice Call"
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleStartCall('voice')} title="Voice call">
                       <Phone className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] hover:text-emerald-500 transition-colors"
-                      onClick={() => handleStartCall('video')}
-                      title="Video Call"
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleStartCall('video')} title="Video call">
                       <Video className="h-4 w-4" />
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)]/50 cursor-not-allowed"
-                      onClick={() => setShowPremiumCallModal(true)}
-                      title="Group Voice Call (Premium)"
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-50" onClick={() => setShowPremiumCallModal(true)} title="Group voice call">
                       <Phone className="h-4 w-4" />
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)]/50 cursor-not-allowed"
-                      onClick={() => setShowPremiumCallModal(true)}
-                      title="Group Video Call (Premium)"
-                    >
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-50" onClick={() => setShowPremiumCallModal(true)} title="Group video call">
                       <Video className="h-4 w-4" />
                     </Button>
                   </>
                 )}
-
-                {isGroupOrChannel && (
-                  <>
-                    {canIAddMembers && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-1.5"
-                        onClick={openManageModal}
-                      >
-                        <Users className="h-3.5 w-3.5" />
-                        Members
-                      </Button>
-                    )}
-                    {canIManageSettings && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)]"
-                        onClick={openSettingsModal}
-                        title="Group/Channel Settings"
-                      >
-                        <Settings className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </>
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hidden sm:flex" title="Search in conversation">
+                  <Search className="h-4 w-4" />
+                </Button>
+                {isGroupOrChannel && canIAddMembers && (
+                  <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs hidden md:flex" onClick={openManageModal}>
+                    <Users className="h-3.5 w-3.5 mr-1" />
+                    Details
+                  </Button>
                 )}
+                {isGroupOrChannel && canIManageSettings && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={openSettingsModal} title="Settings">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn('h-8 w-8 rounded-lg', notificationsEnabled && 'text-[var(--accent-primary)]')}
+                  onClick={handleToggleNotifications}
+                  title="Browser notifications"
+                >
+                  {notificationsEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                </Button>
               </div>
             </div>
 
-            {/* Error alert */}
-            {error && messages.length > 0 && (
-              <div className="m-4 p-4 rounded-xl border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] flex items-center gap-3 animate-in fade-in duration-300">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span className="text-xs font-bold">{error}</span>
-              </div>
-            )}
+            {/* Sub-tabs */}
+            <div className="shrink-0 flex items-center gap-1 px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-x-auto custom-scrollbar">
+              {PANEL_TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setConversationPanelTab(tab.id)}
+                  className={cn(
+                    'px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-colors',
+                    conversationPanelTab === tab.id
+                      ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] border border-[var(--accent-primary)]/20'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-subtle)]'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-            {/* Message log */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 bg-[var(--bg-surface-elevated)]/20">
+            <MessagesNotificationPrompt onEnable={handleToggleNotifications} />
+
+            {conversationPanelTab === 'messages' && (
+              <>
+            <div
+              ref={messagesContainerRef}
+              className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4 bg-[var(--bg-surface)] dark:bg-[#111827] relative"
+            >
+              {hasNewMessagesBelow && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHasNewMessagesBelow(false);
+                    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className="sticky top-2 left-1/2 -translate-x-1/2 z-10 mx-auto block rounded-full bg-[var(--accent-primary)] px-4 py-1.5 text-xs font-bold text-white shadow-lg"
+                >
+                  New message
+                </button>
+              )}
               {loadingMsgs ? (
                 <div className="py-12 text-center text-xs text-[var(--text-muted)] font-semibold flex items-center justify-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" /> Synchronizing thread...
                 </div>
-              ) : error ? (
+              ) : threadLoadError ? (
                 <div className="py-24 text-center text-xs text-[var(--text-muted)] font-semibold space-y-4">
                   <div className="h-12 w-12 rounded-2xl bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)] text-[var(--status-danger-text)] flex items-center justify-center mx-auto shadow-md">
                     <AlertCircle className="h-6 w-6" />
                   </div>
                   <div className="space-y-1">
                     <p className="text-[var(--text-primary)] font-black uppercase tracking-wider text-xs">Unable to load conversation.</p>
-                    <p className="text-[var(--text-secondary)] text-[10px] max-w-sm mx-auto font-semibold leading-relaxed">{error}</p>
+                    <p className="text-[var(--text-secondary)] text-[10px] max-w-sm mx-auto font-semibold leading-relaxed">{threadLoadError}</p>
                   </div>
                   <Button
                     variant="outline"
@@ -1344,35 +1523,107 @@ function MessagesContent() {
                   </Button>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="py-24 text-center text-xs text-[var(--text-muted)] italic font-semibold space-y-2">
-                  <Info className="h-10 w-10 mx-auto text-[var(--text-secondary)] opacity-60" />
-                  <p>No messages yet. Start the conversation!</p>
+                <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[var(--text-muted)] space-y-2 py-12">
+                  <MessageSquare className="h-8 w-8 text-[var(--text-muted)] opacity-50" />
+                  <p className="font-medium text-[var(--text-secondary)]">No recent messages yet.</p>
+                  <p>Start the conversation below.</p>
                 </div>
               ) : (
-                messages.map(msg => {
+                groupedMessages.map((group) => (
+                  <div key={group.date} className="space-y-3">
+                    <div className="flex items-center gap-3 py-1">
+                      <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2">
+                        {group.date}
+                      </span>
+                      <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+                    </div>
+                    {group.items.map((msg) => {
                   const isSelf = msg.sender_id === user?.id;
+                  const isSystem = msg.message_type === 'system';
+
+                  if (isSystem) {
+                    return (
+                      <div key={msg.id} className="flex justify-center py-1">
+                        <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-subtle)]">
+                          {msg.body}
+                        </span>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div key={msg.id} className={`flex gap-3 max-w-[85%] lg:max-w-[80%] ${isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}>
-                      <Avatar className="h-8 w-8 shrink-0 shadow-sm ring-1 ring-[var(--border-default)]">
-                        <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-[10px] font-black text-white">
-                          {msg.sender.full_name.charAt(0).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="space-y-1">
-                        <div className={`flex items-center gap-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
-                          <span className="text-[10px] font-black text-[var(--text-primary)]">{msg.sender.full_name}</span>
-                          <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase">
-                            {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <div
+                      key={msg.id}
+                      className={cn(
+                        'group/message flex gap-2.5 w-full max-w-[min(100%,42rem)]',
+                        isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
+                      )}
+                    >
+                      <UserProfilePicture
+                        user={msg.sender}
+                        name={msg.sender.full_name}
+                        size="default"
+                        className="h-8 w-8 shrink-0 shadow-sm ring-1 ring-[var(--border-default)]"
+                      />
+                      <div className={cn('flex flex-col min-w-0 max-w-[85%]', isSelf ? 'items-end' : 'items-start')}>
+                        <div
+                          className={cn(
+                            'flex items-center gap-2 mb-0.5 px-0.5',
+                            isSelf ? 'flex-row-reverse' : 'flex-row'
+                          )}
+                        >
+                          <span className="text-xs font-semibold text-[var(--text-primary)]">{msg.sender.full_name}</span>
+                          <span className="text-[10px] text-[var(--text-muted)] tabular-nums">
+                            {formatMessageTime(msg.created_at)}
                           </span>
+                          {isSelf && activeConv && (
+                            <MessageStatusIndicator
+                              status={msg.delivery_status}
+                              seenCount={msg.seen_count}
+                              deliveredCount={msg.delivered_count}
+                              totalRecipients={msg.total_recipients}
+                              conversationType={activeConv.type}
+                            />
+                          )}
                         </div>
-                        <div className={`p-3 rounded-2xl text-xs font-semibold leading-relaxed border shadow-sm ${
-                          isSelf
-                            ? 'bg-[#1E2E54] text-white border-[#2E3F6E]'
-                            : 'bg-[var(--bg-surface)] text-[var(--text-primary)] border-[var(--border-default)]'
-                        }`}>
-                          {msg.body && <p className="whitespace-pre-wrap">{msg.body}</p>}
-                          
-                          {msg.attachments && msg.attachments.length > 0 && (
+
+                        <div
+                          className={cn(
+                            'flex items-center gap-1 max-w-full',
+                            isSelf ? 'flex-row-reverse' : 'flex-row'
+                          )}
+                        >
+                          <MessageActionsMenu
+                            isSelf={isSelf}
+                            canDelete={canDeleteMessage(msg, activeConv, user?.id, user?.role)}
+                            showDelete={!msg.is_deleted}
+                            showReply={!msg.is_deleted}
+                            onReply={() => setReplyingTo(msg)}
+                            onInfo={() => openMessageInfo(msg)}
+                            onDelete={() => setDeleteConfirmMessage(msg)}
+                          />
+                          <div
+                            className={cn(
+                              'px-3 py-2 rounded-lg text-sm leading-relaxed border min-w-0',
+                              isSelf
+                                ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]'
+                                : 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border-[var(--border-subtle)]',
+                              msg.is_deleted && 'opacity-80 italic'
+                            )}
+                          >
+                            {msg.reply_to_message && !msg.is_deleted && (
+                              <MessageQuotedReply reply={msg.reply_to_message} isSelf={isSelf} />
+                            )}
+                            {msg.is_deleted ? (
+                              <p className={cn('text-sm', isSelf ? 'text-white/80' : 'text-[var(--text-muted)]')}>
+                                This message was deleted.
+                              </p>
+                            ) : (
+                              <>
+                                {msg.body && <MessageBody text={msg.body} isSelf={isSelf} />}
+
+                                {msg.attachments && msg.attachments.length > 0 && (
                             <div className="space-y-2 mt-2 pt-1 border-t border-white/10">
                               {/* Separate into images and docs for beautiful grid rendering */}
                               {msg.attachments.some(att => att.mime_type.startsWith('image/')) && (
@@ -1408,10 +1659,10 @@ function MessagesContent() {
                                     .map(att => (
                                       <div
                                         key={att.id}
-                                        className={`flex items-center justify-between p-2.5 rounded-xl border text-xs gap-3 shadow-sm ${
+                                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs gap-3 ${
                                           isSelf
-                                            ? 'bg-[#15203b]/40 border-[#2e3f6e]/60 text-white'
-                                            : 'bg-[var(--bg-elevated)]/50 border-[var(--border-default)] text-[var(--text-primary)]'
+                                            ? 'bg-white/10 border-white/20 text-white'
+                                            : 'bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)]'
                                         }`}
                                       >
                                         <div className="h-8 w-8 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-lg flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-800/30">
@@ -1443,72 +1694,71 @@ function MessagesContent() {
                               )}
                             </div>
                           )}
-                        </div>
-                        {isSelf && (
-                          <div className="flex items-center justify-end gap-1.5 opacity-60 hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleDeleteMessage(msg.id)}
-                              className="p-1 rounded text-red-500 hover:bg-red-500/10 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
+                            </>
+                          )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   );
-                })
+                })}
+                  </div>
+                ))
               )}
               <div ref={messageEndRef} />
             </div>
 
-            {/* Composer */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-[var(--border-default)] bg-[var(--bg-elevated)]/30 relative">
-              {/* Mention picker */}
+            {/* Fixed composer */}
+            <form onSubmit={handleSendMessage} className="shrink-0 p-3 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] dark:bg-[#0f172a] relative">
               {showMentionPicker && activeConv?.type !== 'direct' && (
-                <div className="absolute bottom-full left-4 mb-2 w-64 rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[var(--shadow-card)] p-1.5 z-40 max-h-48 overflow-y-auto custom-scrollbar">
-                  <div className="p-2 text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-default)] mb-1">
-                    Mention conversation members
+                <div className="absolute bottom-full left-3 mb-2 w-64 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-lg p-1.5 z-40 max-h-48 overflow-y-auto custom-scrollbar">
+                  <div className="p-2 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-subtle)] mb-1">
+                    Mention members
                   </div>
                   {filteredMentionUsers.length === 0 ? (
-                    <div className="p-3 text-center text-xs text-[var(--text-muted)] italic font-semibold">
-                      No mentionable users found.
-                    </div>
+                    <div className="p-3 text-center text-xs text-[var(--text-muted)]">No mentionable users found.</div>
                   ) : (
                     filteredMentionUsers.map(mu => (
                       <button
                         key={mu.id}
                         type="button"
                         onClick={() => handleSelectMention(mu.full_name)}
-                        className="w-full flex items-center gap-2 p-2 hover:bg-[var(--bg-sidebar-hover)] rounded-lg text-xs font-bold text-[var(--text-primary)] text-left transition-all"
+                        className="w-full flex items-center gap-2 p-2 hover:bg-[var(--bg-subtle)] rounded-md text-xs text-left"
                       >
-                        <Avatar className="h-5 w-5 shrink-0 ring-1 ring-[var(--border-default)]">
-                          <AvatarFallback className="bg-[var(--bg-sidebar-active)] text-[8px] text-[var(--accent-primary)] font-black">
-                            {mu.full_name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="truncate leading-none mb-0.5">{mu.full_name}</p>
-                          <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-wider">{mu.role}</p>
-                        </div>
+                        <UserProfilePicture user={mu} name={mu.full_name} size="sm" className="h-5 w-5 shrink-0" />
+                        <span className="truncate font-medium">{mu.full_name}</span>
                       </button>
                     ))
                   )}
                 </div>
               )}
 
-              {/* Send restriction notice */}
-              {sendRestrictionMsg && (
-                <div className="mb-3 flex items-center gap-2 p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-muted)]">
-                  <ShieldOff className="h-4 w-4 shrink-0 text-[var(--status-warning-text)]" />
-                  <span className="text-xs font-semibold">{sendRestrictionMsg}</span>
+              {sendError && (
+                <div className="mb-2 flex items-center gap-2 p-2 rounded-lg border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span className="text-[11px] flex-1">{sendError}</span>
+                  <button type="button" onClick={() => setSendError(null)} className="hover:opacity-80">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               )}
 
-              {/* Selected Files Preview Queue */}
+              {sendRestrictionMsg && (
+                <div className="mb-2 flex items-center gap-2 p-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-[var(--text-muted)]">
+                  <ShieldOff className="h-3.5 w-3.5 shrink-0" />
+                  <span className="text-[11px]">{sendRestrictionMsg}</span>
+                </div>
+              )}
+
+              {replyingTo && (
+                <MessageReplyComposerPreview
+                  replyTarget={replyingTo}
+                  onCancel={() => setReplyingTo(null)}
+                />
+              )}
+
               {selectedFiles.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-2 mb-2 bg-[var(--bg-elevated)]/40 rounded-xl border border-[var(--border-default)]">
+                <div className="flex flex-wrap gap-2 p-2 mb-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)]">
                   {selectedFiles.map((file, idx) => (
                     <FilePreviewCard
                       key={idx}
@@ -1519,32 +1769,20 @@ function MessagesContent() {
                 </div>
               )}
 
-              <div className="flex gap-3 items-end">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  multiple
-                  className="hidden"
-                />
-                <Button
-                  type="button"
+              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden">
+                <ComposerFormattingToolbar
                   disabled={!canISend || isSending}
-                  variant="outline"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl border border-[var(--border-strong)]/40 hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] hover:text-[var(--accent-primary)] shrink-0 transition-colors"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Attach Files"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
+                  onAction={handleComposerFormatting}
+                />
                 <textarea
-                  placeholder={canISend ? "Discuss work... Type @name to mention a colleague" : sendRestrictionMsg ?? ''}
-                  rows={2}
+                  ref={composerTextareaRef}
+                  placeholder={canISend ? `Message ${activeConvName}` : sendRestrictionMsg ?? ''}
+                  rows={3}
                   disabled={!canISend}
-                  className={`flex-1 p-3 rounded-xl text-xs bg-[var(--bg-surface)] border border-[var(--border-strong)]/40 focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)] resize-none transition-opacity ${
-                    !canISend ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className={cn(
+                    'w-full px-3 py-2 text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-[var(--text-primary)] resize-none min-h-[72px]',
+                    !canISend && 'opacity-50 cursor-not-allowed'
+                  )}
                   value={newMessage}
                   onChange={handleInputChange}
                   onKeyDown={e => {
@@ -1554,20 +1792,130 @@ function MessagesContent() {
                     }
                   }}
                 />
-                <Button
-                  type="submit"
-                  disabled={(!newMessage.trim() && selectedFiles.length === 0) || isSending || !canISend}
-                  className="h-10 px-4 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white rounded-xl shadow-md shrink-0 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/30">
+                  <div className="flex items-center gap-0.5 min-w-0">
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} multiple className="hidden" />
+                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md shrink-0" disabled={!canISend || isSending} onClick={() => fileInputRef.current?.click()} title="Attach file">
+                      <Paperclip className="h-3.5 w-3.5" />
+                    </Button>
+                    <ComposerEmojiPicker disabled={!canISend || isSending} onSelect={handleEmojiInsert} />
+                    {activeConv?.type !== 'direct' && (
+                      <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md" title="Mention" onClick={() => setShowMentionPicker(true)}>
+                        <AtSign className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {activeConv?.type === 'direct' && (
+                      <>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" onClick={() => handleStartCall('voice')} title="Voice call">
+                          <Phone className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" onClick={() => handleStartCall('video')} title="Video call">
+                          <Video className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={(!newMessage.trim() && selectedFiles.length === 0) || isSending || !canISend}
+                    className="h-8 rounded-md px-3"
+                  >
+                    {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Send</>}
+                  </Button>
+                </div>
               </div>
             </form>
+              </>
+            )}
+
+            {conversationPanelTab === 'files' && (
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
+                {sharedAttachments.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[var(--text-muted)] py-12">
+                    <FileText className="h-8 w-8 mb-2 opacity-50" />
+                    <p>No files shared in this conversation yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {sharedAttachments.map((att) => (
+                      <div key={att.id} className="flex items-center gap-3 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
+                        <FileText className="h-5 w-5 text-[var(--accent-primary)] shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold truncate">{att.original_file_name}</p>
+                          <p className="text-[10px] text-[var(--text-muted)]">{(att.file_size / 1024).toFixed(0)} KB</p>
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => messagesApi.downloadAttachment(att.id)}>
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {conversationPanelTab === 'calls' && (
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4">
+                {callEvents.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[var(--text-muted)] py-12">
+                    <Phone className="h-8 w-8 mb-2 opacity-50" />
+                    <p>No call history in this conversation yet.</p>
+                    {activeConv?.type === 'direct' && (
+                      <Button size="sm" className="mt-3 rounded-lg" onClick={() => handleStartCall('voice')}>Start voice call</Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {callEvents.map((evt) => (
+                      <div key={evt.id} className="p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-subtle)] text-xs">
+                        <p className="font-medium text-[var(--text-primary)]">{evt.body}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] mt-1">{formatMessageTime(evt.created_at)}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {conversationPanelTab === 'details' && (
+              <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-4">
+                <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">About</p>
+                  <p className="text-sm font-semibold">{activeConvName}</p>
+                  <p className="text-xs text-[var(--text-secondary)]">Type: {getConvTypeLabel(activeConv.type)}</p>
+                  {activeConv.related_entity_type && (
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Related: {activeConv.related_entity_type.replace('_', ' ')}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
+                    Participants ({activeConv.participants.length})
+                  </p>
+                  <div className="space-y-2">
+                    {activeConv.participants.map((p) => (
+                      <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg border border-[var(--border-subtle)]">
+                        <UserProfilePicture user={p.user} name={p.user.full_name} size="sm" className="h-8 w-8" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold truncate">{p.user.full_name}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] truncate">{p.user.email}</p>
+                        </div>
+                        <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${roleBadge(p.role).cls}`}>
+                          {roleBadge(p.role).label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         ) : (
-          <div className="flex-1 flex flex-col justify-center items-center p-8 text-center text-[var(--text-muted)] italic font-semibold bg-[var(--bg-surface-elevated)]/10 space-y-4">
-            <div className="h-16 w-16 rounded-2xl bg-[var(--bg-elevated)] border border-[var(--border-default)] text-[var(--accent-primary)] flex items-center justify-center shadow-md animate-bounce">
-              <MessageSquare className="h-8 w-8" />
+          <div className="flex-1 min-h-0 flex flex-col justify-center items-center p-8 text-center text-[var(--text-muted)] space-y-4">
+            <div className="h-14 w-14 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--accent-primary)] flex items-center justify-center">
+              <MessageSquare className="h-7 w-7" />
             </div>
             <div className="max-w-md space-y-2">
               <h2 className="text-sm font-black uppercase tracking-wider text-[var(--text-primary)] not-italic">
@@ -1653,11 +2001,7 @@ function MessagesContent() {
                           className={`w-full flex items-center justify-between p-2 hover:bg-[var(--bg-sidebar-hover)] rounded-xl text-left transition-all ${isSelected ? 'bg-[var(--bg-sidebar-active)]/50' : ''}`}
                         >
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 ring-1 ring-[var(--border-default)]">
-                              <AvatarFallback className="bg-[var(--bg-sidebar-active)] text-xs text-[var(--accent-primary)] font-black">
-                                {u.full_name.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
+                            <UserProfilePicture user={u} name={u.full_name} size="default" className="h-8 w-8 ring-1 ring-[var(--border-default)]" />
                             <div>
                               <p className="text-xs font-black text-[var(--text-primary)]">{u.full_name}</p>
                               <p className="text-[9px] text-[var(--text-muted)] uppercase font-semibold">{u.role}</p>
@@ -1729,11 +2073,7 @@ function MessagesContent() {
                       className="flex items-center justify-between p-3 rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)]/40"
                     >
                       <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 ring-1 ring-[var(--border-default)]">
-                          <AvatarFallback className="bg-[var(--bg-sidebar-active)] text-xs text-[var(--accent-primary)] font-black">
-                            {p.user.full_name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
+                        <UserProfilePicture user={p.user} name={p.user.full_name} size="default" className="h-9 w-9 ring-1 ring-[var(--border-default)]" />
                         <div>
                           <p className="text-xs font-black text-[var(--text-primary)]">
                             {p.user.full_name} {isMe && <span className="text-[var(--text-muted)] font-semibold">(you)</span>}
@@ -1821,11 +2161,7 @@ function MessagesContent() {
                           }`}
                         >
                           <div className="flex items-center gap-3">
-                            <Avatar className="h-8 w-8 ring-1 ring-[var(--border-default)]">
-                              <AvatarFallback className="bg-[var(--bg-sidebar-active)] text-xs text-[var(--accent-primary)] font-black">
-                                {u.full_name.charAt(0).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
+                            <UserProfilePicture user={u} name={u.full_name} size="default" className="h-8 w-8 ring-1 ring-[var(--border-default)]" />
                             <div>
                               <p className="text-xs font-black text-[var(--text-primary)]">{u.full_name}</p>
                               <p className="text-[9px] text-[var(--text-muted)]">{u.role} · {u.email}</p>
@@ -2225,6 +2561,46 @@ function MessagesContent() {
           </div>
         </div>
       )}
+
+      <MessageInfoDialog
+        open={messageInfoOpen}
+        onOpenChange={setMessageInfoOpen}
+        loading={messageInfoLoading}
+        info={messageInfoData}
+        error={messageInfoError}
+        isDirect={activeConv?.type === 'direct'}
+      />
+
+      <Dialog open={!!deleteConfirmMessage} onOpenChange={(open) => !open && setDeleteConfirmMessage(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this message?</DialogTitle>
+          </DialogHeader>
+          <DialogBody>
+            <p className="text-sm text-[var(--text-secondary)]">
+              This will remove the message for everyone in this conversation.
+            </p>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteConfirmMessage(null)}
+              disabled={isDeletingMessage}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleDeleteMessage}
+              disabled={isDeletingMessage}
+            >
+              {isDeletingMessage ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -2232,9 +2608,9 @@ function MessagesContent() {
 export default function MessagesPage() {
   return (
     <Suspense fallback={
-      <div className="flex flex-col items-center justify-center h-[calc(100vh-5rem)] gap-4 text-[var(--text-primary)] bg-[var(--bg-surface)]">
-        <Loader2 className="h-10 w-10 animate-spin text-[var(--accent-primary)]" />
-        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Loading PIMS Conversations...</span>
+      <div className="flex flex-col items-center justify-center h-full gap-3 text-[var(--text-primary)]">
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--accent-primary)]" />
+        <span className="text-xs text-[var(--text-muted)]">Loading messages workspace…</span>
       </div>
     }>
       <MessagesContent />

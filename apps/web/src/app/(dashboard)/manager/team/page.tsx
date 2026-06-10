@@ -15,6 +15,9 @@ import { Users } from 'lucide-react';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
+import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
+import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
+import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 
 export default function ManagerTeamPage() {
   const { user } = useAuth();
@@ -46,17 +49,12 @@ export default function ManagerTeamPage() {
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <Users className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Team Directory</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Team Directory</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Directory of your team members and their shifts</p>
-        </div>
-      </div>
+    <ManagerPageShell>
+      <ManagerPageHeader
+        title="Team Directory"
+        subtitle="Your direct reports, roles, and status"
+        icon={Users}
+      />
 
       <Card className="rounded-xl shadow-[var(--shadow-soft)] border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden text-[var(--text-primary)]">
         <CardContent className="p-0">
@@ -84,15 +82,11 @@ export default function ManagerTeamPage() {
                   {team.map((member) => (
                     <TableRow key={member.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-20 text-[var(--text-primary)]">
                       <TableCell className="pl-10">
-                        <div className="flex items-center gap-4">
-                          <Avatar className="h-10 w-10 rounded-xl border border-[var(--border-subtle)] shadow-sm ring-4 ring-[var(--bg-subtle)]/50">
-                            <AvatarFallback className="bg-[var(--bg-subtle)] text-[var(--accent-primary)] font-black text-[10px]">
-                              {getInitials(member.full_name)}
-                            </AvatarFallback>
-                          </Avatar>
+                        <div className="flex items-center gap-3">
+                          <UserProfilePicture name={member.full_name} user={member} size="sm" />
                           <div className="flex flex-col">
-                            <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{member.full_name}</span>
-                            <span className="text-[9px] text-[var(--text-muted)] font-black uppercase tracking-widest">{member.designation || 'Team Member'}</span>
+                            <span className="font-bold text-[var(--text-primary)] text-sm">{member.full_name}</span>
+                            <span className="text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wide">{member.designation || 'Team Member'}</span>
                           </div>
                         </div>
                       </TableCell>
@@ -117,6 +111,6 @@ export default function ManagerTeamPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </ManagerPageShell>
   );
 }

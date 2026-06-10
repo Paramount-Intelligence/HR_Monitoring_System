@@ -15,13 +15,8 @@ import {
   LayoutDashboard, MapPin, Home, ArrowRight, Plane
 } from 'lucide-react';
 import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogFooter
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle, DialogTrigger 
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -39,6 +34,11 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { cn, cleanReason } from '@/lib/utils';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
+import { EmployeeMetricCard } from '@/components/employee/EmployeeMetricCard';
+import { EmployeeSectionCard } from '@/components/employee/EmployeeSectionCard';
 
 export default function EmployeeLeavesPage() {
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
@@ -165,37 +165,26 @@ export default function EmployeeLeavesPage() {
   ];
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <Plane className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Leave Dashboard</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Leave Requests</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Manage leave and WFH requests</p>
-        </div>
-        
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl px-10 shadow-xl border-none transition-all active:scale-95">
-              <Plus className="mr-3 h-5 w-5" />
-              New Request
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)]">
-            <form onSubmit={handleSubmit}>
-              <DialogHeader className="space-y-4">
-                <div className="h-16 w-16 rounded-3xl bg-indigo-50 flex items-center justify-center text-[var(--accent-primary)] shadow-inner mb-2">
-                  <ShieldCheck className="h-8 w-8" />
-                </div>
-                <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Create Leave Request</DialogTitle>
-                <DialogDescription className="text-base font-bold text-[var(--text-muted)] leading-relaxed">
-                  Submit a formal request for leave or WFH. Ensure all operational context is provided for review.
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="grid gap-8 py-8">
+    <EmployeePageShell>
+      <EmployeePageHeader
+        title="Leaves"
+        subtitle="Requests, approvals, and work-from-home history"
+        icon={Plane}
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="rounded-lg text-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                New Request
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <form onSubmit={handleSubmit}>
+                <DialogHeader>
+                  <DialogTitle>Create Leave Request</DialogTitle>
+                  <DialogDescription>Submit a request for leave or WFH with operational context for review.</DialogDescription>
+                </DialogHeader>
+                <DialogBody className="space-y-4">
                 <div className="space-y-4">
                   <Label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Request Type</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -264,53 +253,32 @@ export default function EmployeeLeavesPage() {
                   <Label htmlFor="reason" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason</Label>
                   <Textarea id="reason" placeholder="Provide a reason for this request..." value={reason} onChange={(e) => setReason(e.target.value)} className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold p-5 resize-none" required />
                 </div>
-              </div>
+                </DialogBody>
+                <DialogFooter>
+                  <Button variant="ghost" type="button" size="sm" onClick={() => setIsDialogOpen(false)}>Discard</Button>
+                  <Button type="submit" size="sm" disabled={isSubmitLoading}>
+                    {isSubmitLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : 'Submit Request'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-              <DialogFooter className="gap-4">
-                <Button variant="ghost" type="button" className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1" onClick={() => setIsDialogOpen(false)}>Discard</Button>
-                <Button type="submit" disabled={isSubmitLoading} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl px-12 shadow-xl transition-all active:scale-95 flex-1 border-none">
-                  {isSubmitLoading ? <Loader2 className="mr-3 h-5 w-5 animate-spin" /> : 'Submit Request'}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <EmployeeMetricGrid>
+        <EmployeeMetricCard title="Pending Requests" value={stats[0].value} icon={Clock} />
+        <EmployeeMetricCard title="Approved Requests" value={stats[1].value} icon={CheckCircle2} />
+        <EmployeeMetricCard title="Rejected Requests" value={stats[2].value} icon={XCircle} />
+        <EmployeeMetricCard title="Approved WFH" value={stats[3].value} icon={Home} />
+      </EmployeeMetricGrid>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, i) => (
-          <Card key={i} className="h-full border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2rem] overflow-hidden group hover:scale-[1.02] transition-transform duration-300">
-            <CardContent className="p-8 h-full flex items-center">
-              <div className="flex items-center gap-5">
-                <div className={cn("h-14 w-14 rounded-2xl flex items-center justify-center ring-8 ring-white shadow-sm shrink-0", stat.bg, stat.color)}>
-                  <stat.icon className="h-6 w-6" />
-                </div>
-                <div className="min-w-0">
-                  <div className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-1 truncate">{stat.label}</div>
-                  <div className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">{stat.value}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)] flex flex-row items-center justify-between">
-          <div className="space-y-1">
-            <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
-              <History className="h-6 w-6 text-[var(--accent-primary)]" />
-              Request History
-            </CardTitle>
-            <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Log of past requests</CardDescription>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+      <EmployeeSectionCard title="Request History" icon={History} noPadding contentClassName="p-0">
           {isLoading ? (
             <div className="p-10"><TableSkeleton rows={5} cols={5} /></div>
           ) : requests.length === 0 ? (
             <div className="p-20 text-center">
-              <EmptyState message="No governance records discovered in the organization archives." />
+              <EmptyState title="No leave requests" description="You have not submitted any leave requests yet." icon={Plane} />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -386,79 +354,72 @@ export default function EmployeeLeavesPage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </EmployeeSectionCard>
 
-      {/* Detail Dialog with Timeline */}
       <Dialog open={!!selectedRequest} onOpenChange={(open) => !open && setSelectedRequest(null)}>
-        <DialogContent className="sm:max-w-[600px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)] animate-in zoom-in-95 duration-300">
-          <DialogHeader className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-[var(--accent-primary)] shadow-inner">
-                <LayoutDashboard className="h-7 w-7" />
-              </div>
-              <div>
-                <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">Request Overview</DialogTitle>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">ID: {selectedRequest?.id.slice(0, 8)}</span>
-                  <StatusBadge status={selectedRequest?.status || 'pending'} />
-                </div>
-              </div>
-            </div>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Request Overview</DialogTitle>
+            <DialogDescription>
+              {selectedRequest && (
+                <span className="capitalize">{selectedRequest.leave_type.replace('_', ' ')} request</span>
+              )}
+            </DialogDescription>
           </DialogHeader>
-
           {selectedRequest && (
-            <div className="grid gap-10 py-6">
-               <div className="grid grid-cols-2 gap-8 bg-[var(--bg-subtle)] p-8 rounded-[2rem] border border-[var(--border-subtle)] shadow-inner">
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Type</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="capitalize font-black text-[var(--text-secondary)] text-sm tracking-tight">{selectedRequest.leave_type.replace('_', ' ')}</span>
-                      {selectedRequest.is_half_day && <Badge className="bg-blue-600 text-white border-none text-[8px] h-4">HALF DAY</Badge>}
+            <>
+              <DialogBody className="space-y-4">
+                <div className="grid grid-cols-2 gap-3 bg-[var(--bg-subtle)] p-3 rounded-lg border border-[var(--border-subtle)] text-xs">
+                  <div>
+                    <Label className="text-[10px] text-[var(--text-muted)] uppercase">Type</Label>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="capitalize font-semibold">{selectedRequest.leave_type.replace('_', ' ')}</span>
+                      {selectedRequest.is_half_day && <Badge className="text-[9px]">Half day</Badge>}
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Period</Label>
-                    <p className="text-sm font-black text-[var(--text-secondary)] tracking-tight">
-                        {format(parseISO(selectedRequest.start_date), 'PP')}
-                        {selectedRequest.start_date !== selectedRequest.end_date && ` - ${format(parseISO(selectedRequest.end_date), 'PP')}`}
+                  <div>
+                    <Label className="text-[10px] text-[var(--text-muted)] uppercase">Status</Label>
+                    <div className="mt-0.5"><StatusBadge status={selectedRequest.status} /></div>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-[var(--text-muted)] uppercase">Period</Label>
+                    <p className="font-semibold mt-0.5">
+                      {format(parseISO(selectedRequest.start_date), 'PP')}
+                      {selectedRequest.start_date !== selectedRequest.end_date && ` – ${format(parseISO(selectedRequest.end_date), 'PP')}`}
                     </p>
                   </div>
-                  <div className="col-span-2 space-y-1">
-                    <Label className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason Notes</Label>
-                    <p className="text-sm font-bold text-[var(--text-secondary)] leading-relaxed italic">{cleanReason(selectedRequest.reason)}</p>
+                  <div className="col-span-2">
+                    <Label className="text-[10px] text-[var(--text-muted)] uppercase">Reason</Label>
+                    <p className="font-medium mt-0.5 leading-relaxed">{cleanReason(selectedRequest.reason)}</p>
                   </div>
                   {selectedRequest.manager_comment && (
-                    <div className="col-span-2 space-y-1 pt-4 border-t border-[var(--border-subtle)]">
-                      <Label className="text-[9px] font-black text-[var(--accent-primary)] uppercase tracking-[0.2em] ml-1">Manager Feedback</Label>
-                      <p className="text-sm font-bold text-[var(--text-secondary)] leading-relaxed">"{selectedRequest.manager_comment}"</p>
+                    <div className="col-span-2 pt-2 border-t border-[var(--border-subtle)]">
+                      <Label className="text-[10px] text-[var(--accent-primary)] uppercase">Manager Feedback</Label>
+                      <p className="font-medium mt-0.5 leading-relaxed">{cleanReason(selectedRequest.manager_comment)}</p>
                     </div>
                   )}
-               </div>
-
-               <div>
-                 <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                    <Clock className="h-4 w-4 text-[var(--accent-primary)]" />
-                    Approval Notes
-                 </h4>
-                 <div className="pl-4">
-                    {isTimelineLoading ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-indigo-200" />
-                        </div>
-                    ) : (
-                        <ApprovalTimeline entries={timelineEntries} />
-                    )}
-                 </div>
-               </div>
-            </div>
+                </div>
+                <div>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-3 flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5" />
+                    Approval Timeline
+                  </h4>
+                  {isTimelineLoading ? (
+                    <div className="flex justify-center py-6">
+                      <Loader2 className="h-6 w-6 animate-spin text-[var(--accent-primary)]" />
+                    </div>
+                  ) : (
+                    <ApprovalTimeline entries={timelineEntries} />
+                  )}
+                </div>
+              </DialogBody>
+              <DialogFooter>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedRequest(null)}>Close</Button>
+              </DialogFooter>
+            </>
           )}
-          
-          <DialogFooter>
-             <Button variant="ghost" className="h-14 w-full rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all" onClick={() => setSelectedRequest(null)}>Close Overview</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </EmployeePageShell>
   );
 }

@@ -2,11 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
 import { meetingsApi, Meeting, MeetingCreateInput, MeetingUpdateInput } from '@/lib/api/meetings';
 import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -26,6 +36,9 @@ import {
   CalendarDays,
   List,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
 
 export default function CalendarPage() {
   const { user: authUser } = useAuth();
@@ -92,6 +105,19 @@ export default function CalendarPage() {
       fetchUsers();
     }
   }, [authUser, showAllMeetings]);
+
+  const { isConnected } = useRealtimeStatus();
+
+  useRealtimeEvent(
+    ['meeting_created', 'meeting_updated', 'meeting_deleted', 'meeting_rsvp_updated'],
+    () => {
+      fetchMeetings();
+    }
+  );
+
+  useRealtimeReconnect(() => {
+    fetchMeetings();
+  });
 
   // Handle mobile resize auto-fallback to agenda view
   useEffect(() => {
@@ -337,73 +363,59 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 p-1 sm:p-4 text-[var(--text-primary)]">
-      {/* Header Block */}
-      <div className="relative p-6 sm:p-8 rounded-3xl overflow-hidden border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-primary)]/5 via-transparent to-transparent pointer-events-none" />
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-primary)]/60 text-white flex items-center justify-center shadow-lg shadow-[var(--accent-primary)]/20">
-              <CalendarIcon className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)]">Calendar & Meetings</h1>
-              <p className="text-xs sm:text-sm font-semibold text-[var(--text-muted)]">
-                Coordinate schedules, RSVP to invitations, and invite team members to synced meetings.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
+    <EmployeePageShell>
+      <EmployeePageHeader
+        title="Calendar & Meetings"
+        subtitle="Coordinate schedules, RSVP to invitations, and manage meetings"
+        icon={CalendarIcon}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             {(authUser?.role === 'admin' || authUser?.role === 'hr_operations') && (
               <Button
                 variant="outline"
-                className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all border ${
-                  showAllMeetings
-                    ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)] shadow-md'
-                    : 'text-[var(--text-secondary)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]'
-                }`}
+                size="sm"
+                className={cn(
+                  'rounded-lg text-xs',
+                  showAllMeetings && 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]'
+                )}
                 onClick={() => setShowAllMeetings(!showAllMeetings)}
               >
-                {showAllMeetings ? 'Showing All Org Meetings' : 'Show All Org Meetings'}
+                {showAllMeetings ? 'All Org Meetings' : 'My Meetings'}
               </Button>
             )}
-
-            <div className="hidden md:flex rounded-2xl bg-[var(--bg-surface)] p-1 border border-[var(--border-default)]">
+            <div className="hidden md:flex rounded-lg bg-[var(--bg-surface)] p-0.5 border border-[var(--border-default)]">
               <button
                 onClick={() => setViewType('grid')}
-                className={`p-2 rounded-xl transition-all ${
+                className={cn(
+                  'p-1.5 rounded-md transition-all',
                   viewType === 'grid'
-                    ? 'bg-[var(--accent-primary)] text-white shadow-sm'
+                    ? 'bg-[var(--accent-primary)] text-white'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
+                )}
                 title="Month Grid"
               >
-                <CalendarDays className="h-4.5 w-4.5" />
+                <CalendarDays className="h-4 w-4" />
               </button>
               <button
                 onClick={() => setViewType('list')}
-                className={`p-2 rounded-xl transition-all ${
+                className={cn(
+                  'p-1.5 rounded-md transition-all',
                   viewType === 'list'
-                    ? 'bg-[var(--accent-primary)] text-white shadow-sm'
+                    ? 'bg-[var(--accent-primary)] text-white'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-                }`}
+                )}
                 title="Agenda List"
               >
-                <List className="h-4.5 w-4.5" />
+                <List className="h-4 w-4" />
               </button>
             </div>
-
-            <Button
-              className="px-5 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white shadow-lg shadow-[var(--accent-primary)]/15"
-              onClick={() => openCreateModal()}
-            >
-              <Plus className="h-4.5 w-4.5" />
+            <Button size="sm" className="rounded-lg text-xs" onClick={() => openCreateModal()}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
               New Meeting
             </Button>
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* Banner Notifications */}
       {(successMsg || errorMsg) && (
@@ -854,24 +866,16 @@ export default function CalendarPage() {
       </div>
 
       {/* CREATE MEETING MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-3xl w-full max-w-2xl p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="absolute right-6 top-6 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-all"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div>
-              <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Schedule Boardroom / Sync Meeting</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-1">
-                Fill in standard metadata, dates, URLs, and select invitees. Invites will fire system alerts.
-              </p>
-            </div>
-
-            <form onSubmit={handleCreateMeeting} className="space-y-5">
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="sm:max-w-2xl">
+          <form onSubmit={handleCreateMeeting} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Schedule Meeting</DialogTitle>
+              <DialogDescription>
+                Fill in meeting details, dates, and invite participants. System alerts will be sent.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogBody className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
                   Meeting Title *
@@ -1023,48 +1027,30 @@ export default function CalendarPage() {
                   )}
                 </div>
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-default)]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 rounded-2xl text-xs font-bold border border-[var(--border-default)] text-[var(--text-secondary)]"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-6 py-2.5 rounded-2xl text-xs font-extrabold bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white shadow-lg"
-                >
-                  {actionLoading ? 'Scheduling...' : 'Confirm Invitation'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={actionLoading}>
+                {actionLoading ? 'Scheduling...' : 'Confirm Invitation'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* EDIT MEETING MODAL */}
-      {showEditModal && selectedMeeting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-3xl w-full max-w-2xl p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <button
-              onClick={() => setShowEditModal(false)}
-              className="absolute right-6 top-6 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-all"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div>
-              <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Edit Sync Meeting Details</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-1">
+      <Dialog open={showEditModal && !!selectedMeeting} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-2xl">
+          <form onSubmit={handleUpdateMeeting} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Edit Meeting</DialogTitle>
+              <DialogDescription>
                 Updates will trigger system alerts for all invited participants.
-              </p>
-            </div>
-
-            <form onSubmit={handleUpdateMeeting} className="space-y-5">
+              </DialogDescription>
+            </DialogHeader>
+            <DialogBody className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
                   Meeting Title *
@@ -1206,28 +1192,18 @@ export default function CalendarPage() {
                   })}
                 </div>
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-default)]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 rounded-2xl text-xs font-bold border border-[var(--border-default)] text-[var(--text-secondary)]"
-                  onClick={() => setShowEditModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-6 py-2.5 rounded-2xl text-xs font-extrabold bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white shadow-lg"
-                >
-                  {actionLoading ? 'Saving...' : 'Save Updates'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowEditModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={actionLoading}>
+                {actionLoading ? 'Saving...' : 'Save Updates'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </EmployeePageShell>
   );
 }

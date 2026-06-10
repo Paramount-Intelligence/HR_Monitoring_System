@@ -5,6 +5,7 @@ export interface UserMinimal {
   full_name: string;
   email: string;
   role: string;
+  avatar_url?: string | null;
 }
 
 export interface MeetingParticipant {
@@ -61,6 +62,13 @@ export const meetingsApi = {
 
   getUpcomingMeetings: async (): Promise<Meeting[]> => {
     const response = await apiClient.get<Meeting[]>('/meetings/upcoming');
+    return response.data;
+  },
+
+  getTodayMeetings: async (scope?: 'all'): Promise<Meeting[]> => {
+    const response = await apiClient.get<Meeting[]>('/meetings/today', {
+      params: scope ? { scope } : {},
+    });
     return response.data;
   },
 

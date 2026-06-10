@@ -36,6 +36,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPKDate } from '@/lib/time';
+import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
+import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
 
 const projectSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -114,21 +116,16 @@ export default function ManagerProjectsPage() {
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Projects</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Projects</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Approve and manage project requests</p>
-        </div>
-
+    <ManagerPageShell>
+      <ManagerPageHeader
+        title="Projects"
+        subtitle="Approve and manage project requests"
+        icon={ShieldCheck}
+        actions={
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl border-none shadow-xl transition-all active:scale-95">
-              <Plus className="mr-2 h-4 w-4 text-white" />
+            <Button className="h-9 bg-[var(--accent-primary)] hover:opacity-90 text-white font-bold text-xs px-4 rounded-xl">
+              <Plus className="mr-2 h-3.5 w-3.5" />
               New Project
             </Button>
           </DialogTrigger>
@@ -190,12 +187,13 @@ export default function ManagerProjectsPage() {
             </Form>
           </DialogContent>
         </Dialog>
-      </div>
+        }
+      />
 
-      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-          <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
-            <Zap className="h-6 w-6 text-[var(--accent-primary)]" />
+      <Card className="border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-2xl overflow-hidden text-[var(--text-primary)]">
+        <CardHeader className="px-5 pt-5 pb-4 border-b border-[var(--border-subtle)]">
+          <CardTitle className="text-base font-bold tracking-tight flex items-center gap-2">
+            <Zap className="h-5 w-5 text-[var(--accent-primary)]" />
             Team Projects
           </CardTitle>
         </CardHeader>
@@ -292,6 +290,6 @@ export default function ManagerProjectsPage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </ManagerPageShell>
   );
 }

@@ -11,11 +11,14 @@ export interface Notification {
   is_read: boolean;
   created_at: string;
   read_at: string | null;
+  route?: string | null;
+  entity_type?: string | null;
+  entity_id?: string | null;
 }
 
 export const notificationsApi = {
   getNotifications: async (limit: number = 50): Promise<Notification[]> => {
-    const response = await apiClient.get<Notification[]>('/notifications/', {
+    const response = await apiClient.get<Notification[]>('/notifications', {
       params: { limit },
     });
     return response.data;

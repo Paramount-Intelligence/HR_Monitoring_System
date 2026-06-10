@@ -8,6 +8,8 @@ from app.models.user import User
 from app.models.announcement import Announcement
 from app.schemas.announcement import AnnouncementRead, AnnouncementCreate
 
+from app.services.realtime_service import RealtimeService
+
 router = APIRouter()
 
 from datetime import datetime, timezone
@@ -34,6 +36,14 @@ def create_announcement(
     db.add(announcement)
     db.commit()
     db.refresh(announcement)
+    RealtimeService.emit_announcement(
+        "announcement_created",
+        announcement_id=announcement.id,
+        title=announcement.title,
+        audience=announcement.audience,
+        actor_id=actor.id,
+        db=db,
+    )
     return announcement
 
 @router.get("", response_model=list[AnnouncementRead], summary="List visible announcements")

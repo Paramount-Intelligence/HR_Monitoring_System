@@ -19,6 +19,7 @@ export interface UserMinimal {
   full_name: string;
   email: string;
   role: string;
+  avatar_url?: string | null;
 }
 
 export interface ConversationParticipant {
@@ -40,6 +41,37 @@ export interface MessageReaction {
   emoji: string;
   created_at: string;
   user?: UserMinimal;
+}
+
+export type MessageDeliveryStatus = 'sent' | 'delivered' | 'seen';
+
+export interface ReplyPreview {
+  id: string;
+  sender_name: string;
+  content_preview: string;
+  attachment_preview?: string | null;
+  created_at: string;
+  is_unavailable?: boolean;
+}
+
+export interface MessageReceiptInfo {
+  user_id: string;
+  full_name: string;
+  role: string;
+  profile_picture_url?: string | null;
+  delivered_at: string | null;
+  seen_at: string | null;
+}
+
+export interface MessageInfo {
+  message_id: string;
+  sender: UserMinimal;
+  sent_at: string;
+  conversation_name: string | null;
+  conversation_type: ConversationType | null;
+  attachments: MessageAttachment[];
+  receipts: MessageReceiptInfo[];
+  is_deleted: boolean;
 }
 
 export interface MessageMention {
@@ -67,6 +99,12 @@ export interface Message {
   body: string;
   message_type: MessageType;
   parent_message_id: string | null;
+  reply_to_message_id?: string | null;
+  reply_to_message?: ReplyPreview | null;
+  delivery_status?: MessageDeliveryStatus | null;
+  seen_count?: number | null;
+  delivered_count?: number | null;
+  total_recipients?: number | null;
   is_edited: boolean;
   is_deleted: boolean;
   created_at: string;
@@ -114,6 +152,7 @@ export interface MessageCreateParams {
   body?: string;
   mentioned_user_ids?: string[];
   attachment_ids?: string[];
+  reply_to_message_id?: string;
 }
 
 export interface UnreadCountResponse {
@@ -214,6 +253,11 @@ export const messagesApi = {
 
   deleteMessage: async (messageId: string): Promise<{ message: string }> => {
     const response = await apiClient.delete<{ message: string }>(`/messages/${messageId}`);
+    return response.data;
+  },
+
+  getMessageInfo: async (messageId: string): Promise<MessageInfo> => {
+    const response = await apiClient.get<MessageInfo>(`/messages/${messageId}/info`);
     return response.data;
   },
 

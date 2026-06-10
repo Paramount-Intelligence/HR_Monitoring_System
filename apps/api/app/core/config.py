@@ -97,6 +97,10 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     cors_origins: list[str] = ["*"]
 
+    profile_image_storage: str = "local"
+    profile_image_upload_dir: str = "storage/profile-pictures"
+    profile_image_public_base_url: str = ""
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: str | list[str]) -> list[str]:

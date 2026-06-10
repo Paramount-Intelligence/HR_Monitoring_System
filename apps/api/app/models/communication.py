@@ -106,13 +106,45 @@ class Message(Base, TimestampMixin):
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
+    parent_message = relationship("Message", remote_side="Message.id", foreign_keys=[parent_message_id])
     mentions = relationship("MessageMention", back_populates="message", cascade="all, delete-orphan")
     reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan")
     attachments = relationship("MessageAttachment", back_populates="message", cascade="all, delete-orphan")
+    receipts = relationship("MessageReceipt", back_populates="message", cascade="all, delete-orphan")
+
+
+class MessageReceipt(Base):
+    __tablename__ = "message_receipts"
+
+    __table_args__ = (
+        Index("ix_message_receipts_message_id", "message_id"),
+        Index("ix_message_receipts_user_id", "user_id"),
+        Index("uq_message_receipts_message_user", "message_id", "user_id", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    message = relationship("Message", back_populates="receipts")
+    user = relationship("User", foreign_keys=[user_id])
 
 
 class MessageMention(Base):

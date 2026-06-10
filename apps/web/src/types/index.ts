@@ -14,6 +14,12 @@ export interface User {
   shift_id?: string | null;
   shift_name?: string | null;
   shift_timing?: string | null;
+  avatar_url?: string | null;
+  avatar_updated_at?: string | null;
+  profile_picture_url?: string | null;
+  profile_picture_updated_at?: string | null;
+  profile_picture_content_type?: string | null;
+  profile_picture_size?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,6 +30,8 @@ export interface TokenUser {
   role: 'admin' | 'hr_operations' | 'manager' | 'team_lead' | 'employee' | 'intern' | 'junior_employee';
   department?: string | null;
   designation?: string | null;
+  avatar_url?: string | null;
+  profile_picture_url?: string | null;
 }
 
 export interface AuthResponse {

@@ -8,6 +8,7 @@ class UserMinimal(BaseModel):
     full_name: str
     email: str
     role: str
+    avatar_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

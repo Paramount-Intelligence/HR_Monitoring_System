@@ -15,10 +15,16 @@ const nextConfig = {
     },
   } : {
     async rewrites() {
+      const apiProxy = process.env.API_PROXY_URL || 'http://localhost:8000/api/v1';
+      const apiOrigin = apiProxy.replace(/\/api\/v1\/?$/, '');
       return [
         {
           source: '/api/v1/:path*',
-          destination: `${process.env.API_PROXY_URL || 'https://hrmonitoringsystem-production.up.railway.app/api/v1'}/:path*`,
+          destination: `${apiProxy}/:path*`,
+        },
+        {
+          source: '/media/profile-pictures/:path*',
+          destination: `${apiOrigin}/media/profile-pictures/:path*`,
         },
       ];
     },

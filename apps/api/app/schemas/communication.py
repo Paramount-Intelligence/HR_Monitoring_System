@@ -10,6 +10,7 @@ class UserMinimal(BaseModel):
     full_name: str
     email: str
     role: str
+    avatar_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -49,6 +50,15 @@ class MessageAttachmentRead(BaseModel):
         return f"/api/v1/messages/attachments/{self.id}/download"
 
 
+class ReplyPreview(BaseModel):
+    id: UUID
+    sender_name: str
+    content_preview: str
+    attachment_preview: str | None = None
+    created_at: datetime
+    is_unavailable: bool = False
+
+
 class MessageRead(BaseModel):
     id: UUID
     conversation_id: UUID
@@ -57,6 +67,7 @@ class MessageRead(BaseModel):
     body: str
     message_type: MessageType
     parent_message_id: UUID | None = None
+    reply_to_message_id: UUID | None = None
     is_edited: bool
     is_deleted: bool
     created_at: datetime
@@ -65,6 +76,11 @@ class MessageRead(BaseModel):
     mentions: list[MessageMentionRead] = []
     reactions: list[MessageReactionRead] = []
     attachments: list[MessageAttachmentRead] = []
+    reply_to_message: ReplyPreview | None = None
+    delivery_status: str | None = None
+    seen_count: int | None = None
+    delivered_count: int | None = None
+    total_recipients: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -124,16 +140,38 @@ class MessageCreate(BaseModel):
     body: Optional[str] = None
     mentioned_user_ids: list[UUID] = Field(default_factory=list)
     attachment_ids: list[UUID] = Field(default_factory=list)
+    reply_to_message_id: UUID | None = None
 
     @model_validator(mode="after")
     def validate_body_or_attachments(self) -> "MessageCreate":
-        if not self.body and not self.attachment_ids:
-            raise ValueError("Message body cannot be empty if there are no attachments.")
+        clean_body = (self.body or "").strip()
+        if not clean_body and not self.attachment_ids:
+            raise ValueError("Message content or attachment is required.")
         return self
 
 
 class MessageEdit(BaseModel):
     body: str = Field(..., min_length=1)
+
+
+class MessageReceiptRead(BaseModel):
+    user_id: UUID
+    full_name: str
+    role: str
+    profile_picture_url: str | None = None
+    delivered_at: datetime | None = None
+    seen_at: datetime | None = None
+
+
+class MessageInfoRead(BaseModel):
+    message_id: UUID
+    sender: UserMinimal
+    sent_at: datetime
+    conversation_name: str | None = None
+    conversation_type: ConversationType | None = None
+    attachments: list[MessageAttachmentRead] = []
+    receipts: list[MessageReceiptRead] = []
+    is_deleted: bool = False
 
 
 class UnreadCountResponse(BaseModel):

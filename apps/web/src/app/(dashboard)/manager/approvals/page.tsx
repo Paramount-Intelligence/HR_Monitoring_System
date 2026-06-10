@@ -10,7 +10,7 @@ import { cn, cleanReason } from '@/lib/utils';
 import { 
   CheckCircle, HelpCircle, XCircle, MessageSquare, Loader2, Clock, 
   User, Calendar, Info, ShieldCheck, Zap, AlertCircle, Inbox,
-  CheckCircle2, RefreshCcw
+  CheckCircle2, RefreshCcw, ClipboardCheck
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,8 @@ import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Badge } from '@/components/ui/badge';
 import { formatPKDate, formatPKDateTime } from '@/lib/time';
+import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
+import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
 
 export default function ManagerApprovalsPage() {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -113,51 +115,30 @@ export default function ManagerApprovalsPage() {
   };
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest mb-1">
-            <span>Manager</span>
-            <span className="opacity-40">/</span>
-            <span className="text-[var(--accent-primary)]">Approvals</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Pending Approvals</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Review and approve team submissions</p>
-        </div>
-      </div>
+    <ManagerPageShell>
+      <ManagerPageHeader
+        title="Approvals Control Center"
+        subtitle="Review leave, WFH, and attendance corrections"
+        icon={ClipboardCheck}
+        actions={
+          <Button variant="outline" size="sm" className="rounded-xl text-xs font-bold" onClick={fetchData}>
+            <RefreshCcw className="mr-2 h-3.5 w-3.5" /> Refresh
+          </Button>
+        }
+      />
 
-      <Tabs defaultValue="leaves" className="w-full" orientation="vertical">
-        <div className="app-surface overflow-hidden rounded-[2rem] border border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)]">
-            <aside className="border-b lg:border-b-0 lg:border-r border-[var(--border-subtle)] p-4 flex flex-col gap-2 bg-[var(--bg-surface)]">
-              <TabsList className="flex flex-col gap-2 bg-transparent h-auto w-full p-0" variant="line">
-                <TabsTrigger
-                  value="leaves"
-                  className="w-full flex items-center justify-between rounded-xl px-4 py-4 text-left font-bold transition text-sm tracking-tight text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] bg-transparent border-l-4 border-transparent data-[state=active]:bg-[var(--bg-elevated)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:border-l-[var(--accent-primary)] data-active:bg-[var(--bg-elevated)] data-active:text-[var(--text-primary)] data-active:border-l-[var(--accent-primary)] shadow-none group"
-                >
-                  <div className="flex items-center justify-between w-full gap-4">
-                    <span>Leave & WFH Requests</span>
-                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] text-[var(--text-secondary)] group-data-[state=active]:bg-[var(--accent-primary)] group-data-[state=active]:text-white group-data-active:bg-[var(--accent-primary)] group-data-active:text-white border border-[var(--border-subtle)] transition-colors">
-                      {leaveRequests.length}
-                    </span>
-                  </div>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="corrections"
-                  className="w-full flex items-center justify-between rounded-xl px-4 py-4 text-left font-bold transition text-sm tracking-tight text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] bg-transparent border-l-4 border-transparent data-[state=active]:bg-[var(--bg-elevated)] data-[state=active]:text-[var(--text-primary)] data-[state=active]:border-l-[var(--accent-primary)] data-active:bg-[var(--bg-elevated)] data-active:text-[var(--text-primary)] data-active:border-l-[var(--accent-primary)] shadow-none group"
-                >
-                  <div className="flex items-center justify-between w-full gap-4">
-                    <span>Attendance Corrections</span>
-                    <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-[var(--bg-subtle)] text-[var(--text-secondary)] group-data-[state=active]:bg-[var(--accent-primary)] group-data-[state=active]:text-white group-data-active:bg-[var(--accent-primary)] group-data-active:text-white border border-[var(--border-subtle)] transition-colors">
-                      {corrections.length}
-                    </span>
-                  </div>
-                </TabsTrigger>
-              </TabsList>
-            </aside>
+      <Tabs defaultValue="leaves" className="w-full">
+        <TabsList className="flex flex-wrap gap-2 w-full justify-start bg-transparent p-0 h-auto mb-4 border-b border-[var(--border-subtle)] pb-2">
+          <TabsTrigger value="leaves" className="text-xs font-bold uppercase tracking-wider">
+            Leave & WFH ({leaveRequests.length})
+          </TabsTrigger>
+          <TabsTrigger value="corrections" className="text-xs font-bold uppercase tracking-wider">
+            Attendance Corrections ({corrections.length})
+          </TabsTrigger>
+        </TabsList>
 
-            <section className="w-full min-w-0 p-6">
-              <TabsContent value="leaves" className="animate-in fade-in slide-in-from-bottom-4 duration-500 w-full min-w-0 focus-visible:outline-none">
+        <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 sm:p-6">
+              <TabsContent value="leaves" className="animate-in fade-in w-full min-w-0 focus-visible:outline-none mt-0">
                 <div className="w-full min-w-0">
                   <div className="flex items-center gap-3 pb-6 border-b border-[var(--border-subtle)] mb-6">
                     <Inbox className="h-6 w-6 text-[var(--accent-primary)]" />
@@ -353,8 +334,6 @@ export default function ManagerApprovalsPage() {
                   )}
                 </div>
               </TabsContent>
-            </section>
-          </div>
         </div>
       </Tabs>
 
@@ -433,6 +412,6 @@ export default function ManagerApprovalsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </ManagerPageShell>
   );
 }

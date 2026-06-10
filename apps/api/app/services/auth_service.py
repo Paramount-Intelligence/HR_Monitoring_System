@@ -77,6 +77,8 @@ class AuthService:
                 role=user.role.value,
                 department=user.department,
                 designation=user.designation,
+                avatar_url=user.avatar_url,
+                profile_picture_url=user.avatar_url,
             ),
         )
 
@@ -149,6 +151,40 @@ class AuthService:
             
         self.db.commit()
         return raw_token
+
+    def admin_send_password_reset(self, user: User, actor: User) -> tuple[bool, str | None]:
+        """Admin-triggered password reset. Does not return the raw token."""
+        import secrets
+        import hashlib
+        import logging
+        from datetime import datetime, timedelta, timezone
+
+        logger = logging.getLogger(__name__)
+
+        self.db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.is_used == False,
+        ).update({"is_used": True})
+
+        raw_token = secrets.token_urlsafe(48)
+        token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
+        )
+        self.db.add(reset_token)
+
+        email_sent = True
+        email_error = None
+        try:
+            EmailService.send_password_reset(user, raw_token)
+        except Exception as e:
+            logger.error(f"Failed to send password reset email: {e}")
+            email_sent = False
+            email_error = str(e)
+
+        return email_sent, email_error
 
     def reset_password(self, raw_token: str, new_password: str) -> bool:
         """Consume a reset token and set the new password."""
