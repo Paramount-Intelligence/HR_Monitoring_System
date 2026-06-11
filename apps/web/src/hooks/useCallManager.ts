@@ -81,6 +81,10 @@ export function useCallManager({
   const [incomingCallerName, setIncomingCallerName] = useState('');
   const [showPremiumCallModal, setShowPremiumCallModal] = useState(false);
   const [callDurationSec, setCallDurationSec] = useState(0);
+  const [endedCallBrief, setEndedCallBrief] = useState<{
+    participantName: string;
+    callType: 'voice' | 'video';
+  } | null>(null);
 
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const pendingCandidates = useRef<RTCIceCandidateInit[]>([]);
@@ -94,6 +98,7 @@ export function useCallManager({
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectedAtRef = useRef<number | null>(null);
   const teardownInProgressRef = useRef(false);
+  const otherParticipantNameRef = useRef('Direct Call');
 
   const {
     recordingStatus,
@@ -155,6 +160,15 @@ export function useCallManager({
         if (peerConnectionRef.current) {
           peerConnectionRef.current.close();
           peerConnectionRef.current = null;
+        }
+
+        const session = callSessionRef.current;
+        if (session) {
+          setEndedCallBrief({
+            participantName: otherParticipantNameRef.current,
+            callType: session.call_type,
+          });
+          window.setTimeout(() => setEndedCallBrief(null), 2500);
         }
 
         setCallSession(null);
@@ -655,6 +669,8 @@ export function useCallManager({
   const otherCallParticipantName =
     otherCallParticipant?.full_name || incomingCallerName || 'Direct Call';
 
+  otherParticipantNameRef.current = otherCallParticipantName;
+
   const isIncomingRinging = connectionStatus === 'incoming';
   const isOutgoingRinging = connectionStatus === 'calling';
 
@@ -692,5 +708,6 @@ export function useCallManager({
     toggleVideo,
     recordingStatus,
     isRecordingActive,
+    endedCallBrief,
   };
 }
