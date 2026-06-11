@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     @model_validator(mode="before")
     @classmethod
     def populate_smtp_and_frontend_defaults(cls, data: Any) -> Any:
+        import os
+
         if isinstance(data, dict):
             # SMTP Host
             if "SMTP_HOST" in data and data["SMTP_HOST"] is not None:
@@ -61,6 +63,26 @@ class Settings(BaseSettings):
                 data["frontend_base_url"] = data["FRONTEND_URL"]
             elif "FRONTEND_BASE_URL" in data and data["FRONTEND_BASE_URL"] is not None:
                 data["frontend_base_url"] = data["FRONTEND_BASE_URL"]
+
+            # Call recording storage — read Railway/AWS env vars explicitly
+            driver_env = os.getenv("CALL_RECORDINGS_STORAGE_DRIVER")
+            if driver_env and str(driver_env).strip():
+                data["call_recordings_storage_driver"] = str(driver_env).strip()
+
+            aws_env_map = {
+                "s3_endpoint_url": ["AWS_ENDPOINT_URL", "S3_ENDPOINT_URL"],
+                "s3_bucket": ["AWS_S3_BUCKET_NAME", "S3_BUCKET"],
+                "s3_access_key_id": ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
+                "s3_secret_access_key": ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"],
+                "s3_region": ["AWS_DEFAULT_REGION", "S3_REGION"],
+                "s3_url_style": ["AWS_S3_URL_STYLE", "S3_URL_STYLE"],
+            }
+            for field, env_keys in aws_env_map.items():
+                for env_key in env_keys:
+                    val = os.getenv(env_key)
+                    if val is not None and str(val).strip():
+                        data[field] = str(val).strip()
+                        break
         return data
 
     app_env: str = "development"
@@ -109,13 +131,19 @@ class Settings(BaseSettings):
     s3_bucket: str | None = None
     s3_access_key_id: str | None = None
     s3_secret_access_key: str | None = None
-    s3_region: str | None = "auto"
-    s3_url_style: str = "virtual"
+    s3_region: str | None = None
+    s3_url_style: str | None = None
     s3_public_base_url: str | None = None
 
     @model_validator(mode="after")
     def apply_storage_and_aws_aliases(self) -> "Settings":
-        # Railway Bucket / AWS-style env aliases (backend-only)
+        # Re-read env so Railway/AWS vars always win over defaults or .env placeholders
+        import os
+
+        driver_env = os.getenv("CALL_RECORDINGS_STORAGE_DRIVER")
+        if driver_env and str(driver_env).strip():
+            object.__setattr__(self, "call_recordings_storage_driver", str(driver_env).strip())
+
         alias_map = {
             "s3_endpoint_url": ["AWS_ENDPOINT_URL", "S3_ENDPOINT_URL"],
             "s3_bucket": ["AWS_S3_BUCKET_NAME", "S3_BUCKET"],
@@ -124,24 +152,40 @@ class Settings(BaseSettings):
             "s3_region": ["AWS_DEFAULT_REGION", "S3_REGION"],
             "s3_url_style": ["AWS_S3_URL_STYLE", "S3_URL_STYLE"],
         }
-        import os
 
         for field, env_keys in alias_map.items():
-            if getattr(self, field):
-                continue
             for key in env_keys:
                 val = os.getenv(key)
-                if val:
-                    object.__setattr__(self, field, val)
+                if val is not None and str(val).strip():
+                    object.__setattr__(self, field, str(val).strip())
                     break
 
-        driver = (self.call_recordings_storage_driver or "local").lower()
-        if driver in ("railway_bucket", "railway"):
+        driver = (self.call_recordings_storage_driver or "local").lower().strip()
+        if driver in ("railway_bucket", "railway", "s3"):
             object.__setattr__(self, "call_recordings_storage_driver", "s3")
+
+        if not self.s3_region:
+            object.__setattr__(self, "s3_region", "auto")
+        if not self.s3_url_style:
+            object.__setattr__(self, "s3_url_style", "virtual")
 
         max_mb = self.call_recordings_max_upload_mb or 100
         object.__setattr__(self, "call_recordings_max_bytes", max_mb * 1024 * 1024)
         return self
+
+    def resolved_call_recordings_driver(self) -> str:
+        driver = (self.call_recordings_storage_driver or "local").lower().strip()
+        if driver in ("s3", "railway_bucket", "railway"):
+            return "s3"
+        return "local"
+
+    def call_recordings_s3_config_flags(self) -> dict[str, bool]:
+        return {
+            "endpoint_configured": bool(self.s3_endpoint_url and str(self.s3_endpoint_url).strip()),
+            "bucket_configured": bool(self.s3_bucket and str(self.s3_bucket).strip()),
+            "access_key_configured": bool(self.s3_access_key_id and str(self.s3_access_key_id).strip()),
+            "secret_configured": bool(self.s3_secret_access_key and str(self.s3_secret_access_key).strip()),
+        }
 
     @field_validator("cors_origins", mode="before")
     @classmethod

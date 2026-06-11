@@ -222,7 +222,7 @@ async def upload_call_recording(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Recording storage is temporarily unavailable.",
         ) from exc
-    storage_driver = "s3" if storage.is_s3 else "local"
+    storage_driver = storage.driver
     logger.info(
         "[CALL_RECORDING_UPLOAD] storage_driver=%s saved storage_key=%s",
         storage_driver,

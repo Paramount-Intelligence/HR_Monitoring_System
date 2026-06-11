@@ -24,24 +24,57 @@ ALLOWED_MIME_TYPES = {
 }
 
 
+class CallRecordingStorageConfigError(RuntimeError):
+    """Raised when S3 storage is requested but required configuration is missing."""
+
+
+def log_call_recordings_storage_config() -> None:
+    """Log storage driver configuration at startup (never log secrets)."""
+    driver = settings.resolved_call_recordings_driver()
+    if driver == "s3":
+        flags = settings.call_recordings_s3_config_flags()
+        logger.info(
+            "[CALL_RECORDINGS_STORAGE] driver=s3 endpoint_configured=%s bucket_configured=%s "
+            "access_key_configured=%s secret_configured=%s",
+            flags["endpoint_configured"],
+            flags["bucket_configured"],
+            flags["access_key_configured"],
+            flags["secret_configured"],
+        )
+    else:
+        logger.info("[CALL_RECORDINGS_STORAGE] driver=local")
+
+
+def _missing_s3_fields() -> list[str]:
+    missing: list[str] = []
+    flags = settings.call_recordings_s3_config_flags()
+    if not flags["endpoint_configured"]:
+        missing.append("AWS_ENDPOINT_URL")
+    if not flags["bucket_configured"]:
+        missing.append("AWS_S3_BUCKET_NAME")
+    if not flags["access_key_configured"]:
+        missing.append("AWS_ACCESS_KEY_ID")
+    if not flags["secret_configured"]:
+        missing.append("AWS_SECRET_ACCESS_KEY")
+    return missing
+
+
 class CallRecordingStorageService:
     def __init__(self) -> None:
-        raw_driver = (settings.call_recordings_storage_driver or "local").lower()
-        if raw_driver in ("s3", "railway_bucket", "railway"):
-            self.driver = "s3"
-        else:
-            self.driver = "local"
-
+        self.driver = settings.resolved_call_recordings_driver()
         self.local_dir = Path(settings.call_recordings_local_dir)
-        self.local_dir.mkdir(parents=True, exist_ok=True)
 
-        if self.driver == "s3" and not settings.s3_bucket:
-            logger.warning(
-                "CALL_RECORDINGS_STORAGE_DRIVER=s3 but bucket is missing; falling back to local storage."
-            )
-            self.driver = "local"
-        elif self.driver == "s3":
-            logger.info("[STORAGE] call recordings driver=s3 bucket=%s", settings.s3_bucket)
+        if self.driver == "s3":
+            missing = _missing_s3_fields()
+            if missing:
+                message = (
+                    "CALL_RECORDINGS_STORAGE_DRIVER=s3 but required object storage configuration "
+                    f"is missing: {', '.join(missing)}"
+                )
+                logger.error("[CALL_RECORDINGS_STORAGE] %s", message)
+                raise CallRecordingStorageConfigError(message)
+        else:
+            self.local_dir.mkdir(parents=True, exist_ok=True)
 
     @property
     def is_s3(self) -> bool:
@@ -140,12 +173,6 @@ class CallRecordingStorageService:
         path = self.local_dir.joinpath(*storage_key.split("/"))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-        if settings.app_env == "production":
-            logger.warning(
-                "Call recording stored on local filesystem (%s). "
-                "Set CALL_RECORDINGS_STORAGE_DRIVER=s3 with Railway Bucket credentials for production.",
-                path,
-            )
 
     def _read_local(
         self,
@@ -181,21 +208,48 @@ class CallRecordingStorageService:
 
     def _save_s3(self, storage_key: str, data: bytes, mime_type: str) -> None:
         try:
-            client = self._s3_client()
+            import boto3
         except ImportError as exc:
-            logger.error("boto3 required for S3 storage: %s", exc)
+            logger.error("[CALL_RECORDINGS_STORAGE] boto3 required for S3 storage: %s", exc)
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Object storage is not configured on this server.",
+                detail="Object storage client is not installed on this server.",
             ) from exc
 
-        client.put_object(
-            Bucket=settings.s3_bucket,
-            Key=storage_key,
-            Body=data,
-            ContentType=mime_type,
+        missing = _missing_s3_fields()
+        if missing:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "Call recording object storage is misconfigured. "
+                    f"Missing: {', '.join(missing)}"
+                ),
+            )
+
+        try:
+            client = self._s3_client()
+            client.put_object(
+                Bucket=settings.s3_bucket,
+                Key=storage_key,
+                Body=data,
+                ContentType=mime_type,
+            )
+        except Exception as exc:
+            logger.exception(
+                "[CALL_RECORDINGS_STORAGE] S3 upload failed bucket=%s key=%s",
+                settings.s3_bucket,
+                storage_key,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Failed to store recording in object storage.",
+            ) from exc
+
+        logger.info(
+            "[CALL_RECORDINGS_STORAGE] uploaded key=%s bytes=%s driver=s3",
+            storage_key,
+            len(data),
         )
-        logger.info("[STORAGE] uploaded recording key=%s bytes=%s", storage_key, len(data))
 
     def _read_s3(
         self,
@@ -207,7 +261,7 @@ class CallRecordingStorageService:
         except ImportError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Object storage is not configured on this server.",
+                detail="Object storage client is not installed on this server.",
             ) from exc
 
         head = client.head_object(Bucket=settings.s3_bucket, Key=storage_key)
