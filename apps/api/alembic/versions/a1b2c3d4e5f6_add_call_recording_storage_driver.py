@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision: str = "a1b2c3d4e5f6"
@@ -18,13 +19,33 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "call_recordings",
-        sa.Column("storage_driver", sa.String(length=32), nullable=False, server_default="local"),
-    )
-    op.create_index("ix_call_recordings_call_type", "call_recordings", ["call_type"])
-    op.create_index("ix_call_recordings_recording_type", "call_recordings", ["recording_type"])
-    op.create_index("ix_call_recordings_deleted_at", "call_recordings", ["deleted_at"])
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if "call_recordings" not in inspector.get_table_names():
+        # Table will be created by c7d8e9f0a1b2 if earlier revision was skipped in production.
+        return
+
+    columns = {c["name"] for c in inspector.get_columns("call_recordings")}
+    if "storage_driver" not in columns:
+        op.add_column(
+            "call_recordings",
+            sa.Column("storage_driver", sa.String(length=32), nullable=False, server_default="local"),
+        )
+
+    for index_name, cols in [
+        ("ix_call_recordings_call_type", ["call_type"]),
+        ("ix_call_recordings_recording_type", ["recording_type"]),
+        ("ix_call_recordings_deleted_at", ["deleted_at"]),
+    ]:
+        exists = bind.execute(
+            sa.text(
+                "SELECT 1 FROM pg_indexes WHERE schemaname = current_schema() "
+                "AND indexname = :name LIMIT 1"
+            ),
+            {"name": index_name},
+        ).scalar()
+        if not exists:
+            op.create_index(index_name, "call_recordings", cols)
 
 
 def downgrade() -> None:

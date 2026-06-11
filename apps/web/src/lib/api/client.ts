@@ -56,6 +56,13 @@ apiClient.interceptors.request.use(
       }
     }
 
+    // Let the browser set multipart boundary for FormData uploads
+    if (config.data instanceof FormData) {
+      if (config.headers && 'Content-Type' in config.headers) {
+        delete config.headers['Content-Type'];
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

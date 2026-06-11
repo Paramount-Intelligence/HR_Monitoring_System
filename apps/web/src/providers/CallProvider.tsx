@@ -11,11 +11,12 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Phone, PhoneOff, Video } from 'lucide-react';
+import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { messagesApi, Conversation } from '@/lib/api/messages';
 import { useCallManager } from '@/hooks/useCallManager';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
+import { streamHasLiveVideo } from '@/lib/calls/media';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -32,14 +33,27 @@ function getDirectChatRecipient(conv: Conversation | null, userId: string | unde
   return conv.participants.find((p) => p.user_id !== userId)?.user ?? null;
 }
 
+function VideoPlaceholder({ label, initial }: { label: string; initial: string }) {
+  return (
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/90 text-white">
+      <Avatar className="h-16 w-16 mb-2">
+        <AvatarFallback className="text-xl font-black bg-white/10">{initial}</AvatarFallback>
+      </Avatar>
+      <p className="text-xs font-semibold text-gray-300">{label}</p>
+    </div>
+  );
+}
+
 function GlobalCallOverlays({
   call,
   conversations,
   userId,
+  userName,
 }: {
   call: ReturnType<typeof useCallManager>;
   conversations: Conversation[];
   userId: string | undefined;
+  userName?: string;
 }) {
   const router = useRouter();
   const {
@@ -51,22 +65,34 @@ function GlobalCallOverlays({
     connectionStatus,
     callDurationSec,
     connectionStatus: status,
-    localVideoRef,
-    remoteVideoRef,
+    localStream,
+    remoteStream,
+    bindLocalVideoRef,
+    bindRemoteVideoRef,
     remoteAudioRef,
     localMuted,
     localVideoDisabled,
-    isRecordingActive,
+    hasLocalAudio,
+    hasLocalVideo,
+    localCameraUnavailable,
     handleAcceptCall,
     handleDeclineCall,
     handleEndCall,
     toggleMute,
     toggleVideo,
+    isRecordingActive,
+    mediaWarning,
   } = call;
 
   const activeConv =
     conversations.find((c) => c.id === callSession?.conversation_id) ?? null;
   const outgoingRecipient = getDirectChatRecipient(activeConv, userId);
+  const selfInitial = (userName || 'Y').charAt(0).toUpperCase();
+  const remoteInitial = otherCallParticipantName.charAt(0).toUpperCase();
+
+  const showLocalVideo =
+    streamHasLiveVideo(localStream) && !localVideoDisabled;
+  const showRemoteVideo = streamHasLiveVideo(remoteStream);
 
   useEffect(() => {
     const onNavigate = (e: Event) => {
@@ -149,22 +175,25 @@ function GlobalCallOverlays({
       )}
 
       {callSession && !isIncomingRinging && !isOutgoingRinging && (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-between bg-black/95 backdrop-blur-xl p-6 text-white animate-in fade-in duration-300">
-          <div className="flex flex-col gap-4 shrink-0">
-            <p className="text-[10px] text-gray-500 text-center max-w-lg mx-auto">
+        <div className="fixed inset-0 z-[100] flex flex-col justify-between bg-black/95 backdrop-blur-xl p-4 sm:p-6 text-white animate-in fade-in duration-300 overflow-hidden">
+          <div className="flex flex-col gap-3 shrink-0 max-w-3xl mx-auto w-full">
+            <p className="text-[10px] text-gray-500 text-center">
               This call may be recorded for monitoring, training, and internal review.
             </p>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-[var(--accent-primary)]">
+            {mediaWarning && (
+              <p className="text-[10px] text-amber-400 text-center font-semibold">{mediaWarning}</p>
+            )}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 shrink-0 rounded-xl bg-white/10 flex items-center justify-center">
                   {callSession.call_type === 'video' ? <Video className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
                 </div>
-                <div>
-                  <h3 className="text-sm font-black">{otherCallParticipantName}</h3>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black truncate">{otherCallParticipantName}</h3>
                   <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
                     <span
                       className={cn(
-                        'h-1.5 w-1.5 rounded-full',
+                        'h-1.5 w-1.5 rounded-full shrink-0',
                         status === 'connected' ? 'bg-emerald-500 animate-ping' : 'bg-amber-400 animate-pulse'
                       )}
                     />
@@ -174,7 +203,7 @@ function GlobalCallOverlays({
                           .padStart(2, '0')}:${(callDurationSec % 60).toString().padStart(2, '0')}`
                       : status === 'failed'
                         ? 'Connection failed'
-                        : 'Connecting audio...'}
+                        : 'Connecting...'}
                   </p>
                   {isRecordingActive && (
                     <p
@@ -187,23 +216,42 @@ function GlobalCallOverlays({
                   )}
                 </div>
               </div>
-              <Button variant="ghost" size="sm" onClick={handleEndCall} className="text-red-400 hover:text-red-300">
+              <Button variant="ghost" size="sm" onClick={handleEndCall} className="text-red-400 hover:text-red-300 shrink-0">
                 End
               </Button>
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-center min-h-0">
+          <div className="flex-1 flex items-center justify-center min-h-0 py-4 w-full max-w-4xl mx-auto">
             {callSession.call_type === 'video' ? (
-              <div className="relative w-full max-w-3xl aspect-video rounded-2xl overflow-hidden bg-black/50">
-                <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <div className="relative w-full aspect-video max-h-[60vh] rounded-2xl overflow-hidden bg-black/50">
                 <video
-                  ref={localVideoRef}
+                  ref={bindRemoteVideoRef}
                   autoPlay
                   playsInline
-                  muted
-                  className="absolute bottom-4 right-4 w-32 h-24 rounded-xl object-cover border-2 border-white/20"
+                  className={cn('w-full h-full object-cover', !showRemoteVideo && 'opacity-0')}
                 />
+                {!showRemoteVideo && (
+                  <VideoPlaceholder label="Camera off" initial={remoteInitial} />
+                )}
+                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-28 h-20 sm:w-36 sm:h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg bg-zinc-900">
+                  <video
+                    ref={bindLocalVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={cn(
+                      'w-full h-full object-cover scale-x-[-1]',
+                      !showLocalVideo && 'opacity-0'
+                    )}
+                  />
+                  {!showLocalVideo && (
+                    <VideoPlaceholder
+                      label={localCameraUnavailable ? 'No camera' : 'Camera off'}
+                      initial={selfInitial}
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-center space-y-2">
@@ -215,29 +263,43 @@ function GlobalCallOverlays({
             )}
           </div>
 
-          <div className="flex justify-center gap-4 shrink-0 pb-4">
+          <div className="flex justify-center gap-3 sm:gap-4 shrink-0 pb-2 max-w-lg mx-auto w-full">
             <Button
               variant="outline"
               size="icon"
               onClick={toggleMute}
-              className={cn('rounded-full h-12 w-12', localMuted && 'bg-red-500/20 border-red-400')}
+              disabled={!hasLocalAudio}
+              title={hasLocalAudio ? (localMuted ? 'Unmute' : 'Mute') : 'No microphone available'}
+              className={cn('rounded-full h-11 w-11 sm:h-12 sm:w-12', localMuted && 'bg-red-500/20 border-red-400')}
             >
-              {localMuted ? 'Unmute' : 'Mute'}
+              {localMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </Button>
             {callSession.call_type === 'video' && (
               <Button
                 variant="outline"
                 size="icon"
                 onClick={toggleVideo}
-                className={cn('rounded-full h-12 w-12', localVideoDisabled && 'bg-red-500/20 border-red-400')}
+                disabled={!hasLocalVideo && localCameraUnavailable}
+                title={
+                  !hasLocalVideo
+                    ? 'No camera available'
+                    : localVideoDisabled
+                      ? 'Turn camera on'
+                      : 'Turn camera off'
+                }
+                className={cn(
+                  'rounded-full h-11 w-11 sm:h-12 sm:w-12',
+                  localVideoDisabled && 'bg-red-500/20 border-red-400'
+                )}
               >
-                {localVideoDisabled ? 'Video on' : 'Video off'}
+                {localVideoDisabled ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
               </Button>
             )}
             <Button
               onClick={handleEndCall}
-              className="rounded-full h-14 w-14 bg-red-600 hover:bg-red-700"
+              className="rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-red-600 hover:bg-red-700"
               size="icon"
+              title="End call"
             >
               <PhoneOff className="h-6 w-6" />
             </Button>
@@ -297,7 +359,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   return (
     <CallContext.Provider value={value}>
       {children}
-      <GlobalCallOverlays call={callManager} conversations={conversations} userId={user.id} />
+      <GlobalCallOverlays
+        call={callManager}
+        conversations={conversations}
+        userId={user.id}
+        userName={user.full_name}
+      />
     </CallContext.Provider>
   );
 }

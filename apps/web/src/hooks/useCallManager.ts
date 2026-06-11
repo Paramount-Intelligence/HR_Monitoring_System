@@ -11,7 +11,8 @@ import {
   stopRingtone,
 } from '@/lib/calls/sounds';
 import { buildIceServers } from '@/lib/calls/webrtc-config';
-import { acquireCallMedia, isWebRtcSupported } from '@/lib/calls/media';
+import { getCallMedia, isWebRtcSupported, streamHasAudioTrack, streamHasVideoTrack } from '@/lib/calls/media';
+import { createMediaRefCallback } from '@/lib/calls/attach-media-stream';
 import { useCallRecording } from '@/hooks/useCallRecording';
 
 export type CallRole = 'caller' | 'callee' | null;
@@ -70,6 +71,11 @@ export function useCallManager({
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [localMuted, setLocalMuted] = useState(false);
   const [localVideoDisabled, setLocalVideoDisabled] = useState(false);
+  const [hasLocalAudio, setHasLocalAudio] = useState(false);
+  const [hasLocalVideo, setHasLocalVideo] = useState(false);
+  const [localCameraUnavailable, setLocalCameraUnavailable] = useState(false);
+  const [localMicrophoneUnavailable, setLocalMicrophoneUnavailable] = useState(false);
+  const [mediaWarning, setMediaWarning] = useState<string | null>(null);
   const [iceConnectionState, setIceConnectionState] = useState('new');
   const [connectionStatus, setConnectionStatus] = useState<CallConnectionStatus>('idle');
   const [incomingCallerName, setIncomingCallerName] = useState('');
@@ -150,8 +156,13 @@ export function useCallManager({
 
         setCallSession(null);
         setCallRole(null);
-        setLocalMuted(false);
-        setLocalVideoDisabled(false);
+      setLocalMuted(false);
+      setLocalVideoDisabled(false);
+      setHasLocalAudio(false);
+      setHasLocalVideo(false);
+      setLocalCameraUnavailable(false);
+      setLocalMicrophoneUnavailable(false);
+      setMediaWarning(null);
         setIceConnectionState('new');
         setConnectionStatus('ended');
         setIncomingCallerName('');
@@ -305,6 +316,20 @@ export function useCallManager({
     }
   }, [processSignal]);
 
+  const applyMediaResult = useCallback(
+    (result: Awaited<ReturnType<typeof getCallMedia>>) => {
+      setLocalStream(result.stream);
+      setHasLocalAudio(result.hasLocalAudio);
+      setHasLocalVideo(result.hasLocalVideo);
+      setLocalCameraUnavailable(result.localCameraUnavailable);
+      setLocalMicrophoneUnavailable(result.localMicrophoneUnavailable);
+      setLocalVideoDisabled(!result.hasLocalVideo);
+      setLocalMuted(false);
+      setMediaWarning(result.warning ?? null);
+    },
+    [],
+  );
+
   const handleStartCall = useCallback(
     async (callType: 'voice' | 'video') => {
       if (!activeConv || activeConv.type !== 'direct') {
@@ -322,8 +347,9 @@ export function useCallManager({
           return;
         }
 
-        stream = await acquireCallMedia(callType);
-        setLocalStream(stream);
+        const media = await getCallMedia(callType);
+        stream = media.stream;
+        applyMediaResult(media);
 
         const session = await messagesApi.startCall(activeConv.id, callType);
         setCallSession(session);
@@ -352,7 +378,7 @@ export function useCallManager({
         handleTeardownCall();
       }
     },
-    [activeConv, userId, createPeerConnection, handleTeardownCall, clearMissedCallTimer, setError]
+    [activeConv, userId, createPeerConnection, handleTeardownCall, clearMissedCallTimer, setError, applyMediaResult]
   );
 
   const handleDeclineCall = useCallback(async () => {
@@ -390,8 +416,9 @@ export function useCallManager({
         return;
       }
 
-      stream = await acquireCallMedia(session.call_type === 'video' ? 'video' : 'voice');
-      setLocalStream(stream);
+      const media = await getCallMedia(session.call_type === 'video' ? 'video' : 'voice');
+      stream = media.stream;
+      applyMediaResult(media);
 
       const acceptedSession = await messagesApi.acceptCall(session.id);
       setCallSession(acceptedSession);
@@ -404,7 +431,7 @@ export function useCallManager({
       setError(getErrorMessage(err) || 'Call could not connect.');
       await handleDeclineCall();
     }
-  }, [createPeerConnection, fetchAndProcessSignals, handleDeclineCall, setError]);
+  }, [createPeerConnection, fetchAndProcessSignals, handleDeclineCall, setError, applyMediaResult]);
 
   const handleEndCall = useCallback(async () => {
     const session = callSessionRef.current;
@@ -429,7 +456,7 @@ export function useCallManager({
   }, [activeConv, conversations, userId, handleTeardownCall]);
 
   const toggleMute = useCallback(() => {
-    if (!localStream) return;
+    if (!localStream || !streamHasAudioTrack(localStream)) return;
     const audioTrack = localStream.getAudioTracks()[0];
     if (audioTrack) {
       audioTrack.enabled = !audioTrack.enabled;
@@ -438,7 +465,7 @@ export function useCallManager({
   }, [localStream]);
 
   const toggleVideo = useCallback(() => {
-    if (!localStream) return;
+    if (!localStream || !streamHasVideoTrack(localStream)) return;
     const videoTrack = localStream.getVideoTracks()[0];
     if (videoTrack) {
       videoTrack.enabled = !videoTrack.enabled;
@@ -557,22 +584,38 @@ export function useCallManager({
     return () => clearInterval(interval);
   }, [callSession, callRole, fetchAndProcessSignals]);
 
-  // Attach media streams to elements
-  useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream]);
+  // Attach media streams when elements mount or streams/status change
+  const activeCallUi =
+    Boolean(callSession) && connectionStatus !== 'incoming' && connectionStatus !== 'calling';
 
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-    }
+    if (!activeCallUi || !localVideoRef.current || !localStream) return;
+    localVideoRef.current.srcObject = localStream;
+    void localVideoRef.current.play().catch(() => undefined);
+  }, [localStream, activeCallUi, connectionStatus, callSession?.id]);
+
+  useEffect(() => {
+    if (!activeCallUi || !remoteVideoRef.current || !remoteStream) return;
+    remoteVideoRef.current.srcObject = remoteStream;
+    void remoteVideoRef.current.play().catch(() => undefined);
+  }, [remoteStream, activeCallUi, connectionStatus, callSession?.id]);
+
+  useEffect(() => {
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
       void remoteAudioRef.current.play().catch(() => undefined);
     }
   }, [remoteStream]);
+
+  const bindLocalVideoRef = useCallback(
+    createMediaRefCallback(localStream, localVideoRef),
+    [localStream]
+  );
+
+  const bindRemoteVideoRef = useCallback(
+    createMediaRefCallback(remoteStream, remoteVideoRef),
+    [remoteStream]
+  );
 
   useEffect(() => {
     return () => {
@@ -601,6 +644,11 @@ export function useCallManager({
     remoteStream,
     localMuted,
     localVideoDisabled,
+    hasLocalAudio,
+    hasLocalVideo,
+    localCameraUnavailable,
+    localMicrophoneUnavailable,
+    mediaWarning,
     iceConnectionState,
     connectionStatus,
     incomingCallerName,
@@ -613,6 +661,8 @@ export function useCallManager({
     localVideoRef,
     remoteVideoRef,
     remoteAudioRef,
+    bindLocalVideoRef,
+    bindRemoteVideoRef,
     handleStartCall,
     handleAcceptCall,
     handleDeclineCall,

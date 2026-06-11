@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 revision: str = "f9e2a1b3c4d5"
@@ -18,6 +19,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    if "call_recordings" in inspector.get_table_names():
+        return
+
     op.create_table(
         "call_recordings",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -29,7 +35,7 @@ def upgrade() -> None:
         sa.Column("storage_key", sa.String(length=512), nullable=False),
         sa.Column("file_name", sa.String(length=255), nullable=False),
         sa.Column("mime_type", sa.String(length=128), nullable=False),
-        sa.Column("file_size_bytes", sa.Integer(), nullable=False),
+        sa.Column("file_size_bytes", sa.BigInteger(), nullable=False),
         sa.Column("duration_seconds", sa.Integer(), nullable=True),
         sa.Column("recording_type", sa.String(length=20), nullable=False),
         sa.Column("call_type", sa.String(length=50), nullable=True),

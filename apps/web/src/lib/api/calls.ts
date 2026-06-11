@@ -66,9 +66,7 @@ export interface CallRecordingFilters {
 
 export const callsApi = {
   uploadCallRecording: async (callId: string, formData: FormData) => {
-    const { data } = await apiClient.post(`/calls/${callId}/recordings`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
+    const { data } = await apiClient.post(`/calls/${callId}/recordings`, formData);
     return data;
   },
 

@@ -89,6 +89,9 @@ export function useCallRecording({
       formData.append('file_size_bytes', String(result!.blob.size));
       formData.append('started_at', result!.startedAt.toISOString());
       formData.append('ended_at', result!.endedAt.toISOString());
+      if (callType) {
+        formData.append('call_type', callType);
+      }
       await callsApi.uploadCallRecording(callId, formData);
     };
 
@@ -105,7 +108,7 @@ export function useCallRecording({
         setRecordingStatus('failed');
       }
     }
-  }, [callId]);
+  }, [callId, callType]);
 
   useEffect(() => {
     const remoteAudioReady = Boolean(

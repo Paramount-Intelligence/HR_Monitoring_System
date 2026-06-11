@@ -133,7 +133,9 @@ async def upload_call_recording(
     current_user: User = Depends(get_current_user),
 ):
     """Upload a browser-side call recording (call participants only)."""
+    logger.info("[CALL_RECORDING_UPLOAD] received call_id=%s user_id=%s", call_id, current_user.id)
     call_session = _ensure_call_participant(db, call_id, current_user.id)
+    logger.info("[CALL_RECORDING_UPLOAD] participant_valid=True")
 
     existing = (
         db.query(CallRecording)
@@ -153,6 +155,7 @@ async def upload_call_recording(
         )
 
     data = await file.read()
+    logger.info("[CALL_RECORDING_UPLOAD] file_size=%s mime=%s", len(data), file.content_type)
     resolved_mime = (mime_type or file.content_type or "audio/webm").split(";")[0].strip()
     safe_name = (file.filename or f"{call_id}.webm").replace("\\", "_").replace("/", "_")
     storage.validate_upload(data, resolved_mime, safe_name)
@@ -160,8 +163,18 @@ async def upload_call_recording(
     recording_id = uuid.uuid4()
     ext = "webm" if "webm" in resolved_mime else "ogg"
     storage_key = storage.build_storage_key(call_id, recording_id, ext)
-    storage.save(storage_key, data, resolved_mime)
+    try:
+        storage.save(storage_key, data, resolved_mime)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("[CALL_RECORDING_UPLOAD] storage failed call_id=%s: %s", call_id, exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Recording storage is temporarily unavailable.",
+        ) from exc
     storage_driver = "s3" if storage.is_s3 else "local"
+    logger.info("[CALL_RECORDING_UPLOAD] storage_driver=%s storage_key=%s", storage_driver, storage_key)
 
     participants = _build_participants_snapshot(db, call_session)
     caller_id = call_session.started_by_id
@@ -199,7 +212,7 @@ async def upload_call_recording(
     _write_audit(db, current_user.id, "call_recording_uploaded", recording_id, call_id)
     db.commit()
     db.refresh(rec)
-    logger.info("[CALL] recording uploaded call_id=%s recording_id=%s by=%s", call_id, recording_id, current_user.id)
+    logger.info("[CALL_RECORDING_UPLOAD] db_row_created recording_id=%s call_id=%s", recording_id, call_id)
     return CallRecordingUploadResponse(id=rec.id, call_session_id=call_id, status=rec.status)
 
 

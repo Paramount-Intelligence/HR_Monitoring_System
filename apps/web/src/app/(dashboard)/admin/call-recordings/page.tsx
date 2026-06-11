@@ -82,6 +82,7 @@ export default function AdminCallRecordingsPage() {
   const [streamError, setStreamError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<CallRecordingItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const pageSize = 20;
 
@@ -99,6 +100,7 @@ export default function AdminCallRecordingsPage() {
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const [statsRes, listRes] = await Promise.all([
         callsApi.adminGetCallRecordingStats(),
@@ -108,7 +110,9 @@ export default function AdminCallRecordingsPage() {
       setItems(listRes.items);
       setTotal(listRes.total);
     } catch (err) {
-      toast.error(getErrorMessage(err) || 'Failed to load call recordings.');
+      const message = getErrorMessage(err) || 'Could not load call recordings.';
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -274,6 +278,14 @@ export default function AdminCallRecordingsPage() {
             </Button>
           </div>
         </CardHeader>
+        {loadError && !isLoading && (
+          <div className="mx-10 mb-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 px-4 py-3 flex items-center justify-between gap-4">
+            <p className="text-sm text-red-700 dark:text-red-300">{loadError}</p>
+            <Button variant="outline" size="sm" onClick={() => void loadData()}>
+              Retry
+            </Button>
+          </div>
+        )}
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
@@ -298,8 +310,11 @@ export default function AdminCallRecordingsPage() {
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="p-10 text-center text-[var(--text-muted)]">
-                      No call recordings found.
+                    <TableCell colSpan={8} className="p-10 text-center text-[var(--text-muted)] space-y-2">
+                      <p>No recordings found yet.</p>
+                      <p className="text-xs">
+                        Recordings will appear here after calls end and upload successfully.
+                      </p>
                     </TableCell>
                   </TableRow>
                 ) : (

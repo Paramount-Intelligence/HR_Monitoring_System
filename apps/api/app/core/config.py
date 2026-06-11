@@ -145,16 +145,33 @@ class Settings(BaseSettings):
 
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
-        if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
-        return value
+    def parse_cors_origins(cls, value: str | list[str] | None) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [
+                normalize_origin(str(item).strip())
+                for item in value
+                if str(item).strip() and str(item).strip() != "*"
+            ]
+        raw = str(value).strip()
+        if not raw or raw == "*":
+            return []
+        if raw.startswith("["):
+            import json
+
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [normalize_origin(str(item).strip()) for item in parsed if str(item).strip()]
+            except json.JSONDecodeError:
+                pass
+        return [normalize_origin(item) for item in raw.split(",") if item.strip()]
 
     @field_validator("database_url", mode="before")
     @classmethod
     def fix_postgres_scheme(cls, v: str | None, info) -> str:
         url = None
-        # 1. If DATABASE_URL is provided, normalize the scheme
         if v and isinstance(v, str):
             if is_unresolved_template(v):
                 public_url = info.data.get("database_public_url")
@@ -162,8 +179,7 @@ class Settings(BaseSettings):
                     url = normalize_postgres_url(public_url)
             elif v:
                 url = normalize_postgres_url(v)
-            
-        # 2. Fallback: Try to construct from individual PG variables
+
         if not url:
             data = info.data
             pghost = data.get("pghost")
@@ -171,24 +187,48 @@ class Settings(BaseSettings):
             pgpass = data.get("pgpassword")
             pgdb = data.get("pgdatabase")
             pgport = data.get("pgport", "5432")
-            
+
             if all([pghost, pguser, pgpass, pgdb]) and not any(
                 is_unresolved_template(value) for value in [pghost, pguser, pgpass, pgdb, pgport]
             ):
                 url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
-            
-        # 3. Validations
+
         if not url or url.strip() == "":
             raise ValueError(
                 "DATABASE_URL is missing. Please configure a PostgreSQL DATABASE_URL in your environment."
             )
-            
+
         if url.startswith("sqlite"):
             raise ValueError(
                 "SQLite is no longer supported. Please configure PostgreSQL DATABASE_URL."
             )
-            
+
         return url
+
+
+def normalize_origin(origin: str) -> str:
+    return origin.rstrip("/")
+
+
+def resolve_cors_origins(settings_obj: Settings) -> list[str]:
+    """Build deduplicated CORS allowlist for production + local dev."""
+    defaults = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "https://diligent-elegance-production-52de.up.railway.app",
+        "https://aware-harmony-production-b1c1.up.railway.app",
+        "https://workforce-intelligence-os.up.railway.app",
+        "https://pims-os.up.railway.app",
+    ]
+    extra: list[str] = []
+    if settings_obj.frontend_base_url:
+        extra.append(settings_obj.frontend_base_url)
+    for origin in settings_obj.cors_origins or []:
+        if origin and origin != "*":
+            extra.append(origin)
+    merged = [normalize_origin(o) for o in [*defaults, *extra] if o]
+    return list(dict.fromkeys(merged))
 
 
 settings = Settings()
