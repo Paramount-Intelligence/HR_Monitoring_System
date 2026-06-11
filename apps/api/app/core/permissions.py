@@ -54,6 +54,9 @@ ALL_PERMISSIONS: list[tuple[str, str]] = [
     ("departments.manage", "Manage departments"),
     # System
     ("audit.view", "View audit trail logs"),
+    ("call_recordings.view", "View internal call recordings"),
+    ("call_recordings.download", "Download internal call recordings"),
+    ("call_recordings.delete", "Delete/archive call recordings"),
     ("permissions.manage", "Manage role permissions"),
     ("analytics.view_team", "View team analytics"),
     ("analytics.view_org", "View org analytics"),

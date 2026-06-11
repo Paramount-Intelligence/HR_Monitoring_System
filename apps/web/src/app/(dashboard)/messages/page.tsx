@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'rea
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
-import { useCallManager } from '@/hooks/useCallManager';
+import { useCall } from '@/providers/CallProvider';
 import { unlockSounds } from '@/lib/calls/sounds';
 import { usersApi } from '@/lib/api/users';
 import {
@@ -34,7 +34,6 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { MessagesWorkspaceSidebar } from '@/components/messages/MessagesWorkspaceSidebar';
-import { MessagesNotificationPrompt } from '@/components/messages/MessagesNotificationPrompt';
 import { MessageActionsMenu } from '@/components/messages/MessageActionsMenu';
 import { MessageReplyComposerPreview } from '@/components/messages/MessageReplyComposerPreview';
 import { MessageQuotedReply } from '@/components/messages/MessageQuotedReply';
@@ -290,12 +289,6 @@ function MessagesContent() {
     }
   };
 
-  // Browser notifications states
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [permissionStatus, setPermissionStatus] = useState<string>('default');
-
-  const notifiedMessageIds = useRef<Set<string>>(new Set());
-  const isFirstLoad = useRef(true);
 
   // Input fields
   const [newMessage, setNewMessage] = useState('');
@@ -360,37 +353,17 @@ function MessagesContent() {
   const isGroupOrChannel = activeConv?.type === 'group' || activeConv?.type === 'channel';
 
   const {
-    callSession,
-    localStream,
-    remoteStream,
-    localMuted,
-    localVideoDisabled,
-    iceConnectionState,
-    connectionStatus,
-    incomingCallerName,
-    otherCallParticipantName,
-    isIncomingRinging,
-    isOutgoingRinging,
+    handleStartCall,
     showPremiumCallModal,
     setShowPremiumCallModal,
-    callDurationSec,
-    localVideoRef,
-    remoteVideoRef,
-    remoteAudioRef,
-    handleStartCall,
-    handleAcceptCall,
-    handleDeclineCall,
-    handleEndCall,
-    toggleMute,
-    toggleVideo,
-  } = useCallManager({
-    userId: user?.id,
-    conversations,
-    activeConv,
-    onError: setError,
-  });
+    setActiveConversationId,
+    callSession,
+    connectionStatus,
+  } = useCall();
 
-  const otherCallParticipantInitial = otherCallParticipantName.charAt(0).toUpperCase() || 'C';
+  useEffect(() => {
+    setActiveConversationId(selectedConversationId);
+  }, [selectedConversationId, setActiveConversationId]);
 
   // Ref to always hold the latest selected conversation ID for intervals
   const latestSelectedConvId = useRef<string | null>(null);
@@ -407,63 +380,6 @@ function MessagesContent() {
     if (!el) return true;
     return el.scrollHeight - el.scrollTop - el.clientHeight < 120;
   }, []);
-
-  // Initialize browser notifications state
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPermissionStatus(Notification.permission);
-      const savedSetting = localStorage.getItem('pims_browser_notifications_enabled');
-      setNotificationsEnabled(savedSetting === 'true' && Notification.permission === 'granted');
-    }
-  }, []);
-
-  const handleToggleNotifications = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) {
-      alert('Browser notifications are not supported in this browser.');
-      return;
-    }
-    if (Notification.permission === 'denied') {
-      alert('Browser notifications have been blocked. Please enable them in your browser preferences.');
-      return;
-    }
-    if (Notification.permission !== 'granted') {
-      const permission = await Notification.requestPermission();
-      setPermissionStatus(permission);
-      const enabled = permission === 'granted';
-      localStorage.setItem('pims_browser_notifications_enabled', enabled ? 'true' : 'false');
-      setNotificationsEnabled(enabled);
-    } else {
-      const nextState = !notificationsEnabled;
-      localStorage.setItem('pims_browser_notifications_enabled', nextState ? 'true' : 'false');
-      setNotificationsEnabled(nextState);
-    }
-  };
-
-  const handleNotificationsForConversations = (convList: Conversation[]) => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    const isEnabled =
-      localStorage.getItem('pims_browser_notifications_enabled') === 'true' &&
-      Notification.permission === 'granted';
-
-    convList.forEach(conv => {
-      const lm = conv.last_message;
-      if (!lm) return;
-      if (isFirstLoad.current) { notifiedMessageIds.current.add(lm.id); return; }
-      if (lm.sender_id === user?.id) { notifiedMessageIds.current.add(lm.id); return; }
-      if (isEnabled && !notifiedMessageIds.current.has(lm.id)) {
-        notifiedMessageIds.current.add(lm.id);
-        const truncatedBody = lm.body.length > 80 ? `${lm.body.slice(0, 80)}...` : lm.body;
-        const title = conv.type === 'direct'
-          ? `New message from ${lm.sender_name}`
-          : `[${conv.title || 'Group'}] ${lm.sender_name}`;
-        try {
-          const notif = new Notification(title, { body: truncatedBody, icon: '/logo.png' });
-          notif.onclick = () => { window.focus(); setSelectedConversationId(conv.id); router.replace(`/messages?conversation_id=${conv.id}`); };
-        } catch (e) { console.warn('[Notification] Failed:', e); }
-      }
-    });
-    if (isFirstLoad.current && convList.length > 0) isFirstLoad.current = false;
-  };
 
   // Poll & directory loading
   useEffect(() => {
@@ -540,7 +456,6 @@ function MessagesContent() {
         (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
       );
       setConversations(sorted);
-      handleNotificationsForConversations(sorted);
       setError(null);
     } catch (err) { setError(getErrorMessage(err)); }
     finally { setLoadingConvs(false); }
@@ -557,7 +472,6 @@ function MessagesContent() {
     try {
       const data = await messagesApi.getConversations();
       setConversations(data);
-      handleNotificationsForConversations(data);
       const activeId = latestSelectedConvId.current;
       if (activeId) {
         const freshMsgs = await messagesApi.getMessages(activeId, { limit: 50 });
@@ -646,7 +560,6 @@ function MessagesContent() {
   useRealtimeEvent('conversation_updated', () => {
     messagesApi.getConversations().then(data => {
       setConversations(data);
-      handleNotificationsForConversations(data);
     }).catch(() => {});
   });
 
@@ -1048,10 +961,10 @@ function MessagesContent() {
               <div className="flex items-center gap-1 shrink-0">
                 {activeConv.type === 'direct' ? (
                   <>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleStartCall('voice')} title="Voice call">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!isConnected} onClick={() => handleStartCall('voice')} title={isConnected ? 'Voice call' : 'Reconnecting — calls unavailable'}>
                       <Phone className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => handleStartCall('video')} title="Video call">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!isConnected} onClick={() => handleStartCall('video')} title={isConnected ? 'Video call' : 'Reconnecting — calls unavailable'}>
                       <Video className="h-4 w-4" />
                     </Button>
                   </>
@@ -1079,15 +992,6 @@ function MessagesContent() {
                     <Settings className="h-4 w-4" />
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn('h-8 w-8 rounded-lg', notificationsEnabled && 'text-[var(--accent-primary)]')}
-                  onClick={handleToggleNotifications}
-                  title="Browser notifications"
-                >
-                  {notificationsEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-                </Button>
               </div>
             </div>
 
@@ -1109,8 +1013,6 @@ function MessagesContent() {
                 </button>
               ))}
             </div>
-
-            <MessagesNotificationPrompt onEnable={handleToggleNotifications} />
 
             {conversationPanelTab === 'messages' && (
               <>
@@ -1435,10 +1337,10 @@ function MessagesContent() {
                     )}
                     {activeConv?.type === 'direct' && (
                       <>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" onClick={() => handleStartCall('voice')} title="Voice call">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" disabled={!isConnected} onClick={() => handleStartCall('voice')} title={isConnected ? 'Voice call' : 'Reconnecting — calls unavailable'}>
                           <Phone className="h-3.5 w-3.5" />
                         </Button>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" onClick={() => handleStartCall('video')} title="Video call">
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" disabled={!isConnected} onClick={() => handleStartCall('video')} title={isConnected ? 'Video call' : 'Reconnecting — calls unavailable'}>
                           <Video className="h-3.5 w-3.5" />
                         </Button>
                       </>
@@ -1969,222 +1871,6 @@ function MessagesContent() {
               className="w-full py-2.5 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider"
             >
               Close
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ Incoming Call Overlay ═══ */}
-      {isIncomingRinging && callSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 shadow-[var(--shadow-card)] text-center space-y-6">
-            <div className="relative mx-auto h-20 w-20 rounded-full bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] flex items-center justify-center border border-[var(--accent-primary)]/20 animate-pulse">
-              <Avatar className="h-16 w-16 shadow-lg">
-                <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
-                  {incomingCallerName.charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Incoming {callSession.call_type} Call</p>
-              <h3 className="text-lg font-black text-[var(--text-primary)]">{incomingCallerName}</h3>
-              <p className="text-xs text-[var(--text-secondary)] font-semibold">is calling you...</p>
-            </div>
-            <div className="flex gap-4">
-              <Button
-                onClick={handleDeclineCall}
-                className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-              >
-                <PhoneOff className="h-4 w-4" /> Decline
-              </Button>
-              <Button
-                onClick={handleAcceptCall}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-              >
-                <Phone className="h-4 w-4" /> Accept
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ Outgoing Call Overlay ═══ */}
-      {isOutgoingRinging && callSession && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-8 shadow-[var(--shadow-card)] text-center space-y-6">
-            <div className="relative mx-auto h-20 w-20 rounded-full bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] flex items-center justify-center border border-[var(--accent-primary)]/20 animate-pulse">
-              <Avatar className="h-16 w-16 shadow-lg">
-                <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
-                  {getDirectChatRecipient(activeConv)?.full_name.charAt(0).toUpperCase() || 'P'}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">Calling...</p>
-              <h3 className="text-lg font-black text-[var(--text-primary)]">
-                {getDirectChatRecipient(activeConv)?.full_name || 'Team Member'}
-              </h3>
-              <p className="text-xs text-[var(--text-secondary)] font-semibold">Ringing...</p>
-            </div>
-            <Button
-              onClick={handleEndCall}
-              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-            >
-              <PhoneOff className="h-4 w-4" /> Cancel Call
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ═══ Active Call Overlay ═══ */}
-      {callSession && !isIncomingRinging && !isOutgoingRinging && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-between bg-black/95 backdrop-blur-xl p-6 text-white animate-in fade-in duration-300">
-          {/* Call Header */}
-          <div className="flex flex-col gap-4 shrink-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center text-[var(--accent-primary)] shadow-sm">
-                  {callSession.call_type === 'video' ? <Video className="h-5 w-5 animate-pulse" /> : <Phone className="h-5 w-5" />}
-                </div>
-                <div>
-                  <h3 className="text-sm font-black text-white">
-                    {otherCallParticipantName}
-                  </h3>
-                  <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
-                    <span className={cn(
-                      'h-1.5 w-1.5 rounded-full',
-                      connectionStatus === 'connected' ? 'bg-emerald-500 animate-ping' : 'bg-amber-400 animate-pulse'
-                    )} />
-                    {connectionStatus === 'connected'
-                      ? `Connected · ${Math.floor(callDurationSec / 60).toString().padStart(2, '0')}:${(callDurationSec % 60).toString().padStart(2, '0')}`
-                      : connectionStatus === 'connecting'
-                        ? 'Connecting…'
-                        : `${callSession.call_type === 'video' ? 'Video' : 'Voice'} call`}
-                  </p>
-                </div>
-              </div>
-
-              {/* ICE state warning if failed */}
-              {iceConnectionState === 'failed' && (
-                <div className="px-3 py-1.5 rounded-xl border border-red-500/30 bg-red-500/10 text-red-400 text-[10px] font-black flex items-center gap-2">
-                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                  <span>Connectivity issue: Restricted network NAT</span>
-                </div>
-              )}
-            </div>
-
-            {/* Beautiful, premium error banner for call issues */}
-            {error && (
-              <div className="mx-auto w-full max-w-md p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-red-200 text-xs font-semibold flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
-                <AlertCircle className="h-4 w-4 text-red-400 shrink-0" />
-                <span className="flex-1">{error}</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-red-300 hover:text-white hover:bg-white/10 rounded-lg shrink-0" onClick={() => setError(null)}>
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Media Stream Layout */}
-          <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-          <div className="flex-1 my-6 flex items-center justify-center overflow-hidden relative rounded-2xl bg-white/5 border border-white/10">
-            {callSession.call_type === 'video' ? (
-              <div className="relative w-full h-full flex items-center justify-center">
-                {/* Remote Video */}
-                {remoteStream ? (
-                  <video
-                    ref={remoteVideoRef}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="text-center space-y-4">
-                    <Avatar className="h-20 w-20 mx-auto border border-white/20 shadow-lg animate-pulse">
-                      <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-xl font-black text-white">
-                        {otherCallParticipantInitial}
-                      </AvatarFallback>
-                    </Avatar>
-                    <p className="text-xs text-gray-400 font-semibold animate-pulse">Waiting for participant stream...</p>
-                  </div>
-                )}
-
-                {/* Local Video Picture-in-Picture */}
-                <div className="absolute top-4 right-4 w-32 md:w-48 aspect-video rounded-xl overflow-hidden border border-white/20 bg-black/60 shadow-xl z-10">
-                  {localStream && !localVideoDisabled ? (
-                    <video
-                      ref={localVideoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover transform -scale-x-100"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[10px] font-black uppercase text-gray-400 bg-white/5">
-                      Camera Off
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              /* Voice Call Visualizer */
-              <div className="text-center space-y-6">
-                <div className="relative mx-auto h-28 w-28 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-2xl">
-                  <div className="absolute inset-2 rounded-full border border-[var(--accent-primary)]/40 animate-ping duration-1000" />
-                  <Avatar className="h-24 w-24 border border-white/10 shadow-lg">
-                    <AvatarFallback className="bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] text-2xl font-black text-white">
-                      {otherCallParticipantInitial}
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <div>
-                  <h4 className="text-base font-black">
-                    {otherCallParticipantName}
-                  </h4>
-                  <p className="text-xs text-gray-400 font-semibold mt-1">
-                    {connectionStatus === 'connected' ? 'Connected' : 'Connecting audio…'}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Controls Panel */}
-          <div className="flex items-center justify-center gap-4 shrink-0 bg-white/5 border border-white/10 py-4 px-6 rounded-2xl backdrop-blur-md">
-            {/* Mute button */}
-            <Button
-              type="button"
-              variant="outline"
-              onClick={toggleMute}
-              className={cn("h-12 w-12 rounded-full border border-white/20 transition-all hover:scale-105",
-                localMuted ? "bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500/30" : "bg-white/10 text-white hover:bg-white/20")}
-              title={localMuted ? "Unmute" : "Mute"}
-            >
-              {localMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </Button>
-
-            {/* Video toggle (only for video calls) */}
-            {callSession.call_type === 'video' && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={toggleVideo}
-                className={cn("h-12 w-12 rounded-full border border-white/20 transition-all hover:scale-105",
-                  localVideoDisabled ? "bg-red-500/20 border-red-500 text-red-500 hover:bg-red-500/30" : "bg-white/10 text-white hover:bg-white/20")}
-                title={localVideoDisabled ? "Turn Camera On" : "Turn Camera Off"}
-              >
-                {localVideoDisabled ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-              </Button>
-            )}
-
-            {/* End call button */}
-            <Button
-              type="button"
-              onClick={handleEndCall}
-              className="h-12 w-12 rounded-full bg-red-600 hover:bg-red-700 text-white hover:scale-105 transition-all flex items-center justify-center"
-              title="End Call"
-            >
-              <PhoneOff className="h-5 w-5" />
             </Button>
           </div>
         </div>

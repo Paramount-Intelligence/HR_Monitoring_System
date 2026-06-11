@@ -11,6 +11,8 @@ import {
   stopRingtone,
 } from '@/lib/calls/sounds';
 import { buildIceServers } from '@/lib/calls/webrtc-config';
+import { acquireCallMedia, isWebRtcSupported } from '@/lib/calls/media';
+import { useCallRecording } from '@/hooks/useCallRecording';
 
 export type CallRole = 'caller' | 'callee' | null;
 export type CallConnectionStatus =
@@ -47,6 +49,12 @@ interface UseCallManagerOptions {
   conversations: Conversation[];
   activeConv: Conversation | null;
   onError?: (message: string) => void;
+  onIncomingCall?: (params: {
+    callId: string;
+    callerName: string;
+    callType: 'voice' | 'video';
+    conversationId: string;
+  }) => void;
 }
 
 export function useCallManager({
@@ -54,6 +62,7 @@ export function useCallManager({
   conversations,
   activeConv,
   onError,
+  onIncomingCall,
 }: UseCallManagerOptions) {
   const [callSession, setCallSession] = useState<CallSession | null>(null);
   const [callRole, setCallRole] = useState<CallRole>(null);
@@ -78,6 +87,20 @@ export function useCallManager({
   const missedCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectedAtRef = useRef<number | null>(null);
+  const teardownInProgressRef = useRef(false);
+
+  const {
+    recordingStatus,
+    isRecordingActive,
+    stopAndUpload,
+    resetRecording,
+  } = useCallRecording({
+    callId: callSession?.id,
+    callType: callSession?.call_type,
+    connectionStatus,
+    localStream,
+    remoteStream,
+  });
 
   useEffect(() => {
     callSessionRef.current = callSession;
@@ -112,39 +135,53 @@ export function useCallManager({
 
   const handleTeardownCall = useCallback(
     (playEndSound = false) => {
-      clearMissedCallTimer();
-      clearCallTimer();
-      stopAllCallSounds();
+      if (teardownInProgressRef.current) return;
+      teardownInProgressRef.current = true;
 
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
+      const finishTeardown = () => {
+        clearMissedCallTimer();
+        clearCallTimer();
+        stopAllCallSounds();
 
-      setCallSession(null);
-      setCallRole(null);
-      setLocalMuted(false);
-      setLocalVideoDisabled(false);
-      setIceConnectionState('new');
-      setConnectionStatus('ended');
-      setIncomingCallerName('');
-      pendingCandidates.current = [];
-      processedSignalIds.current.clear();
+        if (peerConnectionRef.current) {
+          peerConnectionRef.current.close();
+          peerConnectionRef.current = null;
+        }
 
-      setLocalStream((prev) => {
-        prev?.getTracks().forEach((t) => t.stop());
-        return null;
-      });
-      setRemoteStream((prev) => {
-        prev?.getTracks().forEach((t) => t.stop());
-        return null;
-      });
+        setCallSession(null);
+        setCallRole(null);
+        setLocalMuted(false);
+        setLocalVideoDisabled(false);
+        setIceConnectionState('new');
+        setConnectionStatus('ended');
+        setIncomingCallerName('');
+        pendingCandidates.current = [];
+        processedSignalIds.current.clear();
 
-      if (playEndSound) playCallEndSound();
+        setLocalStream((prev) => {
+          prev?.getTracks().forEach((t) => t.stop());
+          return null;
+        });
+        setRemoteStream((prev) => {
+          prev?.getTracks().forEach((t) => t.stop());
+          return null;
+        });
 
-      setTimeout(() => setConnectionStatus('idle'), 300);
+        resetRecording();
+
+        if (playEndSound) playCallEndSound();
+
+        setTimeout(() => {
+          setConnectionStatus('idle');
+          teardownInProgressRef.current = false;
+        }, 300);
+      };
+
+      void stopAndUpload()
+        .catch((err) => console.warn('[Call] Recording upload on teardown failed:', err))
+        .finally(finishTeardown);
     },
-    [clearCallTimer, clearMissedCallTimer]
+    [clearCallTimer, clearMissedCallTimer, resetRecording, stopAndUpload]
   );
 
   const createPeerConnection = useCallback(
@@ -280,15 +317,12 @@ export function useCallManager({
       let stream: MediaStream | null = null;
       try {
         setError('');
-        if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+        if (!isWebRtcSupported()) {
           setError('This browser does not support audio/video calls.');
           return;
         }
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: callType === 'video',
-        });
+        stream = await acquireCallMedia(callType);
         setLocalStream(stream);
 
         const session = await messagesApi.startCall(activeConv.id, callType);
@@ -351,15 +385,12 @@ export function useCallManager({
       setConnectionStatus('connecting');
       setError('');
 
-      if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+      if (!isWebRtcSupported()) {
         setError('This browser does not support audio/video calls.');
         return;
       }
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: session.call_type === 'video',
-      });
+      stream = await acquireCallMedia(session.call_type === 'video' ? 'video' : 'voice');
       setLocalStream(stream);
 
       const acceptedSession = await messagesApi.acceptCall(session.id);
@@ -420,10 +451,15 @@ export function useCallManager({
       if (callSessionRef.current) return;
       if (ev.actor_id && userId && String(ev.actor_id) === String(userId)) return;
 
+      const callId = String(ev.payload.call_session_id);
+      const conversationId = String(ev.payload.conversation_id);
+      const callType = (ev.payload.call_type as 'voice' | 'video') || 'voice';
+      const callerName = String(ev.payload.started_by_name || 'Someone');
+
       setCallSession({
-        id: String(ev.payload.call_session_id),
-        conversation_id: String(ev.payload.conversation_id),
-        call_type: (ev.payload.call_type as 'voice' | 'video') || 'voice',
+        id: callId,
+        conversation_id: conversationId,
+        call_type: callType,
         started_by_id: String(ev.actor_id || ''),
         status: 'ringing',
         started_at: null,
@@ -433,10 +469,11 @@ export function useCallManager({
       });
       setCallRole('callee');
       setConnectionStatus('incoming');
-      setIncomingCallerName(String(ev.payload.started_by_name || 'Someone'));
+      setIncomingCallerName(callerName);
       startRingtone();
+      onIncomingCall?.({ callId, callerName, callType, conversationId });
     },
-    [userId]
+    [userId, onIncomingCall]
   );
 
   // Realtime: incoming call (backend emits call_incoming; support incoming_call alias)
@@ -491,15 +528,22 @@ export function useCallManager({
           setConnectionStatus('incoming');
           const conv = conversations.find((c) => c.id === incoming.conversation_id);
           const callerPart = conv?.participants.find((p) => p.user_id === incoming.started_by_id);
-          setIncomingCallerName(callerPart?.user?.full_name || 'Someone');
+          const callerName = callerPart?.user?.full_name || 'Someone';
+          setIncomingCallerName(callerName);
           startRingtone();
+          onIncomingCall?.({
+            callId: incoming.id,
+            callerName,
+            callType: incoming.call_type,
+            conversationId: incoming.conversation_id,
+          });
         }
       } catch {
         /* silent */
       }
     }, INCOMING_POLL_MS);
     return () => clearInterval(interval);
-  }, [callSession, conversations, userId]);
+  }, [callSession, conversations, userId, onIncomingCall]);
 
   // Signal polling — caller always; callee only after peer connection exists
   useEffect(() => {
@@ -575,5 +619,7 @@ export function useCallManager({
     handleEndCall,
     toggleMute,
     toggleVideo,
+    recordingStatus,
+    isRecordingActive,
   };
 }

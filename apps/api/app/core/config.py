@@ -101,6 +101,48 @@ class Settings(BaseSettings):
     profile_image_upload_dir: str = "storage/profile-pictures"
     profile_image_public_base_url: str = ""
 
+    call_recordings_storage_driver: str = "local"
+    call_recordings_local_dir: str = "storage/call-recordings"
+    call_recordings_max_upload_mb: int = 100
+    call_recordings_max_bytes: int = 100 * 1024 * 1024
+    s3_endpoint_url: str | None = None
+    s3_bucket: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_region: str | None = "auto"
+    s3_url_style: str = "virtual"
+    s3_public_base_url: str | None = None
+
+    @model_validator(mode="after")
+    def apply_storage_and_aws_aliases(self) -> "Settings":
+        # Railway Bucket / AWS-style env aliases (backend-only)
+        alias_map = {
+            "s3_endpoint_url": ["AWS_ENDPOINT_URL", "S3_ENDPOINT_URL"],
+            "s3_bucket": ["AWS_S3_BUCKET_NAME", "S3_BUCKET"],
+            "s3_access_key_id": ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
+            "s3_secret_access_key": ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"],
+            "s3_region": ["AWS_DEFAULT_REGION", "S3_REGION"],
+            "s3_url_style": ["AWS_S3_URL_STYLE", "S3_URL_STYLE"],
+        }
+        import os
+
+        for field, env_keys in alias_map.items():
+            if getattr(self, field):
+                continue
+            for key in env_keys:
+                val = os.getenv(key)
+                if val:
+                    object.__setattr__(self, field, val)
+                    break
+
+        driver = (self.call_recordings_storage_driver or "local").lower()
+        if driver in ("railway_bucket", "railway"):
+            object.__setattr__(self, "call_recordings_storage_driver", "s3")
+
+        max_mb = self.call_recordings_max_upload_mb or 100
+        object.__setattr__(self, "call_recordings_max_bytes", max_mb * 1024 * 1024)
+        return self
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def parse_cors_origins(cls, value: str | list[str]) -> list[str]:

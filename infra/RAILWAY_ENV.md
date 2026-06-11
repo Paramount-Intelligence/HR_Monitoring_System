@@ -68,6 +68,41 @@ Notes:
   after changing either `NEXT_PUBLIC_*` URL.
 - Do not put database, SMTP, bootstrap admin, or backend secrets on the web service.
 
+## Call Recording Storage (Railway Bucket)
+
+Set these on the **API service only** (never on the web service):
+
+```env
+CALL_RECORDINGS_STORAGE_DRIVER=s3
+CALL_RECORDINGS_MAX_UPLOAD_MB=100
+
+# Railway Bucket / S3-compatible credentials (backend-only)
+AWS_ENDPOINT_URL=https://<your-bucket-endpoint>
+AWS_S3_BUCKET_NAME=<bucket-name>
+AWS_ACCESS_KEY_ID=<access-key>
+AWS_SECRET_ACCESS_KEY=<secret-key>
+AWS_DEFAULT_REGION=auto
+AWS_S3_URL_STYLE=virtual
+```
+
+Alternative variable names also supported:
+
+```env
+S3_ENDPOINT_URL=
+S3_BUCKET=
+S3_ACCESS_KEY_ID=
+S3_SECRET_ACCESS_KEY=
+S3_REGION=auto
+S3_URL_STYLE=virtual
+```
+
+Notes:
+
+- Recordings are stored as `.webm` objects in the bucket under `call-recordings/YYYY/MM/{call_id}/{recording_id}.webm`.
+- PostgreSQL stores metadata only (`storage_key`, `storage_driver`, duration, participants, etc.).
+- Admin stream/download goes through authenticated backend routes — no public bucket URLs in the frontend.
+- For local development, omit bucket credentials and use `CALL_RECORDINGS_STORAGE_DRIVER=local` (default).
+
 ## After URLs Change
 
 If Railway gives you new domains:

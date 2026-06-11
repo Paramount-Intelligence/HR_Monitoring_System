@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { format, parseISO, isValid } from 'date-fns';
 import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
 import { User, Shift } from '@/types';
@@ -247,6 +248,17 @@ export default function AdminUsersPage() {
     return <Badge className="bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]">Inactive</Badge>;
   };
 
+  const formatLastActive = (value?: string | null) => {
+    if (!value) return '—';
+    try {
+      const d = parseISO(value);
+      if (!isValid(d)) return '—';
+      return format(d, 'MMM d, yyyy');
+    } catch {
+      return '—';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -413,89 +425,59 @@ export default function AdminUsersPage() {
               <Loader2 className="h-6 w-6 animate-spin text-[var(--text-muted)]" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-w-full">
               <Table>
                 <TableHeader>
                   <TableRow className="bg-[var(--bg-subtle)] hover:bg-[var(--bg-subtle)] border-[var(--border-default)]">
-                    <TableHead className="text-[var(--text-primary)] font-bold">Name</TableHead>
-                    <TableHead className="text-[var(--text-primary)] font-bold">Email</TableHead>
+                    <TableHead className="text-[var(--text-primary)] font-bold min-w-[180px]">Name</TableHead>
+                    <TableHead className="text-[var(--text-primary)] font-bold min-w-[160px]">Email</TableHead>
                     <TableHead className="text-[var(--text-primary)] font-bold">Role</TableHead>
                     <TableHead className="text-[var(--text-primary)] font-bold">Department</TableHead>
                     <TableHead className="text-[var(--text-primary)] font-bold">Manager</TableHead>
-                    <TableHead className="text-right text-[var(--text-primary)] font-bold w-[80px]">Actions</TableHead>
+                    <TableHead className="text-[var(--text-primary)] font-bold">Status</TableHead>
+                    <TableHead className="text-[var(--text-primary)] font-bold">Last Active</TableHead>
+                    <TableHead className="text-right text-[var(--text-primary)] font-bold w-[100px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.map((user) => (
-                    <TableRow key={user.id} className={`${user.status === 'inactive' ? 'opacity-50' : ''} border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]/50`}>
+                    <TableRow
+                      key={user.id}
+                      className={`${user.status === 'inactive' ? 'opacity-60' : ''} border-[var(--border-subtle)] hover:bg-[var(--bg-subtle)]/50 cursor-pointer`}
+                      onClick={() => openControlPanel(user.id, 'profile')}
+                    >
                       <TableCell>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                           <UserProfilePicture user={user} name={user.full_name} size="sm" />
-                          <div>
-                            <p className="font-medium text-[var(--text-primary)]">{user.full_name}</p>
-                            {user.designation && <p className="text-xs text-[var(--text-muted)]">{user.designation}</p>}
+                          <div className="min-w-0">
+                            <p className="font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
+                            <p className="text-xs text-[var(--text-muted)] truncate">{user.designation || '—'}</p>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell className="text-[var(--text-secondary)]">{user.email}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)] text-sm truncate max-w-[200px]">{user.email}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`capitalize text-xs font-semibold ${ROLE_BADGE_COLORS[user.role] || ''}`}>
                           {ROLE_LABELS[user.role] || user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-[var(--text-secondary)] text-sm">{user.department_name || user.department || '-'}</TableCell>
-                      <TableCell>{getStatusBadge(user.status)}</TableCell>
-                      <TableCell className="text-[var(--text-secondary)] text-sm truncate max-w-[130px]">
-                        {user.manager_name || (user.manager_id ? filteredUsers.find(u => u.id === user.manager_id)?.full_name : '-')}
+                      <TableCell className="text-[var(--text-secondary)] text-sm">{user.department_name || user.department || '—'}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)] text-sm truncate max-w-[140px]">
+                        {user.manager_name || (user.manager_id ? filteredUsers.find((u) => u.id === user.manager_id)?.full_name : '—')}
                       </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'profile')}>
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'profile')}>
-                              Edit Profile
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'access')}>
-                              <UserCog className="mr-2 h-4 w-4" /> Change Role
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'department')}>
-                              <Building2 className="mr-2 h-4 w-4" /> Change Department
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'permissions')}>
-                              <Shield className="mr-2 h-4 w-4" /> Manage Permissions
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => openControlPanel(user.id, 'security')}>
-                              <Mail className="mr-2 h-4 w-4" /> Send Password Reset
-                            </DropdownMenuItem>
-                            {user.status === 'invited' && (
-                              <DropdownMenuItem onClick={() => handleResendInvite(user.id)}>
-                                Resend Setup Link
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            {user.status !== 'active' && (
-                              <DropdownMenuItem onClick={() => handleStatusAction(user.id, 'activate')}>
-                                <CheckCircle2 className="mr-2 h-4 w-4" /> Activate
-                              </DropdownMenuItem>
-                            )}
-                            {user.status === 'active' && user.id !== currentUser?.id && (
-                              <DropdownMenuItem onClick={() => handleStatusAction(user.id, 'deactivate')}>
-                                <ShieldOff className="mr-2 h-4 w-4" /> Deactivate
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem asChild>
-                              <Link href={`/admin/users/profile?id=${user.id}`}>360° Profile View</Link>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                      <TableCell>{getStatusBadge(user.status)}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)] text-sm whitespace-nowrap">
+                        {formatLastActive(user.last_login_at || user.updated_at)}
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => openControlPanel(user.id, 'profile')}
+                        >
+                          Manage
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -579,6 +561,7 @@ export default function AdminUsersPage() {
         users={users}
         departments={departments}
         shifts={shifts}
+        currentUserId={currentUser?.id}
       />
 
       <Dialog open={!!editAvatarUser} onOpenChange={(open) => !open && setEditAvatarUser(null)}>

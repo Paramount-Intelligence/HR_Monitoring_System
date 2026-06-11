@@ -4,9 +4,13 @@ import { useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { notificationsApi, Notification as AppNotification } from '@/lib/api/notifications';
 import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
+import {
+  shouldPlayNotificationSound,
+  useBrowserNotifications,
+} from '@/hooks/useBrowserNotifications';
 import { playNotificationSound } from '@/lib/calls/sounds';
+import { useAuth } from '@/lib/auth/AuthContext';
 
-const STORAGE_KEY = 'pims_browser_notifications_enabled';
 const POLL_INTERVAL_CONNECTED_MS = 60000;
 const POLL_INTERVAL_FALLBACK_MS = 30000;
 
@@ -20,69 +24,50 @@ function getNotificationRoute(n: AppNotification): string {
   return '/';
 }
 
-export function useBrowserNotificationsEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem(STORAGE_KEY) === 'true';
-}
-
-export function setBrowserNotificationsEnabled(enabled: boolean): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, enabled ? 'true' : 'false');
-}
-
-export async function requestBrowserNotificationPermission(): Promise<NotificationPermission> {
-  if (typeof window === 'undefined' || !('Notification' in window)) {
-    return 'denied';
-  }
-  if (Notification.permission === 'granted') return 'granted';
-  if (Notification.permission === 'denied') return 'denied';
-  return Notification.requestPermission();
-}
-
-interface BrowserNotificationProviderProps {
-  enabled: boolean;
-}
-
-export function BrowserNotificationProvider({ enabled }: BrowserNotificationProviderProps) {
+export function BrowserNotificationProvider() {
   const router = useRouter();
+  const { user } = useAuth();
   const seenIdsRef = useRef<Set<string>>(new Set());
   const initializedRef = useRef(false);
   const { isConnected } = useRealtimeStatus();
+  const { isGranted, showNotification, autoRequestPermissionAfterLogin } = useBrowserNotifications();
+
+  useEffect(() => {
+    if (user) {
+      void autoRequestPermissionAfterLogin();
+    }
+  }, [user, autoRequestPermissionAfterLogin]);
 
   const showBrowserNotification = useCallback(
     (n: AppNotification) => {
-      if (!enabled || typeof window === 'undefined' || !('Notification' in window)) return;
-      if (Notification.permission !== 'granted') return;
+      if (!isGranted) return;
+      if (n.notification_type?.startsWith('call_')) return;
       if (seenIdsRef.current.has(n.id)) return;
       if (n.is_read) return;
 
       seenIdsRef.current.add(n.id);
-
-      const notification = new Notification(n.title, {
+      showNotification({
+        title: n.title,
         body: n.message,
         tag: n.id,
-        icon: '/logo.png',
+        route: getNotificationRoute(n),
+        onClick: () => router.push(getNotificationRoute(n)),
       });
-
-      notification.onclick = () => {
-        window.focus();
-        const route = getNotificationRoute(n);
-        router.push(route);
-        notification.close();
-      };
     },
-    [enabled, router]
+    [isGranted, showNotification, router]
   );
 
   useRealtimeEvent('notification_created', (ev) => {
     const p = ev.payload;
     const notificationType = String(p.notification_type);
-    playNotificationSound(notificationType);
+    if (shouldPlayNotificationSound(notificationType)) {
+      playNotificationSound(notificationType);
+    }
     showBrowserNotification({
       id: String(p.id),
       title: String(p.title),
       message: String(p.message),
-      notification_type: String(p.notification_type),
+      notification_type: notificationType,
       related_entity_type: (p.related_entity_type as string) ?? null,
       related_entity_id: (p.related_entity_id as string) ?? null,
       is_read: Boolean(p.is_read),
@@ -92,8 +77,13 @@ export function BrowserNotificationProvider({ enabled }: BrowserNotificationProv
     });
   });
 
+  useRealtimeEvent(['new_message', 'announcement_created', 'task_assigned'], (ev) => {
+    if (!shouldPlayNotificationSound(ev.type)) return;
+    playNotificationSound(ev.type);
+  });
+
   useEffect(() => {
-    if (!enabled) return;
+    if (!user || !isGranted) return;
 
     const pollMs = isConnected ? POLL_INTERVAL_CONNECTED_MS : POLL_INTERVAL_FALLBACK_MS;
 
@@ -105,17 +95,34 @@ export function BrowserNotificationProvider({ enabled }: BrowserNotificationProv
           initializedRef.current = true;
           return;
         }
-        const unread = notifications.filter((n) => !n.is_read);
+        const unread = notifications.filter((n) => !n.is_read && !n.notification_type?.startsWith('call_'));
         unread.forEach(showBrowserNotification);
       } catch {
-        // silent — in-app notifications still work
+        /* silent */
       }
     };
 
     poll();
     const interval = setInterval(poll, pollMs);
     return () => clearInterval(interval);
-  }, [enabled, showBrowserNotification, isConnected]);
+  }, [user, isGranted, showBrowserNotification, isConnected]);
 
   return null;
+}
+
+/** @deprecated Permission is auto-requested after login; kept for profile settings compatibility */
+export function useBrowserNotificationsEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  return 'Notification' in window && Notification.permission === 'granted';
+}
+
+/** @deprecated */
+export function setBrowserNotificationsEnabled(_enabled: boolean): void {
+  window.dispatchEvent(new CustomEvent('pims-browser-notifications-changed'));
+}
+
+/** @deprecated Use useBrowserNotifications().requestPermission */
+export async function requestBrowserNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'denied';
+  return Notification.requestPermission();
 }

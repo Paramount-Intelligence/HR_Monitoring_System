@@ -46,6 +46,15 @@ type TabKey =
   | 'activity'
   | 'audit';
 
+/** Right drawer width — overrides Sheet default `sm:max-w-sm` (384px) */
+const MANAGE_USER_DRAWER_CLASS =
+  'p-0 flex flex-col h-full overflow-hidden bg-[var(--bg-elevated)] border-[var(--border-subtle)] ' +
+  'max-sm:w-full max-sm:max-w-none ' +
+  'data-[side=right]:!w-[min(880px,100vw)] data-[side=right]:!max-w-[min(880px,100vw)]';
+
+const DRAWER_PAD_X = 'px-6 sm:px-8';
+const DRAWER_SECTION_Y = 'py-5 sm:py-6';
+
 interface AdminUserControlPanelProps {
   userId: string | null;
   open: boolean;
@@ -55,7 +64,34 @@ interface AdminUserControlPanelProps {
   users: User[];
   departments: Department[];
   shifts: Shift[];
+  currentUserId?: string | null;
 }
+
+const PERMISSION_MODULE_ORDER = [
+  'users',
+  'attendance',
+  'tasks',
+  'projects',
+  'eod',
+  'reports',
+  'messages',
+  'settings',
+  'organization',
+  'system',
+];
+
+const PERMISSION_MODULE_LABELS: Record<string, string> = {
+  users: 'Users',
+  attendance: 'Attendance',
+  tasks: 'Tasks',
+  projects: 'Projects',
+  eod: 'EOD',
+  reports: 'Reports',
+  messages: 'Messages',
+  settings: 'Settings',
+  organization: 'Organization',
+  system: 'System',
+};
 
 function formatDateTime(value?: string | null) {
   if (!value) return '—';
@@ -81,10 +117,12 @@ export function AdminUserControlPanel({
   users,
   departments,
   shifts,
+  currentUserId,
 }: AdminUserControlPanelProps) {
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
+  const [permissionSearch, setPermissionSearch] = useState('');
 
   const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '', designation: '' });
   const [roleValue, setRoleValue] = useState('');
@@ -112,6 +150,33 @@ export function AdminUserControlPanel({
     () => users.filter((u) => ['manager', 'admin', 'team_lead', 'hr_operations'].includes(u.role) && u.status === 'active'),
     [users]
   );
+
+  const adminCount = useMemo(
+    () => users.filter((u) => u.role === 'admin' && u.status === 'active').length,
+    [users]
+  );
+
+  const roleChangeDisabledReason = useMemo(() => {
+    if (!user) return 'User not loaded';
+    if (roleValue === user.role) return 'No change selected';
+    if (user.id === currentUserId) return 'Cannot change your own role';
+    if (user.role === 'admin' && roleValue !== 'admin' && adminCount <= 1) {
+      return 'Cannot remove the last admin';
+    }
+    return null;
+  }, [user, roleValue, currentUserId, adminCount]);
+
+  const statusChangeDisabledReason = useMemo(() => {
+    if (!user) return 'User not loaded';
+    if (statusValue === user.status) return 'No change selected';
+    if (user.id === currentUserId && statusValue !== 'active') {
+      return 'Cannot deactivate your own account';
+    }
+    if (user.role === 'admin' && statusValue !== 'active' && adminCount <= 1) {
+      return 'Cannot deactivate the last admin';
+    }
+    return null;
+  }, [user, statusValue, currentUserId, adminCount]);
 
   const rolePermissionKeys = useMemo(
     () => new Set(permissions?.role_permissions.map((p) => p.key) ?? []),
@@ -187,9 +252,11 @@ export function AdminUserControlPanel({
   useEffect(() => {
     if (open && userId) {
       setActiveTab(initialTab);
+      setPermissionSearch('');
       loadUser();
+      void loadSummary();
     }
-  }, [open, userId, initialTab, loadUser]);
+  }, [open, userId, initialTab, loadUser, loadSummary]);
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -375,58 +442,99 @@ export function AdminUserControlPanel({
     const items = allPermissionItems.length
       ? allPermissionItems
       : permissions?.role_permissions ?? [];
+    const query = permissionSearch.trim().toLowerCase();
     const groups: Record<string, PermissionItem[]> = {};
     for (const item of items) {
-      const cat = item.category || 'System';
+      if (query && !item.key.toLowerCase().includes(query) && !(item.label || '').toLowerCase().includes(query)) {
+        continue;
+      }
+      const cat = (item.category || 'system').toLowerCase();
       groups[cat] = groups[cat] || [];
       if (!groups[cat].some((p) => p.key === item.key)) groups[cat].push(item);
     }
     return groups;
-  }, [allPermissionItems, permissions]);
+  }, [allPermissionItems, permissions, permissionSearch]);
+
+  const sortedPermissionGroupEntries = useMemo(() => {
+    return Object.entries(permissionGroups).sort(([a], [b]) => {
+      const ai = PERMISSION_MODULE_ORDER.indexOf(a);
+      const bi = PERMISSION_MODULE_ORDER.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+  }, [permissionGroups]);
 
   const pendingHighRisk = Array.from(extraGrants).some((k) => HIGH_RISK_PERMISSIONS.has(k));
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl lg:max-w-4xl overflow-y-auto p-0">
-          <SheetHeader className="p-6 border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--bg-elevated)] z-10">
-            {loading || !user ? (
-              <div className="flex items-center gap-3 py-4">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Loading user...</span>
-              </div>
-            ) : (
-              <div className="flex items-start gap-4">
-                <UserProfilePicture user={user} name={user.full_name} size="lg" />
-                <div className="flex-1 min-w-0">
-                  <SheetTitle className="text-xl">{user.full_name}</SheetTitle>
-                  <SheetDescription className="mt-1">{user.email}</SheetDescription>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <Badge variant="outline" className={ROLE_BADGE_COLORS[user.role]}>
-                      {ROLE_LABELS[user.role] || user.role}
-                    </Badge>
-                    <Badge variant="outline">{user.department_name || user.department || 'No department'}</Badge>
-                    <Badge variant="outline" className="capitalize">{user.status}</Badge>
+        <SheetContent
+          side="right"
+          showCloseButton
+          className={MANAGE_USER_DRAWER_CLASS}
+        >
+          <div className={`shrink-0 border-b border-[var(--border-subtle)] ${DRAWER_PAD_X} ${DRAWER_SECTION_Y}`}>
+            <SheetHeader className="space-y-1.5 text-left p-0 pr-10">
+              <SheetTitle className="text-xl font-bold">Manage User</SheetTitle>
+              <SheetDescription className="text-sm leading-relaxed">
+                Update profile, access, role, permissions, and security settings
+              </SheetDescription>
+            </SheetHeader>
+          </div>
+
+          {loading || !user ? (
+            <div className="flex flex-1 items-center justify-center gap-3 py-12">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm text-[var(--text-secondary)]">Loading user...</span>
+            </div>
+          ) : (
+            <>
+              <div className={`shrink-0 ${DRAWER_PAD_X} ${DRAWER_SECTION_Y} border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40`}>
+                <div className="flex items-start gap-5 min-w-0">
+                  <UserProfilePicture user={user} name={user.full_name} size="lg" className="shrink-0" />
+                  <div className="flex-1 min-w-0 space-y-3">
+                    <div className="space-y-1">
+                      <p className="text-lg font-semibold text-[var(--text-primary)] truncate">{user.full_name}</p>
+                      <p className="text-sm text-[var(--text-secondary)] truncate">{user.email}</p>
+                    </div>
+                    <div className="flex flex-wrap gap-2.5">
+                      <Badge variant="outline" className={ROLE_BADGE_COLORS[user.role]}>
+                        {ROLE_LABELS[user.role] || user.role}
+                      </Badge>
+                      <Badge variant="outline">{user.department_name || user.department || 'No department'}</Badge>
+                      <Badge variant="outline" className="capitalize">{user.status}</Badge>
+                    </div>
+                    {user.designation && (
+                      <p className="text-xs text-[var(--text-muted)]">{user.designation}</p>
+                    )}
+                    {summary?.last_login && (
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Last active: {formatDateTime(summary.last_login)}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
-            )}
-          </SheetHeader>
 
-          {user && (
-            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="p-6 pt-4">
-              <TabsList className="flex flex-wrap h-auto gap-1 mb-6">
-                <TabsTrigger value="profile">Profile</TabsTrigger>
-                <TabsTrigger value="access">Access & Role</TabsTrigger>
-                <TabsTrigger value="department">Department & Reporting</TabsTrigger>
-                <TabsTrigger value="permissions">Permissions</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
-                <TabsTrigger value="audit">Audit History</TabsTrigger>
-              </TabsList>
+              <Tabs
+                value={activeTab}
+                onValueChange={(v) => setActiveTab(v as TabKey)}
+                className="flex flex-col flex-1 min-h-0"
+              >
+                <div className={`shrink-0 border-b border-[var(--border-subtle)] ${DRAWER_PAD_X} overflow-x-auto`}>
+                  <TabsList className="inline-flex h-auto w-max min-w-full flex-nowrap justify-start gap-1.5 rounded-none bg-transparent p-0 py-3">
+                    <TabsTrigger value="profile" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Profile</TabsTrigger>
+                    <TabsTrigger value="access" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Access</TabsTrigger>
+                    <TabsTrigger value="department" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Department</TabsTrigger>
+                    <TabsTrigger value="permissions" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Permissions</TabsTrigger>
+                    <TabsTrigger value="security" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Security</TabsTrigger>
+                    <TabsTrigger value="activity" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Activity</TabsTrigger>
+                    <TabsTrigger value="audit" className="text-xs sm:text-sm whitespace-nowrap px-3.5 py-2">Audit</TabsTrigger>
+                  </TabsList>
+                </div>
 
-              <TabsContent value="profile" className="space-y-6">
+                <div className={`flex-1 overflow-y-auto overflow-x-hidden ${DRAWER_PAD_X} py-6 sm:py-7`}>
+              <TabsContent value="profile" className="space-y-7 mt-0">
                 <ProfilePictureUpload
                   name={user.full_name}
                   profilePictureUrl={getProfilePictureUrl(user)}
@@ -443,7 +551,7 @@ export function AdminUserControlPanel({
                     onUserUpdated();
                   }}
                 />
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Full Name</Label>
                     <Input value={profileForm.full_name} onChange={(e) => setProfileForm((p) => ({ ...p, full_name: e.target.value }))} />
@@ -461,17 +569,19 @@ export function AdminUserControlPanel({
                     <Input value={profileForm.designation} onChange={(e) => setProfileForm((p) => ({ ...p, designation: e.target.value }))} />
                   </div>
                 </div>
-                <Button onClick={saveProfile} disabled={saving === 'profile'}>
+                <div className="flex flex-wrap items-start gap-4 pt-1">
+                  <Button onClick={saveProfile} disabled={saving === 'profile'} className="min-w-[140px]">
                   {saving === 'profile' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Profile
-                </Button>
+                  </Button>
+                </div>
               </TabsContent>
 
-              <TabsContent value="access" className="space-y-6">
+              <TabsContent value="access" className="space-y-6 mt-0">
                 <p className="text-sm text-[var(--text-secondary)]">
-                  You are changing this user&apos;s access level. This may affect what they can see and do.
+                  Manage role, account status, and invitation state for this user.
                 </p>
-                <div className="grid gap-4 sm:grid-cols-2 max-w-lg">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Role</Label>
                     <Select value={roleValue} onValueChange={setRoleValue}>
@@ -495,26 +605,53 @@ export function AdminUserControlPanel({
                     </Select>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    disabled={roleValue === user.role}
-                    onClick={() => setRoleConfirmOpen(true)}
-                  >
-                    <UserCog className="mr-2 h-4 w-4" /> Confirm Role Change
-                  </Button>
-                  <Button
-                    variant="outline"
-                    disabled={statusValue === user.status}
-                    onClick={() => setStatusConfirmOpen(true)}
-                  >
-                    Update Status
+                <div className="rounded-lg border border-[var(--border-subtle)] p-5 space-y-2.5 text-sm bg-[var(--bg-subtle)]/30 sm:grid sm:grid-cols-2 sm:gap-x-6">
+                  <p><span className="text-[var(--text-muted)]">Invitation:</span> <span className="capitalize">{user.status === 'invited' ? 'Pending setup' : 'Completed'}</span></p>
+                  <p><span className="text-[var(--text-muted)]">Last login:</span> {formatDateTime(summary?.last_login)}</p>
+                  <p><span className="text-[var(--text-muted)]">Created:</span> {formatDateTime(user.created_at)}</p>
+                </div>
+                <div className="flex flex-col lg:flex-row flex-wrap items-start gap-4 lg:gap-6">
+                  <div className="space-y-1">
+                    <Button
+                      variant="outline"
+                      disabled={!!roleChangeDisabledReason}
+                      onClick={() => setRoleConfirmOpen(true)}
+                    >
+                      <UserCog className="mr-2 h-4 w-4" /> Confirm Role Change
+                    </Button>
+                    {roleChangeDisabledReason && (
+                      <p className="text-xs text-[var(--text-muted)]">{roleChangeDisabledReason}</p>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <Button
+                      variant="outline"
+                      disabled={!!statusChangeDisabledReason}
+                      onClick={() => setStatusConfirmOpen(true)}
+                    >
+                      Confirm Status Change
+                    </Button>
+                    {statusChangeDisabledReason && (
+                      <p className="text-xs text-[var(--text-muted)]">{statusChangeDisabledReason}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                  {user.status === 'invited' ? (
+                    <Button onClick={() => runSecurityAction('invite')} disabled={!!securityLoading}>
+                      {securityLoading === 'invite' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Resend Invitation
+                    </Button>
+                  ) : null}
+                  <Button variant="outline" onClick={() => runSecurityAction('reset')} disabled={!!securityLoading}>
+                    {securityLoading === 'reset' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Send Password Reset
                   </Button>
                 </div>
               </TabsContent>
 
-              <TabsContent value="department" className="space-y-6">
-                <div className="grid gap-4 max-w-lg">
+              <TabsContent value="department" className="space-y-6 mt-0">
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Department</Label>
                     <Select value={departmentId} onValueChange={setDepartmentId}>
@@ -523,25 +660,6 @@ export function AdminUserControlPanel({
                         <SelectItem value="none">None</SelectItem>
                         {departments.map((d) => (
                           <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button onClick={saveDepartment} disabled={saving === 'department'}>
-                    {saving === 'department' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Department
-                  </Button>
-
-                  <div className="space-y-2 pt-4 border-t">
-                    <Label>Reporting Manager</Label>
-                    <Select value={managerId} onValueChange={setManagerId}>
-                      <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {managers.filter((m) => m.id !== user.id).map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.full_name} — {ROLE_LABELS[m.role]} — {m.email}
-                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -560,33 +678,64 @@ export function AdminUserControlPanel({
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
+
+                  <div className="space-y-2 sm:col-span-2 pt-2 border-t border-[var(--border-subtle)]">
+                    <Label>Reporting Manager</Label>
+                    <Select value={managerId} onValueChange={setManagerId}>
+                      <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {managers.filter((m) => m.id !== user.id).map((m) => (
+                          <SelectItem key={m.id} value={m.id}>
+                            {m.full_name} — {ROLE_LABELS[m.role]} — {m.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
                     <Label>Designation</Label>
                     <Input value={reportingDesignation} onChange={(e) => setReportingDesignation(e.target.value)} />
                   </div>
-                  <Button onClick={saveReporting} disabled={saving === 'reporting'}>
-                    {saving === 'reporting' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Reporting Line
-                  </Button>
+                  <div className="flex flex-wrap gap-3 sm:col-span-2 pt-1">
+                    <Button onClick={saveDepartment} disabled={saving === 'department'}>
+                      {saving === 'department' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Department
+                    </Button>
+                    <Button onClick={saveReporting} disabled={saving === 'reporting'}>
+                      {saving === 'reporting' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Department & Reporting
+                    </Button>
+                  </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="permissions" className="space-y-4">
+              <TabsContent value="permissions" className="space-y-4 mt-0">
                 {!permissions ? (
                   <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
                 ) : (
                   <>
-                    <div className="rounded-lg border p-4 bg-[var(--bg-subtle)]">
-                      <p className="text-sm font-medium mb-2">Role Permissions (read-only)</p>
-                      <div className="flex flex-wrap gap-1">
+                    <Input
+                      placeholder="Search permissions..."
+                      value={permissionSearch}
+                      onChange={(e) => setPermissionSearch(e.target.value)}
+                    />
+                    <div className="rounded-lg border p-4 bg-[var(--bg-subtle)]/40">
+                      <p className="text-sm font-medium mb-2">Effective permissions from role</p>
+                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
                         {permissions.role_permissions.map((p) => (
                           <Badge key={p.key} variant="secondary" className="text-xs">{p.label || p.key}</Badge>
                         ))}
                       </div>
                     </div>
-                    {Object.entries(permissionGroups).map(([category, items]) => (
+                    {sortedPermissionGroupEntries.length === 0 ? (
+                      <p className="text-sm text-[var(--text-muted)] py-6 text-center">No permissions match your search.</p>
+                    ) : (
+                      sortedPermissionGroupEntries.map(([category, items]) => (
                       <div key={category} className="space-y-2">
-                        <p className="text-sm font-semibold capitalize">{category.replace(/_/g, ' ')}</p>
+                        <p className="text-sm font-semibold">
+                          {PERMISSION_MODULE_LABELS[category] || category.replace(/_/g, ' ')}
+                        </p>
                         <div className="space-y-2">
                           {items.map((p) => {
                             const inherited = rolePermissionKeys.has(p.key);
@@ -627,7 +776,9 @@ export function AdminUserControlPanel({
                           })}
                         </div>
                       </div>
-                    ))}
+                    ))
+                    )}
+                    <div className="sticky bottom-0 pt-4 bg-[var(--bg-elevated)] border-t border-[var(--border-subtle)] -mx-6 px-6 sm:-mx-8 sm:px-8 pb-1 flex flex-wrap gap-3">
                     <Button
                       onClick={() => (pendingHighRisk ? setPermConfirmOpen(true) : savePermissions())}
                       disabled={saving === 'permissions'}
@@ -635,11 +786,22 @@ export function AdminUserControlPanel({
                       {saving === 'permissions' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       <Shield className="mr-2 h-4 w-4" /> Save Permission Changes
                     </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (!permissions) return;
+                        setExtraGrants(new Set());
+                        setExtraDenies(new Set());
+                      }}
+                    >
+                      Reset to Role Defaults
+                    </Button>
+                    </div>
                   </>
                 )}
               </TabsContent>
 
-              <TabsContent value="security" className="space-y-4 max-w-md">
+              <TabsContent value="security" className="space-y-5 mt-0">
                 <div className="space-y-2 text-sm text-[var(--text-secondary)]">
                   <p>Account created: {formatDateTime(user.created_at)}</p>
                   {summary?.last_login && <p>Last login: {formatDateTime(summary.last_login)}</p>}
@@ -671,7 +833,7 @@ export function AdminUserControlPanel({
                 </Button>
               </TabsContent>
 
-              <TabsContent value="activity">
+              <TabsContent value="activity" className="mt-0">
                 {!summary ? (
                   <p className="text-sm text-[var(--text-muted)] py-8 text-center">No data available.</p>
                 ) : (
@@ -706,7 +868,7 @@ export function AdminUserControlPanel({
                 )}
               </TabsContent>
 
-              <TabsContent value="audit">
+              <TabsContent value="audit" className="mt-0">
                 {auditLogs.length === 0 ? (
                   <p className="text-sm text-[var(--text-muted)] py-8 text-center">No audit history found.</p>
                 ) : (
@@ -736,7 +898,9 @@ export function AdminUserControlPanel({
                   </div>
                 )}
               </TabsContent>
-            </Tabs>
+                </div>
+              </Tabs>
+            </>
           )}
         </SheetContent>
       </Sheet>

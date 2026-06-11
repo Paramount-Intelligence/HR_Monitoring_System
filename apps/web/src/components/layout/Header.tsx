@@ -14,12 +14,13 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { 
-  Menu, LogOut, User as UserIcon, Bell, Check, 
+  Menu, LogOut, User as UserIcon, Bell, Check, BellOff, BellRing,
   MessageSquare, Calendar, ShieldCheck, MailOpen, AlertCircle, Settings 
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { messagesApi } from '@/lib/api/messages';
 import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
+import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 
 
 interface HeaderProps {
@@ -39,6 +40,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const [notifError, setNotifError] = useState<string | null>(null);
   const { isConnected } = useRealtimeStatus();
+  const { permission, isSupported } = useBrowserNotifications();
 
   const fetchUnreadCount = async () => {
     try {
@@ -157,6 +159,28 @@ export function Header({ onMenuToggle }: HeaderProps) {
     setIsLoggingOut(false);
   };
 
+  const getNotificationBellIcon = () => {
+    if (!isSupported || permission === 'unsupported') {
+      return <BellOff className="h-5 w-5 opacity-40" />;
+    }
+    if (permission === 'denied') {
+      return <BellOff className="h-5 w-5 text-[var(--text-muted)]" />;
+    }
+    if (permission === 'default') {
+      return <BellRing className="h-5 w-5 opacity-70" />;
+    }
+    return <Bell className="h-5 w-5" />;
+  };
+
+  const notificationTooltip =
+    !isSupported || permission === 'unsupported'
+      ? 'Browser notifications are not supported'
+      : permission === 'denied'
+        ? 'Browser notifications are blocked. Enable them from browser site settings.'
+        : permission === 'default'
+          ? 'Browser notifications pending approval'
+          : 'Notifications enabled';
+
   return (
     <>
       <header className="app-header backdrop-blur-xl px-3 sm:px-5 transition-colors duration-300">
@@ -215,9 +239,10 @@ export function Header({ onMenuToggle }: HeaderProps) {
               <Button
                 variant="ghost"
                 size="icon"
+                title={notificationTooltip}
                 className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)] h-9 w-9 rounded-xl transition-all focus:outline-none"
               >
-                <Bell className="h-5 w-5" />
+                {getNotificationBellIcon()}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] text-[10px] font-black border-2 border-[var(--bg-surface)] flex items-center justify-center">
                     {unreadCount}

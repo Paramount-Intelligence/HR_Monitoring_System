@@ -7,7 +7,8 @@ const SOUND_UNLOCKED_KEY = 'pims_sound_unlocked';
 export const SOUND_ASSETS = {
   ringtone: '/sounds/ringtone.mp3',
   callEnd: '/sounds/call-end.mp3',
-  notification: '/sounds/notification.wav',
+  notification: '/sounds/notification.mp3',
+  notificationFallback: '/sounds/notification.wav',
 } as const;
 
 let audioContext: AudioContext | null = null;
@@ -140,12 +141,16 @@ export function playNotificationSound(notificationType?: string): void {
   if (!isSoundEnabled()) return;
   if (notificationType?.startsWith('call_')) return;
 
-  void playSoundFile(SOUND_ASSETS.notification, { volume: 0.85 }).then((played) => {
-    if (!played) {
+  void playSoundFile(SOUND_ASSETS.notification, { volume: 0.85 })
+    .then((played) => {
+      if (played) return;
+      return playSoundFile(SOUND_ASSETS.notificationFallback, { volume: 0.85 });
+    })
+    .then((played) => {
+      if (played) return;
       playTone(880, 120, 0.12);
       setTimeout(() => playTone(1100, 100, 0.1), 140);
-    }
-  });
+    });
 }
 
 /** Loop incoming-call ringtone until stopped. */
