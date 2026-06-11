@@ -1,9 +1,11 @@
 import type { ConnectionStatus, RealtimeEvent } from './events';
+import { ensureFreshAccessToken, isTokenExpiringSoon } from '@/lib/auth/token-utils';
 
 const MAX_DEDUPE = 2000;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
 const DEV = process.env.NODE_ENV === 'development';
+const WS_AUTH_CLOSE_CODE = 1008;
 
 const CALL_EVENT_TYPES = new Set([
   'call_incoming',
@@ -18,11 +20,10 @@ const CALL_EVENT_TYPES = new Set([
 ]);
 
 function logRealtime(message: string, detail?: string) {
-  if (!DEV) return;
   if (detail) {
-    console.log(`[Realtime] ${message}`, detail);
+    console.log(`[WS] ${message}`, detail);
   } else {
-    console.log(`[Realtime] ${message}`);
+    console.log(`[WS] ${message}`);
   }
 }
 
@@ -58,82 +59,125 @@ export class RealtimeWebSocketClient {
   private eventHandlers = new Set<EventHandler>();
   private statusHandlers = new Set<StatusHandler>();
   private status: ConnectionStatus = 'idle';
+  private connectInFlight = false;
+  private authRefreshOnCloseAttempted = false;
 
   connect(token: string) {
+    void this.connectWithFreshToken(token);
+  }
+
+  private async connectWithFreshToken(token: string) {
     if (typeof window === 'undefined') return;
-    if (!token) return;
+    if (!token || this.connectInFlight) return;
 
-    if (this.ws && this.token === token && this.ws.readyState === WebSocket.OPEN) {
-      return;
-    }
-
-    this.disconnect(false);
-    this.token = token;
-    this.intentionalClose = false;
-    this.setStatus(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
-
-    const baseUrl = resolveWebSocketUrl();
-    const url = `${baseUrl}?token=${encodeURIComponent(token)}`;
-    logRealtime('WS URL:', baseUrl);
+    this.connectInFlight = true;
 
     try {
-      this.ws = new WebSocket(url);
-    } catch {
-      this.scheduleReconnect();
+      let accessToken = token;
+
+      if (isTokenExpiringSoon(accessToken)) {
+        console.log('[WS] refreshing token before connect');
+        const fresh = await ensureFreshAccessToken();
+        if (!fresh) return;
+        accessToken = fresh;
+      }
+
+      if (this.ws && this.token === accessToken && this.ws.readyState === WebSocket.OPEN) {
+        return;
+      }
+
+      this.disconnect(false);
+      this.token = accessToken;
+      this.intentionalClose = false;
+      this.setStatus(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
+
+      const baseUrl = resolveWebSocketUrl();
+      const url = `${baseUrl}?token=${encodeURIComponent(accessToken)}`;
+      if (DEV) logRealtime('connecting', baseUrl);
+
+      try {
+        this.ws = new WebSocket(url);
+      } catch {
+        this.scheduleReconnect();
+        return;
+      }
+
+      this.ws.onopen = () => {
+        this.reconnectAttempt = 0;
+        this.authRefreshOnCloseAttempted = false;
+        this.setStatus('connected');
+        if (DEV) logRealtime('connected');
+        this.startPing();
+      };
+
+      this.ws.onmessage = (message) => {
+        try {
+          const data = JSON.parse(message.data as string) as RealtimeEvent;
+          if (data.type === 'ping') {
+            this.send({ type: 'pong' });
+            return;
+          }
+          if (data.type === 'pong' || data.type === 'connected') {
+            return;
+          }
+          if (data.event_id && this.seenEventIds.has(data.event_id)) {
+            return;
+          }
+          if (data.event_id) {
+            this.seenEventIds.add(data.event_id);
+            if (this.seenEventIds.size > MAX_DEDUPE) {
+              const first = this.seenEventIds.values().next().value;
+              if (first) this.seenEventIds.delete(first);
+            }
+          }
+          if (DEV && CALL_EVENT_TYPES.has(data.type)) {
+            logRealtime(`event received: ${data.type}`);
+          }
+          this.eventHandlers.forEach((handler) => handler(data));
+          window.dispatchEvent(new CustomEvent('pims-realtime', { detail: data }));
+        } catch {
+          // ignore malformed payloads
+        }
+      };
+
+      this.ws.onclose = (event) => {
+        this.stopPing();
+        const authRejected = event.code === WS_AUTH_CLOSE_CODE;
+
+        if (!this.intentionalClose) {
+          this.setStatus('disconnected');
+          if (DEV) logRealtime('disconnected', `code=${event.code}`);
+
+          if (authRejected && !this.authRefreshOnCloseAttempted) {
+            this.authRefreshOnCloseAttempted = true;
+            void this.reconnectWithRefreshedToken();
+            return;
+          }
+
+          this.scheduleReconnect();
+        } else {
+          this.setStatus('idle');
+        }
+      };
+
+      this.ws.onerror = () => {
+        this.ws?.close();
+      };
+    } finally {
+      this.connectInFlight = false;
+    }
+  }
+
+  private async reconnectWithRefreshedToken() {
+    console.log('[WS] reconnecting with refreshed token');
+    const fresh = await ensureFreshAccessToken();
+    if (!fresh) {
+      this.disconnect(true);
       return;
     }
-
-    this.ws.onopen = () => {
-      this.reconnectAttempt = 0;
-      this.setStatus('connected');
-      logRealtime('connected');
-      this.startPing();
-    };
-
-    this.ws.onmessage = (message) => {
-      try {
-        const data = JSON.parse(message.data as string) as RealtimeEvent;
-        if (data.type === 'ping') {
-          this.send({ type: 'pong' });
-          return;
-        }
-        if (data.type === 'pong' || data.type === 'connected') {
-          return;
-        }
-        if (data.event_id && this.seenEventIds.has(data.event_id)) {
-          return;
-        }
-        if (data.event_id) {
-          this.seenEventIds.add(data.event_id);
-          if (this.seenEventIds.size > MAX_DEDUPE) {
-            const first = this.seenEventIds.values().next().value;
-            if (first) this.seenEventIds.delete(first);
-          }
-        }
-        if (DEV && CALL_EVENT_TYPES.has(data.type)) {
-          logRealtime(`event received: ${data.type}`);
-        }
-        this.eventHandlers.forEach((handler) => handler(data));
-        window.dispatchEvent(new CustomEvent('pims-realtime', { detail: data }));
-      } catch {
-        // ignore malformed payloads
-      }
-    };
-
-    this.ws.onclose = () => {
-      this.stopPing();
-      if (!this.intentionalClose) {
-        this.setStatus('disconnected');
-        logRealtime('disconnected');
-        this.scheduleReconnect();
-      } else {
-        this.setStatus('idle');
-      }
-    };
-
-    this.ws.onerror = () => {
-      this.ws?.close();
-    };
+    this.reconnectAttempt = 0;
+    void this.connectWithFreshToken(fresh);
+    this.refetchMissedData();
   }
 
   disconnect(intentional = true) {
@@ -151,6 +195,7 @@ export class RealtimeWebSocketClient {
     if (intentional) {
       this.token = null;
       this.reconnectAttempt = 0;
+      this.authRefreshOnCloseAttempted = false;
       this.setStatus('idle');
     }
   }
@@ -207,7 +252,7 @@ export class RealtimeWebSocketClient {
     this.reconnectAttempt += 1;
     this.reconnectTimer = setTimeout(() => {
       if (this.token) {
-        this.connect(this.token);
+        void this.connectWithFreshToken(this.token);
         this.refetchMissedData();
       }
     }, delay);

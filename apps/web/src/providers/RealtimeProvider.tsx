@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import type { ConnectionStatus, RealtimeEvent } from '@/lib/realtime/events';
+import { ensureFreshAccessToken } from '@/lib/auth/token-utils';
 import { realtimeClient } from '@/lib/realtime/websocket-client';
 
 interface RealtimeContextValue {
@@ -31,13 +32,14 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const token = localStorage.getItem('access_token');
-    if (!token) {
-      realtimeClient.disconnect(true);
-      return;
-    }
-
-    realtimeClient.connect(token);
+    void (async () => {
+      const token = await ensureFreshAccessToken();
+      if (!token) {
+        realtimeClient.disconnect(true);
+        return;
+      }
+      realtimeClient.connect(token);
+    })();
     const unsubStatus = realtimeClient.onStatus(setStatus);
 
     const onStorage = (e: StorageEvent) => {

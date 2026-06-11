@@ -22,7 +22,7 @@ export function useAttachMediaStream(
   }, [ref, stream, ...deps]);
 }
 
-/** Callback ref factory — attaches stream when DOM node mounts. */
+/** Callback ref factory — attaches stream when DOM node mounts or stream updates. */
 export function createMediaRefCallback(
   stream: MediaStream | null,
   existingRef: RefObject<HTMLVideoElement | HTMLAudioElement | null>
@@ -30,9 +30,11 @@ export function createMediaRefCallback(
   return (node: HTMLVideoElement | HTMLAudioElement | null) => {
     existingRef.current = node;
     if (node && stream) {
-      node.srcObject = stream;
-      void node.play().catch(() => undefined);
-    } else if (node) {
+      if (node.srcObject !== stream) {
+        node.srcObject = stream;
+        void node.play().catch(() => undefined);
+      }
+    } else if (node && !stream) {
       node.srcObject = null;
     }
   };

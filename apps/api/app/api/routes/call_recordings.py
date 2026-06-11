@@ -119,11 +119,30 @@ def _ensure_call_participant(db: Session, call_id: uuid.UUID, user_id: uuid.UUID
     return call_session
 
 
+def _should_replace_existing(
+    existing: CallRecording,
+    new_recording_type: str,
+    new_size: int,
+) -> bool:
+    if existing.file_size_bytes == 0 or existing.status == "failed":
+        return True
+    if new_recording_type == "video" and existing.recording_type == "audio":
+        return True
+    if (
+        new_recording_type == "video"
+        and existing.recording_type == "video"
+        and new_size > (existing.file_size_bytes or 0)
+    ):
+        return True
+    return False
+
+
 @router.post("/{call_id}/recordings", response_model=CallRecordingUploadResponse)
 async def upload_call_recording(
     call_id: uuid.UUID,
     file: UploadFile = File(...),
     recording_type: str = Form("audio"),
+    call_type: str | None = Form(None),
     duration_seconds: int | None = Form(None),
     mime_type: str | None = Form(None),
     file_size_bytes: int | None = Form(None),
@@ -135,7 +154,21 @@ async def upload_call_recording(
     """Upload a browser-side call recording (call participants only)."""
     logger.info("[CALL_RECORDING_UPLOAD] received call_id=%s user_id=%s", call_id, current_user.id)
     call_session = _ensure_call_participant(db, call_id, current_user.id)
-    logger.info("[CALL_RECORDING_UPLOAD] participant_valid=True")
+
+    data = await file.read()
+    resolved_mime = (mime_type or file.content_type or "audio/webm").split(";")[0].strip().lower()
+    resolved_recording_type = recording_type if recording_type in ("audio", "video") else "audio"
+    resolved_call_type = (
+        call_type if call_type in ("voice", "video") else call_session.call_type
+    )
+
+    logger.info(
+        "[CALL_RECORDING_UPLOAD] call_type=%s recording_type=%s mime_type=%s file_size=%s",
+        resolved_call_type,
+        resolved_recording_type,
+        resolved_mime,
+        len(data),
+    )
 
     existing = (
         db.query(CallRecording)
@@ -147,16 +180,32 @@ async def upload_call_recording(
         .first()
     )
     if existing:
-        return CallRecordingUploadResponse(
-            id=existing.id,
-            call_session_id=existing.call_session_id,
-            status=existing.status,
-            message="Recording already exists for this call.",
+        logger.info(
+            "[CALL_RECORDING_UPLOAD] duplicate_existing status=%s recording_type=%s file_size=%s",
+            existing.status,
+            existing.recording_type,
+            existing.file_size_bytes,
         )
+        if not _should_replace_existing(existing, resolved_recording_type, len(data)):
+            return CallRecordingUploadResponse(
+                id=existing.id,
+                call_session_id=existing.call_session_id,
+                status=existing.status,
+                message="Recording already exists for this call.",
+            )
 
-    data = await file.read()
-    logger.info("[CALL_RECORDING_UPLOAD] file_size=%s mime=%s", len(data), file.content_type)
-    resolved_mime = (mime_type or file.content_type or "audio/webm").split(";")[0].strip()
+        try:
+            storage.delete(existing.storage_key)
+        except Exception as exc:
+            logger.warning(
+                "[CALL_RECORDING_UPLOAD] failed to delete replaced recording storage_key=%s: %s",
+                existing.storage_key,
+                exc,
+            )
+        existing.status = "deleted"
+        existing.deleted_at = datetime.now(timezone.utc)
+        db.commit()
+
     safe_name = (file.filename or f"{call_id}.webm").replace("\\", "_").replace("/", "_")
     storage.validate_upload(data, resolved_mime, safe_name)
 
@@ -174,7 +223,11 @@ async def upload_call_recording(
             detail="Recording storage is temporarily unavailable.",
         ) from exc
     storage_driver = "s3" if storage.is_s3 else "local"
-    logger.info("[CALL_RECORDING_UPLOAD] storage_driver=%s storage_key=%s", storage_driver, storage_key)
+    logger.info(
+        "[CALL_RECORDING_UPLOAD] storage_driver=%s saved storage_key=%s",
+        storage_driver,
+        storage_key,
+    )
 
     participants = _build_participants_snapshot(db, call_session)
     caller_id = call_session.started_by_id
@@ -201,8 +254,8 @@ async def upload_call_recording(
         mime_type=resolved_mime,
         file_size_bytes=file_size_bytes or len(data),
         duration_seconds=duration_seconds,
-        recording_type=recording_type if recording_type in ("audio", "video") else "audio",
-        call_type=call_session.call_type,
+        recording_type=resolved_recording_type,
+        call_type=resolved_call_type,
         status="available",
         participants_snapshot=json.dumps(participants),
         started_at=parse_dt(started_at),

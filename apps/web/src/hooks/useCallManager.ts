@@ -590,15 +590,33 @@ export function useCallManager({
 
   useEffect(() => {
     if (!activeCallUi || !localVideoRef.current || !localStream) return;
-    localVideoRef.current.srcObject = localStream;
-    void localVideoRef.current.play().catch(() => undefined);
+    if (localVideoRef.current.srcObject !== localStream) {
+      localVideoRef.current.srcObject = localStream;
+      void localVideoRef.current.play().catch(() => undefined);
+      console.log('[VIDEO_UI] attached local preview stream');
+    }
   }, [localStream, activeCallUi, connectionStatus, callSession?.id]);
 
   useEffect(() => {
     if (!activeCallUi || !remoteVideoRef.current || !remoteStream) return;
-    remoteVideoRef.current.srcObject = remoteStream;
-    void remoteVideoRef.current.play().catch(() => undefined);
+    if (remoteVideoRef.current.srcObject !== remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+      void remoteVideoRef.current.play().catch(() => undefined);
+      console.log('[VIDEO_UI] attached remote video stream');
+    }
   }, [remoteStream, activeCallUi, connectionStatus, callSession?.id]);
+
+  useEffect(() => {
+    console.log(
+      `[VIDEO_UI] localStream present=${Boolean(localStream)} videoTracks=${localStream?.getVideoTracks().length ?? 0} audioTracks=${localStream?.getAudioTracks().length ?? 0}`
+    );
+  }, [localStream]);
+
+  useEffect(() => {
+    console.log(
+      `[VIDEO_UI] remoteStream present=${Boolean(remoteStream)} videoTracks=${remoteStream?.getVideoTracks().length ?? 0} audioTracks=${remoteStream?.getAudioTracks().length ?? 0}`
+    );
+  }, [remoteStream]);
 
   useEffect(() => {
     if (remoteAudioRef.current && remoteStream) {

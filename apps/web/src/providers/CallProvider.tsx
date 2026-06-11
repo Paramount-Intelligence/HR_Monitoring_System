@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -93,6 +94,45 @@ function GlobalCallOverlays({
   const showLocalVideo =
     streamHasLiveVideo(localStream) && !localVideoDisabled;
   const showRemoteVideo = streamHasLiveVideo(remoteStream);
+
+  const localPreviewRef = useRef<HTMLVideoElement>(null);
+  const remoteMainRef = useRef<HTMLVideoElement>(null);
+
+  const attachLocalPreviewRef = useCallback(
+    (node: HTMLVideoElement | null) => {
+      localPreviewRef.current = node;
+      bindLocalVideoRef(node);
+    },
+    [bindLocalVideoRef]
+  );
+
+  const attachRemoteMainRef = useCallback(
+    (node: HTMLVideoElement | null) => {
+      remoteMainRef.current = node;
+      bindRemoteVideoRef(node);
+    },
+    [bindRemoteVideoRef]
+  );
+
+  useEffect(() => {
+    const el = localPreviewRef.current;
+    if (!el || !localStream || connectionStatus !== 'connected') return;
+    if (el.srcObject !== localStream) {
+      el.srcObject = localStream;
+      void el.play().catch(() => undefined);
+      console.log('[VIDEO_UI] attached local preview stream');
+    }
+  }, [localStream, connectionStatus, callSession?.id]);
+
+  useEffect(() => {
+    const el = remoteMainRef.current;
+    if (!el || !remoteStream || connectionStatus !== 'connected') return;
+    if (el.srcObject !== remoteStream) {
+      el.srcObject = remoteStream;
+      void el.play().catch(() => undefined);
+      console.log('[VIDEO_UI] attached remote video stream');
+    }
+  }, [remoteStream, connectionStatus, callSession?.id]);
 
   useEffect(() => {
     const onNavigate = (e: Event) => {
@@ -226,7 +266,7 @@ function GlobalCallOverlays({
             {callSession.call_type === 'video' ? (
               <div className="relative w-full aspect-video max-h-[60vh] rounded-2xl overflow-hidden bg-black/50">
                 <video
-                  ref={bindRemoteVideoRef}
+                  ref={attachRemoteMainRef}
                   autoPlay
                   playsInline
                   className={cn('w-full h-full object-cover', !showRemoteVideo && 'opacity-0')}
@@ -234,9 +274,12 @@ function GlobalCallOverlays({
                 {!showRemoteVideo && (
                   <VideoPlaceholder label="Camera off" initial={remoteInitial} />
                 )}
+                <div className="absolute top-3 left-3 rounded-lg bg-black/50 px-2 py-1 text-[10px] font-bold text-white/90">
+                  {otherCallParticipantName}
+                </div>
                 <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-28 h-20 sm:w-36 sm:h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg bg-zinc-900">
                   <video
-                    ref={bindLocalVideoRef}
+                    ref={attachLocalPreviewRef}
                     autoPlay
                     playsInline
                     muted
@@ -251,6 +294,9 @@ function GlobalCallOverlays({
                       initial={selfInitial}
                     />
                   )}
+                  <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white/90">
+                    You
+                  </div>
                 </div>
               </div>
             ) : (

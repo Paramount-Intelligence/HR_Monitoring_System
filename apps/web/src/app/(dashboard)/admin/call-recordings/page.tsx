@@ -177,6 +177,11 @@ export default function AdminCallRecordingsPage() {
   ];
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasActiveFilters =
+    Boolean(search.trim()) ||
+    callType !== 'all' ||
+    recordingType !== 'all' ||
+    statusFilter !== 'available';
 
   return (
     <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
@@ -311,10 +316,21 @@ export default function AdminCallRecordingsPage() {
                 ) : items.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={8} className="p-10 text-center text-[var(--text-muted)] space-y-2">
-                      <p>No recordings found yet.</p>
-                      <p className="text-xs">
-                        Recordings will appear here after calls end and upload successfully.
-                      </p>
+                      {loadError ? (
+                        <p>Could not load recordings. Use Retry above.</p>
+                      ) : hasActiveFilters ? (
+                        <>
+                          <p>No recordings match your current filters.</p>
+                          <p className="text-xs">Try clearing filters or changing call/recording type.</p>
+                        </>
+                      ) : (
+                        <>
+                          <p>No recordings found yet.</p>
+                          <p className="text-xs">
+                            Recordings appear here after calls end and upload successfully.
+                          </p>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
