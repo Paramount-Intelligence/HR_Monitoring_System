@@ -123,7 +123,7 @@ class Settings(BaseSettings):
     profile_image_upload_dir: str = "storage/profile-pictures"
     profile_image_public_base_url: str = ""
 
-    call_recordings_storage_driver: str = "local"
+    call_recordings_storage_driver: str = ""
     call_recordings_local_dir: str = "storage/call-recordings"
     call_recordings_max_upload_mb: int = 100
     call_recordings_max_bytes: int = 100 * 1024 * 1024
@@ -173,15 +173,26 @@ class Settings(BaseSettings):
         if not self.s3_url_style:
             object.__setattr__(self, "s3_url_style", "virtual")
 
+        max_mb_env = os.getenv("CALL_RECORDINGS_MAX_UPLOAD_MB")
+        if max_mb_env and str(max_mb_env).strip().isdigit():
+            object.__setattr__(self, "call_recordings_max_upload_mb", int(str(max_mb_env).strip()))
+
         max_mb = self.call_recordings_max_upload_mb or 100
         object.__setattr__(self, "call_recordings_max_bytes", max_mb * 1024 * 1024)
         return self
 
     def resolved_call_recordings_driver(self) -> str:
-        driver = (self.call_recordings_storage_driver or "local").lower().strip()
+        driver = (self.call_recordings_storage_driver or "").lower().strip()
         if driver in ("s3", "railway_bucket", "railway"):
             return "s3"
+        if driver == "local":
+            return "local"
+        if self.call_recordings_s3_config_flags() and all(self.call_recordings_s3_config_flags().values()):
+            return "s3"
         return "local"
+
+    def is_production(self) -> bool:
+        return (self.app_env or "").lower().strip() not in ("development", "dev", "local", "test")
 
     def resolved_profile_image_driver(self) -> str:
         driver = (self.profile_image_storage or "").lower().strip()

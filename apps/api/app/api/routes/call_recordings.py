@@ -12,7 +12,6 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_user, require_permission
-from app.core.config import settings
 from app.models.audit_log import AuditLog
 from app.models.communication import CallParticipant, CallRecording, CallSession
 from app.models.user import User
@@ -24,12 +23,19 @@ from app.schemas.call_recording import (
     CallRecordingUploadResponse,
     CallRecordingUserRead,
 )
-from app.services.call_recording_storage import CallRecordingStorageService, parse_range_header
+from app.services.call_recording_storage import (
+    CallRecordingStorageService,
+    get_call_recording_storage,
+    parse_range_header,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-storage = CallRecordingStorageService()
+
+
+def _storage() -> CallRecordingStorageService:
+    return get_call_recording_storage()
 
 
 def _write_audit(db: Session, actor_id: uuid.UUID, action: str, recording_id: uuid.UUID, call_id: uuid.UUID) -> None:
@@ -120,22 +126,26 @@ def _ensure_call_participant(db: Session, call_id: uuid.UUID, user_id: uuid.UUID
     return call_session
 
 
-def _should_replace_existing(
+def _replacement_decision(
     existing: CallRecording,
     new_recording_type: str,
     new_size: int,
-) -> bool:
+) -> tuple[bool, str]:
     if existing.file_size_bytes == 0 or existing.status == "failed":
-        return True
+        return True, "replace_failed_or_empty"
     if new_recording_type == "video" and existing.recording_type == "audio":
-        return True
+        return True, "replace_audio_with_video"
+    if new_recording_type == "audio" and existing.recording_type == "video":
+        return False, "keep_existing_video"
     if (
         new_recording_type == "video"
         and existing.recording_type == "video"
         and new_size > (existing.file_size_bytes or 0)
     ):
-        return True
-    return False
+        return True, "replace_larger_video"
+    if new_recording_type == "video" and existing.recording_type == "video":
+        return False, "keep_existing_video"
+    return False, "keep_existing"
 
 
 @router.post("/{call_id}/recordings", response_model=CallRecordingUploadResponse)
@@ -189,34 +199,30 @@ async def upload_call_recording(
         )
         .first()
     )
+    old_storage_key: str | None = None
+    existing_to_retire: CallRecording | None = None
+
     if existing:
         logger.info(
-            "[CALL_RECORDING_UPLOAD] duplicate_existing status=%s recording_type=%s file_size=%s",
-            existing.status,
+            "[CALL_RECORDING_UPLOAD] duplicate_existing recording_type=%s file_size=%s storage_driver=%s",
             existing.recording_type,
             existing.file_size_bytes,
+            existing.storage_driver,
         )
-        if not _should_replace_existing(existing, resolved_recording_type, len(data)):
+        should_replace, decision = _replacement_decision(existing, resolved_recording_type, len(data))
+        logger.info("[CALL_RECORDING_UPLOAD] replacement_decision=%s", decision)
+        if not should_replace:
             return CallRecordingUploadResponse(
                 id=existing.id,
                 call_session_id=existing.call_session_id,
                 status=existing.status,
                 message="Recording already exists for this call.",
             )
-
-        try:
-            storage.delete(existing.storage_key)
-        except Exception as exc:
-            logger.warning(
-                "[CALL_RECORDING_UPLOAD] failed to delete replaced recording storage_key=%s: %s",
-                existing.storage_key,
-                exc,
-            )
-        existing.status = "deleted"
-        existing.deleted_at = datetime.now(timezone.utc)
-        db.commit()
+        old_storage_key = existing.storage_key
+        existing_to_retire = existing
 
     safe_name = (file.filename or f"{call_id}.webm").replace("\\", "_").replace("/", "_")
+    storage = _storage()
     storage.validate_upload(data, resolved_mime, safe_name)
 
     recording_id = uuid.uuid4()
@@ -230,14 +236,14 @@ async def upload_call_recording(
         storage.save(storage_key, data, resolved_mime)
     except HTTPException as exc:
         logger.error(
-            "[CALL_RECORDING_UPLOAD] failed stage=storage reason=%s call_id=%s",
+            "[CALL_RECORDING_UPLOAD] failed stage=bucket_save reason=%s call_id=%s",
             exc.detail,
             call_id,
         )
         raise
     except Exception as exc:
         logger.exception(
-            "[CALL_RECORDING_UPLOAD] failed stage=storage reason=%s call_id=%s",
+            "[CALL_RECORDING_UPLOAD] failed stage=bucket_save reason=%s call_id=%s",
             exc,
             call_id,
         )
@@ -264,6 +270,10 @@ async def upload_call_recording(
         except ValueError:
             return None
 
+    if existing_to_retire is not None:
+        existing_to_retire.status = "deleted"
+        existing_to_retire.deleted_at = datetime.now(timezone.utc)
+
     rec = CallRecording(
         id=recording_id,
         call_session_id=call_id,
@@ -288,6 +298,18 @@ async def upload_call_recording(
     _write_audit(db, current_user.id, "call_recording_uploaded", recording_id, call_id)
     db.commit()
     db.refresh(rec)
+
+    if old_storage_key and old_storage_key != storage_key:
+        try:
+            storage.delete(old_storage_key)
+            logger.info("[CALL_RECORDING_UPLOAD] old_object_deleted key=%s", old_storage_key)
+        except Exception as exc:
+            logger.warning(
+                "[CALL_RECORDING_UPLOAD] old_object_delete_failed key=%s reason=%s",
+                old_storage_key,
+                exc,
+            )
+
     logger.info("[CALL_RECORDING_UPLOAD] db_row_created recording_id=%s call_id=%s", recording_id, call_id)
     return CallRecordingUploadResponse(id=rec.id, call_session_id=call_id, status=rec.status)
 
@@ -414,17 +436,17 @@ def _recording_binary_response(
 ) -> Response:
     byte_range = None
     if request and request.headers.get("range"):
-        if storage.is_s3:
-            try:
-                head = storage._s3_client().head_object(Bucket=settings.s3_bucket, Key=rec.storage_key)
-                total_size = int(head.get("ContentLength") or 0)
-            except Exception as exc:
-                logger.warning("S3 head failed for %s: %s", rec.storage_key, exc)
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file not found.") from exc
-        else:
-            total_size = storage.resolve_local_path(rec.storage_key).stat().st_size
+        storage = _storage()
+        try:
+            total_size = storage.head_content_length(rec.storage_key)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Storage head failed for %s: %s", rec.storage_key, exc)
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file not found.") from exc
         byte_range = parse_range_header(request.headers.get("range"), total_size)
 
+    storage = _storage()
     content, _total_size, range_value = storage.read(rec.storage_key, byte_range)
 
     disposition = "attachment" if as_attachment else "inline"
@@ -449,6 +471,7 @@ def admin_stream_call_recording(
     rec = db.get(CallRecording, recording_id)
     if not rec or rec.deleted_at is not None or rec.status != "available":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording not found.")
+    storage = _storage()
     if not storage.exists(rec.storage_key):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file not found.")
     _write_audit(db, current_user.id, "call_recording_viewed", recording_id, rec.call_session_id)
@@ -469,6 +492,7 @@ def admin_download_call_recording(
     rec = db.get(CallRecording, recording_id)
     if not rec or rec.deleted_at is not None or rec.status != "available":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording not found.")
+    storage = _storage()
     if not storage.exists(rec.storage_key):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file not found.")
     _write_audit(db, current_user.id, "call_recording_downloaded", recording_id, rec.call_session_id)
@@ -491,7 +515,7 @@ def admin_delete_call_recording(
     rec.status = "deleted"
     rec.deleted_at = datetime.now(timezone.utc)
     try:
-        storage.delete(rec.storage_key)
+        _storage().delete(rec.storage_key)
     except Exception as exc:
         logger.warning("Recording object delete failed for %s: %s", rec.id, exc)
     _write_audit(db, current_user.id, "call_recording_deleted", recording_id, rec.call_session_id)

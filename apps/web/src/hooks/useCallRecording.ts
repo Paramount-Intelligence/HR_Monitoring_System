@@ -152,6 +152,13 @@ export function useCallRecording({
       return;
     }
 
+    console.log(`[CALL_RECORDING_CLIENT] blob_ready size=${result.blob.size}`);
+    if (activeCallType === 'video') {
+      console.log(
+        `[VIDEO_RECORDING] stopped blob_size=${result.blob.size} recording_type=${result.recordingType}`
+      );
+    }
+
     setRecordingStatus('uploading');
 
     const token = await ensureFreshAccessToken();
@@ -182,6 +189,11 @@ export function useCallRecording({
       console.log(
         `[CALL_RECORDING_CLIENT] upload_start call_id=${activeCallId} call_type=${activeCallType} recording_type=${result!.recordingType}`
       );
+      if (activeCallType === 'video') {
+        console.log(
+          `[VIDEO_RECORDING] upload_start call_type=video recording_type=${result!.recordingType}`
+        );
+      }
 
       return callsApi.uploadCallRecording(activeCallId, formData);
     };
@@ -189,6 +201,9 @@ export function useCallRecording({
     try {
       const response = await uploadOnce();
       console.log(`[CALL_RECORDING_CLIENT] upload_success recording_id=${response.id}`);
+      if (activeCallType === 'video') {
+        console.log(`[VIDEO_RECORDING] upload_success recording_id=${response.id}`);
+      }
       setRecordingStatus('uploaded');
     } catch (firstErr) {
       const status = (firstErr as { response?: { status?: number } })?.response?.status;
@@ -208,6 +223,9 @@ export function useCallRecording({
       try {
         const response = await uploadOnce();
         console.log(`[CALL_RECORDING_CLIENT] upload_success recording_id=${response.id}`);
+        if (activeCallType === 'video') {
+          console.log(`[VIDEO_RECORDING] upload_success recording_id=${response.id}`);
+        }
         setRecordingStatus('uploaded');
       } catch (retryErr) {
         const retryMessage = getErrorMessage(retryErr);

@@ -11,6 +11,7 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+from app.services import s3_storage
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ def log_call_recordings_storage_config() -> None:
     """Log storage driver configuration at startup (never log secrets)."""
     driver = settings.resolved_call_recordings_driver()
     if driver == "s3":
-        flags = settings.call_recordings_s3_config_flags()
+        flags = s3_storage.s3_config_flags()
         logger.info(
             "[CALL_RECORDINGS_STORAGE] driver=s3 endpoint_configured=%s bucket_configured=%s "
             "access_key_configured=%s secret_configured=%s url_style=%s",
@@ -44,20 +45,11 @@ def log_call_recordings_storage_config() -> None:
         )
     else:
         logger.info("[CALL_RECORDINGS_STORAGE] driver=local")
-
-
-def _missing_s3_fields() -> list[str]:
-    missing: list[str] = []
-    flags = settings.call_recordings_s3_config_flags()
-    if not flags["endpoint_configured"]:
-        missing.append("AWS_ENDPOINT_URL")
-    if not flags["bucket_configured"]:
-        missing.append("AWS_S3_BUCKET_NAME")
-    if not flags["access_key_configured"]:
-        missing.append("AWS_ACCESS_KEY_ID")
-    if not flags["secret_configured"]:
-        missing.append("AWS_SECRET_ACCESS_KEY")
-    return missing
+        if settings.is_production() and s3_storage.is_s3_fully_configured():
+            logger.error(
+                "[CALL_RECORDINGS_STORAGE] production env has bucket credentials but driver=local; "
+                "set CALL_RECORDINGS_STORAGE_DRIVER=s3 or leave unset for auto-detect"
+            )
 
 
 class CallRecordingStorageService:
@@ -66,14 +58,21 @@ class CallRecordingStorageService:
         self.local_dir = Path(settings.call_recordings_local_dir)
 
         if self.driver == "s3":
-            missing = _missing_s3_fields()
+            missing = s3_storage.missing_s3_fields()
             if missing:
                 message = (
-                    "CALL_RECORDINGS_STORAGE_DRIVER=s3 but required object storage configuration "
-                    f"is missing: {', '.join(missing)}"
+                    "Call recording S3 storage is required but configuration is missing: "
+                    f"{', '.join(missing)}"
                 )
                 logger.error("[CALL_RECORDINGS_STORAGE] %s", message)
                 raise CallRecordingStorageConfigError(message)
+        elif settings.is_production() and s3_storage.is_s3_fully_configured():
+            message = (
+                "Production call recordings must use object storage. "
+                "Configure CALL_RECORDINGS_STORAGE_DRIVER=s3."
+            )
+            logger.error("[CALL_RECORDINGS_STORAGE] %s", message)
+            raise CallRecordingStorageConfigError(message)
         else:
             self.local_dir.mkdir(parents=True, exist_ok=True)
 
@@ -105,10 +104,12 @@ class CallRecordingStorageService:
         return f"call-recordings/{now.year:04d}/{now.month:02d}/{call_session_id}/{recording_id}.{safe_ext}"
 
     def save(self, storage_key: str, data: bytes, mime_type: str) -> str:
+        logger.info("[CALL_RECORDINGS_STORAGE] save_start key=%s size=%s", storage_key, len(data))
         if self.is_s3:
             self._save_s3(storage_key, data, mime_type)
         else:
             self._save_local(storage_key, data)
+        logger.info("[CALL_RECORDINGS_STORAGE] save_success key=%s size=%s", storage_key, len(data))
         return storage_key
 
     def read(
@@ -117,14 +118,31 @@ class CallRecordingStorageService:
         byte_range: tuple[int, int] | None = None,
     ) -> tuple[bytes, int, str | None]:
         """Return (content, total_size, content_range_header_value)."""
+        logger.info("[CALL_RECORDINGS_STORAGE] read_start key=%s", storage_key)
         if self.is_s3:
             return self._read_s3(storage_key, byte_range)
         return self._read_local(storage_key, byte_range)
 
+    def head_content_length(self, storage_key: str) -> int:
+        if self.is_s3:
+            head = s3_storage.create_s3_client().head_object(
+                Bucket=settings.s3_bucket,
+                Key=storage_key,
+            )
+            size = int(head.get("ContentLength") or 0)
+            logger.info("[CALL_RECORDINGS_STORAGE] head_success key=%s size=%s", storage_key, size)
+            return size
+        path = self.local_dir.joinpath(*storage_key.split("/"))
+        if not path.is_file():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file not found.")
+        size = path.stat().st_size
+        logger.info("[CALL_RECORDINGS_STORAGE] head_success key=%s size=%s", storage_key, size)
+        return size
+
     def exists(self, storage_key: str) -> bool:
         if self.is_s3:
             try:
-                self._s3_client().head_object(Bucket=settings.s3_bucket, Key=storage_key)
+                s3_storage.create_s3_client().head_object(Bucket=settings.s3_bucket, Key=storage_key)
                 return True
             except Exception:
                 return False
@@ -138,8 +156,9 @@ class CallRecordingStorageService:
         if path.is_file():
             try:
                 path.unlink()
+                logger.info("[CALL_RECORDINGS_STORAGE] delete_success key=%s", storage_key)
             except OSError as exc:
-                logger.warning("Failed to delete call recording %s: %s", storage_key, exc)
+                logger.warning("[CALL_RECORDINGS_STORAGE] delete_failed key=%s reason=%s", storage_key, exc)
 
     def generate_presigned_url(
         self,
@@ -157,7 +176,7 @@ class CallRecordingStorageService:
         params: dict[str, Any] = {"Bucket": settings.s3_bucket, "Key": storage_key}
         if file_name:
             params["ResponseContentDisposition"] = f'{disposition}; filename="{file_name}"'
-        return self._s3_client().generate_presigned_url(
+        return s3_storage.create_s3_client().generate_presigned_url(
             "get_object",
             Params=params,
             ExpiresIn=expires_seconds,
@@ -192,24 +211,9 @@ class CallRecordingStorageService:
             return content, total, f"bytes {start}-{end}/{total}"
         return path.read_bytes(), total, None
 
-    def _s3_client(self):
-        import boto3
-        from botocore.config import Config
-
-        addressing_style = "virtual" if (settings.s3_url_style or "virtual").lower() == "virtual" else "path"
-        region = settings.s3_region or "auto"
-        return boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint_url or None,
-            aws_access_key_id=settings.s3_access_key_id,
-            aws_secret_access_key=settings.s3_secret_access_key,
-            region_name=region if region != "auto" else None,
-            config=Config(signature_version="s3v4", s3={"addressing_style": addressing_style}),
-        )
-
     def _save_s3(self, storage_key: str, data: bytes, mime_type: str) -> None:
         try:
-            import boto3
+            import boto3  # noqa: F401
         except ImportError as exc:
             logger.error("[CALL_RECORDINGS_STORAGE] boto3 required for S3 storage: %s", exc)
             raise HTTPException(
@@ -217,7 +221,7 @@ class CallRecordingStorageService:
                 detail="Object storage client is not installed on this server.",
             ) from exc
 
-        missing = _missing_s3_fields()
+        missing = s3_storage.missing_s3_fields()
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -228,7 +232,7 @@ class CallRecordingStorageService:
             )
 
         try:
-            client = self._s3_client()
+            client = s3_storage.create_s3_client()
             logger.info("[CALL_RECORDING_UPLOAD] bucket_save_start storage_key=%s", storage_key)
             client.put_object(
                 Bucket=settings.s3_bucket,
@@ -238,6 +242,7 @@ class CallRecordingStorageService:
             )
             head = client.head_object(Bucket=settings.s3_bucket, Key=storage_key)
             saved_size = int(head.get("ContentLength") or 0)
+            logger.info("[CALL_RECORDINGS_STORAGE] head_success key=%s size=%s", storage_key, saved_size)
             if saved_size <= 0:
                 raise HTTPException(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -267,14 +272,28 @@ class CallRecordingStorageService:
         byte_range: tuple[int, int] | None,
     ) -> tuple[bytes, int, str | None]:
         try:
-            client = self._s3_client()
+            client = s3_storage.create_s3_client()
         except ImportError as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Object storage client is not installed on this server.",
             ) from exc
 
-        head = client.head_object(Bucket=settings.s3_bucket, Key=storage_key)
+        try:
+            head = client.head_object(Bucket=settings.s3_bucket, Key=storage_key)
+        except Exception as exc:
+            code = ""
+            response = getattr(exc, "response", None)
+            if isinstance(response, dict):
+                code = str(response.get("Error", {}).get("Code", ""))
+            if code in ("404", "NoSuchKey", "NotFound"):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Recording file not found.") from exc
+            logger.error("[CALL_RECORDINGS_STORAGE] read_failed key=%s reason=%s", storage_key, exc)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Unable to load recording from object storage.",
+            ) from exc
+
         total = int(head.get("ContentLength") or 0)
 
         kwargs: dict[str, Any] = {"Bucket": settings.s3_bucket, "Key": storage_key}
@@ -292,10 +311,11 @@ class CallRecordingStorageService:
 
     def _delete_s3(self, storage_key: str) -> None:
         try:
-            client = self._s3_client()
+            client = s3_storage.create_s3_client()
             client.delete_object(Bucket=settings.s3_bucket, Key=storage_key)
+            logger.info("[CALL_RECORDINGS_STORAGE] delete_success key=%s", storage_key)
         except Exception as exc:
-            logger.warning("Failed to delete S3 object %s: %s", storage_key, exc)
+            logger.warning("[CALL_RECORDINGS_STORAGE] delete_failed key=%s reason=%s", storage_key, exc)
 
 
 def parse_range_header(range_header: str | None, file_size: int) -> tuple[int, int] | None:
@@ -310,3 +330,13 @@ def parse_range_header(range_header: str | None, file_size: int) -> tuple[int, i
     if start > end:
         return None
     return start, end
+
+
+_storage_service: CallRecordingStorageService | None = None
+
+
+def get_call_recording_storage() -> CallRecordingStorageService:
+    global _storage_service
+    if _storage_service is None:
+        _storage_service = CallRecordingStorageService()
+    return _storage_service

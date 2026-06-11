@@ -34,7 +34,7 @@ class ProfileImageStorageConfigError(RuntimeError):
 def log_profile_image_storage_config() -> None:
     driver = settings.resolved_profile_image_driver()
     if driver == "s3":
-        flags = settings.call_recordings_s3_config_flags()
+        flags = s3_storage.s3_config_flags()
         logger.info(
             "[PROFILE_PICTURE_STORAGE] driver=s3 endpoint_configured=%s bucket_configured=%s "
             "access_key_configured=%s secret_configured=%s",
@@ -50,18 +50,7 @@ def log_profile_image_storage_config() -> None:
         )
 
 
-def _missing_s3_fields() -> list[str]:
-    missing: list[str] = []
-    flags = settings.call_recordings_s3_config_flags()
-    if not flags["endpoint_configured"]:
-        missing.append("AWS_ENDPOINT_URL")
-    if not flags["bucket_configured"]:
-        missing.append("AWS_S3_BUCKET_NAME")
-    if not flags["access_key_configured"]:
-        missing.append("AWS_ACCESS_KEY_ID")
-    if not flags["secret_configured"]:
-        missing.append("AWS_SECRET_ACCESS_KEY")
-    return missing
+from app.services import s3_storage
 
 
 class ProfileImageStorageService:
@@ -70,7 +59,7 @@ class ProfileImageStorageService:
         self.upload_dir = Path(settings.profile_image_upload_dir)
 
         if self.driver == "s3":
-            missing = _missing_s3_fields()
+            missing = s3_storage.missing_s3_fields()
             if missing:
                 message = (
                     "PROFILE_IMAGE_STORAGE=s3 but required object storage configuration "
@@ -282,19 +271,7 @@ class ProfileImageStorageService:
         return "application/octet-stream"
 
     def _s3_client(self):
-        import boto3
-        from botocore.config import Config
-
-        addressing_style = "virtual" if (settings.s3_url_style or "virtual").lower() == "virtual" else "path"
-        region = settings.s3_region or "auto"
-        return boto3.client(
-            "s3",
-            endpoint_url=settings.s3_endpoint_url or None,
-            aws_access_key_id=settings.s3_access_key_id,
-            aws_secret_access_key=settings.s3_secret_access_key,
-            region_name=region if region != "auto" else None,
-            config=Config(signature_version="s3v4", s3={"addressing_style": addressing_style}),
-        )
+        return s3_storage.create_s3_client()
 
     def _save_s3(self, storage_key: str, data: bytes, content_type: str) -> None:
         try:
@@ -305,7 +282,7 @@ class ProfileImageStorageService:
                 detail="Object storage client is not installed on this server.",
             ) from exc
 
-        missing = _missing_s3_fields()
+        missing = s3_storage.missing_s3_fields()
         if missing:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
