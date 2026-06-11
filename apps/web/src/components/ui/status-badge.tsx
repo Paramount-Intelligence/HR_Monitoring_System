@@ -18,6 +18,12 @@ const STATUS_CONFIG: Record<string, { label: string, className: string }> = {
   active: { label: 'Active', className: 'app-badge-success' },
   inactive: { label: 'Inactive', className: 'app-badge-neutral' },
   present: { label: 'Present', className: 'app-badge-success' },
+  full_day: { label: 'Full Day', className: 'app-badge-success' },
+  half_day: { label: 'Half Day', className: 'app-badge-warning' },
+  full_leave: { label: 'Full Leave', className: 'app-badge-danger' },
+  leave: { label: 'Leave', className: 'app-badge-danger' },
+  short_leave: { label: 'Insufficient Hours', className: 'app-badge-warning' },
+  insufficient: { label: 'Insufficient', className: 'app-badge-neutral' },
   absent: { label: 'Absent', className: 'app-badge-danger' },
   late: { label: 'Late', className: 'app-badge-warning' },
   early_logout: { label: 'Early Logout', className: 'app-badge-warning' },
@@ -29,7 +35,6 @@ const STATUS_CONFIG: Record<string, { label: string, className: string }> = {
   rejected: { label: 'Rejected', className: 'app-badge-danger' },
   cancelled: { label: 'Cancelled', className: 'app-badge-neutral' },
   wfh: { label: 'WFH', className: 'app-badge-info' },
-  half_day: { label: 'Half Day', className: 'app-badge-warning' },
   
   // Tasks / Projects
   completed: { label: 'Completed', className: 'app-badge-success' },

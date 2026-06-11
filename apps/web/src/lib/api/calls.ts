@@ -28,6 +28,7 @@ export interface CallRecordingItem {
   status: string;
   mime_type: string;
   file_name: string;
+  storage_driver?: string | null;
   created_at: string;
   started_at?: string | null;
   ended_at?: string | null;

@@ -51,6 +51,8 @@ export default function ProfilePage() {
         full_name: data.full_name,
         avatar_url: data.profile_picture_url || data.avatar_url || null,
         profile_picture_url: data.profile_picture_url || data.avatar_url || null,
+        profile_picture_updated_at: data.profile_picture_updated_at || data.avatar_updated_at || null,
+        avatar_updated_at: data.avatar_updated_at || data.profile_picture_updated_at || null,
       });
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail || 'Failed to load profile.');
@@ -96,10 +98,18 @@ export default function ProfilePage() {
     setErrorMsg(null);
     try {
       const updated = await usersApi.uploadMyProfilePicture(file);
-      setProfile(updated);
+      const pictureUrl = updated.profile_picture_url || updated.avatar_url || null;
+      const cacheBust = Date.now();
+      setProfile({
+        ...updated,
+        profile_picture_url: pictureUrl,
+        avatar_url: pictureUrl,
+        profile_picture_updated_at: updated.profile_picture_updated_at || new Date(cacheBust).toISOString(),
+      });
       updateUser({
-        avatar_url: updated.profile_picture_url || updated.avatar_url || null,
-        profile_picture_url: updated.profile_picture_url || updated.avatar_url || null,
+        avatar_url: pictureUrl,
+        profile_picture_url: pictureUrl,
+        profile_picture_updated_at: updated.profile_picture_updated_at || new Date(cacheBust).toISOString(),
       });
       setSuccessMsg('Profile picture uploaded successfully.');
     } catch (err) {
@@ -402,7 +412,9 @@ export default function ProfilePage() {
                   </label>
                   <ProfilePictureUpload
                     name={profile?.full_name || 'User'}
-                    profilePictureUrl={getProfilePictureUrl(profile)}
+                    profilePictureUrl={getProfilePictureUrl(profile, {
+                      cacheBust: profile?.profile_picture_updated_at || profile?.avatar_updated_at,
+                    })}
                     onUpload={handleUploadProfilePicture}
                     onRemove={handleRemoveProfilePicture}
                     disabled={actionLoading}

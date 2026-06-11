@@ -51,11 +51,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         }
       }
     };
+    const onTokenRefreshed = (e: Event) => {
+      const token = (e as CustomEvent<{ access_token: string }>).detail?.access_token;
+      if (token) {
+        realtimeClient.connect(token);
+      }
+    };
     window.addEventListener('storage', onStorage);
+    window.addEventListener('pims-token-refreshed', onTokenRefreshed);
 
     return () => {
       unsubStatus();
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('pims-token-refreshed', onTokenRefreshed);
       realtimeClient.disconnect(true);
     };
   }, [user?.id]);

@@ -34,6 +34,7 @@ class CallRecordingRead(BaseModel):
     status: str
     mime_type: str
     file_name: str
+    storage_driver: str | None = "local"
     created_at: datetime
     started_at: datetime | None = None
     ended_at: datetime | None = None

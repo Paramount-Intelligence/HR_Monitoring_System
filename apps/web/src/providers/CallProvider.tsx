@@ -16,6 +16,7 @@ import { Mic, MicOff, Phone, PhoneOff, Video, VideoOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { messagesApi, Conversation } from '@/lib/api/messages';
 import { useCallManager } from '@/hooks/useCallManager';
+import type { RecordingStatus } from '@/hooks/useCallRecording';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 import { streamHasLiveVideo } from '@/lib/calls/media';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -36,12 +37,89 @@ function getDirectChatRecipient(conv: Conversation | null, userId: string | unde
 
 function VideoPlaceholder({ label, initial }: { label: string; initial: string }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900/90 text-white">
-      <Avatar className="h-16 w-16 mb-2">
-        <AvatarFallback className="text-xl font-black bg-white/10">{initial}</AvatarFallback>
+    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-950 text-white">
+      <Avatar className="h-20 w-20 mb-3 ring-2 ring-white/20">
+        <AvatarFallback className="text-2xl font-black bg-slate-700 text-white">{initial}</AvatarFallback>
       </Avatar>
-      <p className="text-xs font-semibold text-gray-300">{label}</p>
+      <p className="text-sm font-semibold text-slate-300">{label}</p>
     </div>
+  );
+}
+
+function formatCallTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function getConnectionLabel(status: string, durationSec: number): string {
+  if (status === 'connected') return `Connected · ${formatCallTimer(durationSec)}`;
+  if (status === 'failed') return 'Connection failed';
+  if (status === 'connecting') return 'Connecting...';
+  return 'Reconnecting...';
+}
+
+function RecordingBadge({ status }: { status: RecordingStatus }) {
+  if (status === 'preparing') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-2.5 py-1 text-[11px] font-bold text-amber-200">
+        Recording starting...
+      </span>
+    );
+  }
+  if (status === 'recording') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 border border-red-400/50 px-2.5 py-1 text-[11px] font-bold text-red-200">
+        <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+        Recording
+      </span>
+    );
+  }
+  if (status === 'stopping' || status === 'uploading') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/20 border border-blue-400/40 px-2.5 py-1 text-[11px] font-bold text-blue-200">
+        Recording upload pending...
+      </span>
+    );
+  }
+  return null;
+}
+
+function CallControlButton({
+  onClick,
+  disabled,
+  active,
+  title,
+  children,
+  variant = 'default',
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  active?: boolean;
+  title: string;
+  children: React.ReactNode;
+  variant?: 'default' | 'danger';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        'flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full border transition-all',
+        'disabled:opacity-40 disabled:cursor-not-allowed',
+        variant === 'danger'
+          ? 'bg-red-600 border-red-500 hover:bg-red-500 text-white shadow-lg shadow-red-900/40'
+          : active
+            ? 'bg-red-500/25 border-red-400/60 text-white'
+            : 'bg-white/10 border-white/25 text-white hover:bg-white/20'
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -81,7 +159,7 @@ function GlobalCallOverlays({
     handleEndCall,
     toggleMute,
     toggleVideo,
-    isRecordingActive,
+    recordingStatus,
     mediaWarning,
   } = call;
 
@@ -115,12 +193,31 @@ function GlobalCallOverlays({
   );
 
   useEffect(() => {
+    if (!callSession) return;
+    console.log(
+      `[CALL_UI] active call_type=${callSession.call_type} status=${connectionStatus}`
+    );
+  }, [callSession, connectionStatus]);
+
+  useEffect(() => {
+    console.log(
+      `[CALL_UI] localStream audioTracks=${localStream?.getAudioTracks().length ?? 0} videoTracks=${localStream?.getVideoTracks().length ?? 0}`
+    );
+  }, [localStream]);
+
+  useEffect(() => {
+    console.log(
+      `[CALL_UI] remoteStream audioTracks=${remoteStream?.getAudioTracks().length ?? 0} videoTracks=${remoteStream?.getVideoTracks().length ?? 0}`
+    );
+  }, [remoteStream]);
+
+  useEffect(() => {
     const el = localPreviewRef.current;
     if (!el || !localStream || connectionStatus !== 'connected') return;
     if (el.srcObject !== localStream) {
       el.srcObject = localStream;
       void el.play().catch(() => undefined);
-      console.log('[VIDEO_UI] attached local preview stream');
+      console.log('[CALL_UI] attached local preview');
     }
   }, [localStream, connectionStatus, callSession?.id]);
 
@@ -130,9 +227,21 @@ function GlobalCallOverlays({
     if (el.srcObject !== remoteStream) {
       el.srcObject = remoteStream;
       void el.play().catch(() => undefined);
-      console.log('[VIDEO_UI] attached remote video stream');
+      console.log('[CALL_UI] attached remote media');
     }
   }, [remoteStream, connectionStatus, callSession?.id]);
+
+  useEffect(() => {
+    if (!showLocalVideo && callSession?.call_type === 'video') {
+      console.log('[CALL_UI] camera_off_placeholder shown side=local');
+    }
+  }, [showLocalVideo, callSession?.call_type]);
+
+  useEffect(() => {
+    if (!showRemoteVideo && callSession?.call_type === 'video') {
+      console.log('[CALL_UI] camera_off_placeholder shown side=remote');
+    }
+  }, [showRemoteVideo, callSession?.call_type]);
 
   useEffect(() => {
     const onNavigate = (e: Event) => {
@@ -215,76 +324,62 @@ function GlobalCallOverlays({
       )}
 
       {callSession && !isIncomingRinging && !isOutgoingRinging && (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-between bg-black/95 backdrop-blur-xl p-4 sm:p-6 text-white animate-in fade-in duration-300 overflow-hidden">
-          <div className="flex flex-col gap-3 shrink-0 max-w-3xl mx-auto w-full">
-            <p className="text-[10px] text-gray-500 text-center">
-              This call may be recorded for monitoring, training, and internal review.
+        <div className="fixed inset-0 z-[100] flex flex-col bg-gradient-to-b from-slate-950 via-slate-900 to-black text-white animate-in fade-in duration-300 overflow-hidden">
+          {/* Header */}
+          <div className="shrink-0 px-4 sm:px-8 pt-5 sm:pt-8 pb-4 max-w-5xl mx-auto w-full">
+            <p className="text-center text-xs text-slate-400 mb-4">
+              This call is being recorded for internal review.
             </p>
             {mediaWarning && (
-              <p className="text-[10px] text-amber-400 text-center font-semibold">{mediaWarning}</p>
+              <p className="text-center text-xs text-amber-300 font-semibold mb-3">{mediaWarning}</p>
             )}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="h-10 w-10 shrink-0 rounded-xl bg-white/10 flex items-center justify-center">
-                  {callSession.call_type === 'video' ? <Video className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-black truncate">{otherCallParticipantName}</h3>
-                  <p className="text-[10px] text-gray-400 font-semibold flex items-center gap-1.5">
-                    <span
-                      className={cn(
-                        'h-1.5 w-1.5 rounded-full shrink-0',
-                        status === 'connected' ? 'bg-emerald-500 animate-ping' : 'bg-amber-400 animate-pulse'
-                      )}
-                    />
-                    {status === 'connected'
-                      ? `Connected · ${Math.floor(callDurationSec / 60)
-                          .toString()
-                          .padStart(2, '0')}:${(callDurationSec % 60).toString().padStart(2, '0')}`
-                      : status === 'failed'
-                        ? 'Connection failed'
-                        : 'Connecting...'}
-                  </p>
-                  {isRecordingActive && (
-                    <p
-                      className="text-[10px] font-bold text-red-400 flex items-center gap-1.5 mt-1"
-                      title="This call is being recorded and may be reviewed by administrators."
-                    >
-                      <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                      Recording
-                    </p>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <RecordingBadge status={recordingStatus} />
+              <span
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold border',
+                  status === 'connected'
+                    ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-200'
+                    : status === 'failed'
+                      ? 'bg-red-500/15 border-red-400/40 text-red-200'
+                      : 'bg-amber-500/15 border-amber-400/40 text-amber-200'
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    status === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-pulse'
                   )}
-                </div>
-              </div>
-              <Button variant="ghost" size="sm" onClick={handleEndCall} className="text-red-400 hover:text-red-300 shrink-0">
-                End
-              </Button>
+                />
+                {getConnectionLabel(status, callDurationSec)}
+              </span>
             </div>
           </div>
 
-          <div className="flex-1 flex items-center justify-center min-h-0 py-4 w-full max-w-4xl mx-auto">
+          {/* Main content */}
+          <div className="flex-1 flex items-center justify-center min-h-0 px-4 sm:px-8 w-full max-w-5xl mx-auto">
             {callSession.call_type === 'video' ? (
-              <div className="relative w-full aspect-video max-h-[60vh] rounded-2xl overflow-hidden bg-black/50">
+              <div className="relative w-full aspect-video max-h-[62vh] rounded-2xl overflow-hidden border border-white/10 shadow-2xl shadow-black/60 bg-slate-950">
                 <video
                   ref={attachRemoteMainRef}
                   autoPlay
                   playsInline
-                  className={cn('w-full h-full object-cover', !showRemoteVideo && 'opacity-0')}
+                  className={cn('absolute inset-0 w-full h-full object-cover', !showRemoteVideo && 'opacity-0')}
                 />
                 {!showRemoteVideo && (
                   <VideoPlaceholder label="Camera off" initial={remoteInitial} />
                 )}
-                <div className="absolute top-3 left-3 rounded-lg bg-black/50 px-2 py-1 text-[10px] font-bold text-white/90">
+                <div className="absolute top-3 left-3 rounded-lg bg-black/70 backdrop-blur px-3 py-1.5 text-xs font-bold text-white">
                   {otherCallParticipantName}
                 </div>
-                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-28 h-20 sm:w-36 sm:h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-lg bg-zinc-900">
+                <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-32 h-24 sm:w-40 sm:h-28 rounded-xl overflow-hidden border-2 border-white/30 shadow-xl bg-slate-900 z-10">
                   <video
                     ref={attachLocalPreviewRef}
                     autoPlay
                     playsInline
                     muted
                     className={cn(
-                      'w-full h-full object-cover scale-x-[-1]',
+                      'absolute inset-0 w-full h-full object-cover scale-x-[-1]',
                       !showLocalVideo && 'opacity-0'
                     )}
                   />
@@ -294,61 +389,67 @@ function GlobalCallOverlays({
                       initial={selfInitial}
                     />
                   )}
-                  <div className="absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-bold text-white/90">
+                  <div className="absolute bottom-1.5 left-1.5 rounded bg-black/70 px-2 py-0.5 text-[10px] font-bold text-white z-20">
                     You
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="text-center space-y-2">
-                <div className="h-24 w-24 mx-auto rounded-full bg-white/10 flex items-center justify-center">
-                  <Phone className="h-10 w-10" />
+              <div className="flex flex-col items-center text-center space-y-5 w-full max-w-sm">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-emerald-500/20 blur-2xl scale-110" />
+                  <Avatar className="relative h-36 w-36 sm:h-44 sm:w-44 ring-4 ring-white/15 shadow-2xl">
+                    <AvatarFallback className="text-5xl sm:text-6xl font-black bg-gradient-to-br from-slate-700 to-slate-900 text-white">
+                      {remoteInitial}
+                    </AvatarFallback>
+                  </Avatar>
                 </div>
-                <p className="text-sm text-gray-300">{connectionStatus === 'connected' ? 'On call' : 'Connecting...'}</p>
+                <div className="space-y-1">
+                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    {otherCallParticipantName}
+                  </h2>
+                  <p className="text-sm text-slate-400 font-semibold uppercase tracking-widest">
+                    Voice Call
+                  </p>
+                </div>
+                <p className="text-lg font-mono text-emerald-300 tabular-nums">
+                  {status === 'connected' ? formatCallTimer(callDurationSec) : getConnectionLabel(status, callDurationSec)}
+                </p>
               </div>
             )}
           </div>
 
-          <div className="flex justify-center gap-3 sm:gap-4 shrink-0 pb-2 max-w-lg mx-auto w-full">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={toggleMute}
-              disabled={!hasLocalAudio}
-              title={hasLocalAudio ? (localMuted ? 'Unmute' : 'Mute') : 'No microphone available'}
-              className={cn('rounded-full h-11 w-11 sm:h-12 sm:w-12', localMuted && 'bg-red-500/20 border-red-400')}
-            >
-              {localMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </Button>
-            {callSession.call_type === 'video' && (
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleVideo}
-                disabled={!hasLocalVideo && localCameraUnavailable}
-                title={
-                  !hasLocalVideo
-                    ? 'No camera available'
-                    : localVideoDisabled
-                      ? 'Turn camera on'
-                      : 'Turn camera off'
-                }
-                className={cn(
-                  'rounded-full h-11 w-11 sm:h-12 sm:w-12',
-                  localVideoDisabled && 'bg-red-500/20 border-red-400'
-                )}
+          {/* Control dock */}
+          <div className="shrink-0 px-4 sm:px-8 pb-6 sm:pb-10 pt-4">
+            <div className="mx-auto flex max-w-md items-center justify-center gap-4 sm:gap-6 rounded-2xl border border-white/10 bg-black/40 backdrop-blur-md px-6 py-5">
+              <CallControlButton
+                onClick={toggleMute}
+                disabled={!hasLocalAudio}
+                active={localMuted}
+                title={hasLocalAudio ? (localMuted ? 'Unmute' : 'Mute') : 'No microphone'}
               >
-                {localVideoDisabled ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-              </Button>
-            )}
-            <Button
-              onClick={handleEndCall}
-              className="rounded-full h-12 w-12 sm:h-14 sm:w-14 bg-red-600 hover:bg-red-700"
-              size="icon"
-              title="End call"
-            >
-              <PhoneOff className="h-6 w-6" />
-            </Button>
+                {localMuted ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
+              </CallControlButton>
+              {callSession.call_type === 'video' && (
+                <CallControlButton
+                  onClick={toggleVideo}
+                  disabled={!hasLocalVideo && localCameraUnavailable}
+                  active={localVideoDisabled}
+                  title={
+                    !hasLocalVideo
+                      ? 'No camera'
+                      : localVideoDisabled
+                        ? 'Turn camera on'
+                        : 'Turn camera off'
+                  }
+                >
+                  {localVideoDisabled ? <VideoOff className="h-6 w-6" /> : <Video className="h-6 w-6" />}
+                </CallControlButton>
+              )}
+              <CallControlButton onClick={handleEndCall} title="End call" variant="danger">
+                <PhoneOff className="h-6 w-6" />
+              </CallControlButton>
+            </div>
           </div>
         </div>
       )}

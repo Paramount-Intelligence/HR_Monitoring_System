@@ -110,6 +110,10 @@ apiClient.interceptors.response.use(
             localStorage.setItem('refresh_token', new_refresh_token);
           }
 
+          window.dispatchEvent(
+            new CustomEvent('pims-token-refreshed', { detail: { access_token } })
+          );
+
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
 
           return apiClient(originalRequest);

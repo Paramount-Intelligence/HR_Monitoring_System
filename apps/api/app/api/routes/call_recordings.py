@@ -103,6 +103,7 @@ def _serialize_recording(db: Session, rec: CallRecording) -> CallRecordingRead:
         status=rec.status,
         mime_type=rec.mime_type,
         file_name=rec.file_name,
+        storage_driver=rec.storage_driver,
         created_at=rec.created_at,
         started_at=rec.started_at,
         ended_at=rec.ended_at,
@@ -153,7 +154,16 @@ async def upload_call_recording(
 ):
     """Upload a browser-side call recording (call participants only)."""
     logger.info("[CALL_RECORDING_UPLOAD] received call_id=%s user_id=%s", call_id, current_user.id)
-    call_session = _ensure_call_participant(db, call_id, current_user.id)
+    try:
+        call_session = _ensure_call_participant(db, call_id, current_user.id)
+    except HTTPException as exc:
+        logger.warning(
+            "[CALL_RECORDING_UPLOAD] failed stage=auth reason=%s call_id=%s",
+            exc.detail,
+            call_id,
+        )
+        raise
+    logger.info("[CALL_RECORDING_UPLOAD] participant_valid=True")
 
     data = await file.read()
     resolved_mime = (mime_type or file.content_type or "audio/webm").split(";")[0].strip().lower()
@@ -212,12 +222,25 @@ async def upload_call_recording(
     recording_id = uuid.uuid4()
     ext = "webm" if "webm" in resolved_mime else "ogg"
     storage_key = storage.build_storage_key(call_id, recording_id, ext)
+    logger.info(
+        "[CALL_RECORDING_UPLOAD] storage_driver=%s",
+        storage.driver,
+    )
     try:
         storage.save(storage_key, data, resolved_mime)
-    except HTTPException:
+    except HTTPException as exc:
+        logger.error(
+            "[CALL_RECORDING_UPLOAD] failed stage=storage reason=%s call_id=%s",
+            exc.detail,
+            call_id,
+        )
         raise
     except Exception as exc:
-        logger.exception("[CALL_RECORDING_UPLOAD] storage failed call_id=%s: %s", call_id, exc)
+        logger.exception(
+            "[CALL_RECORDING_UPLOAD] failed stage=storage reason=%s call_id=%s",
+            exc,
+            call_id,
+        )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Recording storage is temporarily unavailable.",

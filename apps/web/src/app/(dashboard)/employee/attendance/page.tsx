@@ -666,16 +666,27 @@ export default function AttendancePage() {
               onChange={(e) => setEarlyCheckoutReason(e.target.value)}
             />
           </DialogBody>
-          <DialogFooter>
-            <Button variant="ghost" size="sm" onClick={() => setEarlyCheckoutDialog({ isOpen: false })}>Cancel</Button>
+          <DialogFooter className="sticky bottom-0 border-t border-slate-200 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 flex-col gap-3 sm:flex-col">
+            <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={() => setEarlyCheckoutDialog({ isOpen: false })}>Cancel</Button>
             <Button
-              size="sm"
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
               disabled={isActionLoading || earlyCheckoutReason.trim().length < 5}
               onClick={() => performCheckOut({ early_checkout_reason: earlyCheckoutReason })}
             >
-              {isActionLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-              Submit Checkout
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking out...
+                </>
+              ) : (
+                'Submit Checkout'
+              )}
             </Button>
+            {earlyCheckoutReason.trim().length < 5 && !isActionLoading && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                Enter at least 5 characters to submit checkout.
+              </p>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -719,15 +730,26 @@ export default function AttendancePage() {
               />
             </div>
           </DialogBody>
-          <DialogFooter>
+          <DialogFooter className="sticky bottom-0 border-t border-slate-200 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 flex-col gap-3 sm:flex-col">
             <Button
-              className="w-full sm:w-auto"
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
               disabled={isActionLoading || !checkoutNote.trim()}
               onClick={() => performCheckOut({ checkout_after_shift_reason: checkoutReason, checkout_after_shift_note: checkoutNote })}
             >
-              {isActionLoading && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-              Check Out
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking out...
+                </>
+              ) : (
+                'Check Out'
+              )}
             </Button>
+            {!checkoutNote.trim() && !isActionLoading && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                Add explanation notes to enable checkout.
+              </p>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

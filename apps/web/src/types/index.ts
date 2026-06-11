@@ -32,6 +32,8 @@ export interface TokenUser {
   designation?: string | null;
   avatar_url?: string | null;
   profile_picture_url?: string | null;
+  profile_picture_updated_at?: string | null;
+  avatar_updated_at?: string | null;
 }
 
 export interface AuthResponse {

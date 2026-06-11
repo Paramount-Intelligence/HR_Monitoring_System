@@ -76,7 +76,7 @@ export class RealtimeWebSocketClient {
       let accessToken = token;
 
       if (isTokenExpiringSoon(accessToken)) {
-        console.log('[WS] refreshing token before connect');
+        console.log('[WS] connecting with fresh token');
         const fresh = await ensureFreshAccessToken();
         if (!fresh) return;
         accessToken = fresh;
@@ -169,12 +169,13 @@ export class RealtimeWebSocketClient {
   }
 
   private async reconnectWithRefreshedToken() {
-    console.log('[WS] reconnecting with refreshed token');
+    console.log('[WS] auth rejected, refreshing once');
     const fresh = await ensureFreshAccessToken();
     if (!fresh) {
       this.disconnect(true);
       return;
     }
+    console.log('[WS] reconnecting after refresh');
     this.reconnectAttempt = 0;
     void this.connectWithFreshToken(fresh);
     this.refetchMissedData();

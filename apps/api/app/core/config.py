@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     cors_origins: list[str] = ["*"]
 
-    profile_image_storage: str = "local"
+    profile_image_storage: str = ""
     profile_image_upload_dir: str = "storage/profile-pictures"
     profile_image_public_base_url: str = ""
 
@@ -143,6 +143,10 @@ class Settings(BaseSettings):
         driver_env = os.getenv("CALL_RECORDINGS_STORAGE_DRIVER")
         if driver_env and str(driver_env).strip():
             object.__setattr__(self, "call_recordings_storage_driver", str(driver_env).strip())
+
+        profile_driver_env = os.getenv("PROFILE_IMAGE_STORAGE")
+        if profile_driver_env and str(profile_driver_env).strip():
+            object.__setattr__(self, "profile_image_storage", str(profile_driver_env).strip())
 
         alias_map = {
             "s3_endpoint_url": ["AWS_ENDPOINT_URL", "S3_ENDPOINT_URL"],
@@ -176,6 +180,17 @@ class Settings(BaseSettings):
     def resolved_call_recordings_driver(self) -> str:
         driver = (self.call_recordings_storage_driver or "local").lower().strip()
         if driver in ("s3", "railway_bucket", "railway"):
+            return "s3"
+        return "local"
+
+    def resolved_profile_image_driver(self) -> str:
+        driver = (self.profile_image_storage or "").lower().strip()
+        if driver in ("s3", "railway_bucket", "railway"):
+            return "s3"
+        if driver == "local":
+            return "local"
+        flags = self.call_recordings_s3_config_flags()
+        if all(flags.values()):
             return "s3"
         return "local"
 

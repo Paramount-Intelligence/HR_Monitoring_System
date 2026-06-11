@@ -58,6 +58,8 @@ class UserProfilePictureUpdate(BaseModel):
         v = v.strip()
         if v.startswith("/media/profile-pictures/"):
             return v
+        if v.startswith("/api/v1/media/profile-pictures/"):
+            return v
         if not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("Profile picture URL must be a valid HTTP or HTTPS URL.")
         return v

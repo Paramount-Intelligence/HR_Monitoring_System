@@ -40,12 +40,6 @@ function hasLiveTrack(stream: MediaStream | null, kind: 'audio' | 'video'): bool
   return tracks.some((t) => t.readyState === 'live');
 }
 
-function logTracks(prefix: string, localStream: MediaStream, remoteStream: MediaStream) {
-  console.log(
-    `[VIDEO_RECORDING] ${prefix} localVideoTracks=${countTracks(localStream, 'video')} remoteVideoTracks=${countTracks(remoteStream, 'video')} localAudioTracks=${countTracks(localStream, 'audio')} remoteAudioTracks=${countTracks(remoteStream, 'audio')}`
-  );
-}
-
 export interface CallRecorderOptions {
   callId: string;
   callType: 'voice' | 'video';
@@ -75,15 +69,18 @@ export class CallRecorder {
   private localVideoEl: HTMLVideoElement | null = null;
   private remoteVideoEl: HTMLVideoElement | null = null;
   private composedStream: MediaStream | null = null;
-  private callId = '';
 
-  start(options: CallRecorderOptions): void {
+  get isActive(): boolean {
+    return this.mediaRecorder?.state === 'recording';
+  }
+
+  get selectedMimeType(): string {
+    return this.mimeType;
+  }
+
+  async start(options: CallRecorderOptions): Promise<void> {
     const { callId, callType, localStream, remoteStream } = options;
-    this.callId = callId;
     this.cleanupInternal(false);
-
-    console.log(`[VIDEO_RECORDING] starting call_id=${callId}`);
-    logTracks('tracks', localStream, remoteStream);
 
     const hasAnyAudio = hasLiveTrack(localStream, 'audio') || hasLiveTrack(remoteStream, 'audio');
     const hasAnyVideo =
@@ -97,27 +94,26 @@ export class CallRecorder {
       throw new Error('No audio or video tracks available for recording.');
     }
 
-    this.setupAudioMixing(localStream, remoteStream);
+    await this.setupAudioMixing(localStream, remoteStream);
 
     if (callType === 'video') {
       try {
-        this.startVideoRecording(localStream, remoteStream);
+        await this.startVideoRecording(localStream, remoteStream);
         return;
       } catch (err) {
-        console.warn('[VIDEO_RECORDING] video recording failed, falling back to audio:', err);
+        console.warn('[CALL_RECORDING_CLIENT] video recording failed, falling back to audio:', err);
       }
     }
 
-    if (!hasAnyAudio && !this.destination?.stream.getAudioTracks().length) {
-      throw new Error('No audio tracks available for audio fallback recording.');
-    }
-
-    this.startAudioRecording();
+    await this.startAudioRecording(localStream, remoteStream);
   }
 
-  private setupAudioMixing(localStream: MediaStream, remoteStream: MediaStream): void {
+  private async setupAudioMixing(localStream: MediaStream, remoteStream: MediaStream): Promise<void> {
     try {
       this.audioContext = new AudioContext();
+      if (this.audioContext.state === 'suspended') {
+        await this.audioContext.resume();
+      }
       this.destination = this.audioContext.createMediaStreamDestination();
 
       const connectAudio = (stream: MediaStream) => {
@@ -131,23 +127,32 @@ export class CallRecorder {
       connectAudio(localStream);
       connectAudio(remoteStream);
     } catch (err) {
-      console.warn('[VIDEO_RECORDING] audio mixing failed, continuing without mixed audio:', err);
+      console.warn('[CALL_RECORDING_CLIENT] audio mixing failed, will use direct track fallback:', err);
       this.audioContext = null;
       this.destination = null;
     }
   }
 
-  private startVideoRecording(localStream: MediaStream, remoteStream: MediaStream): void {
+  private buildDirectAudioStream(localStream: MediaStream, remoteStream: MediaStream): MediaStream {
+    const tracks = [
+      ...localStream.getAudioTracks().filter((t) => t.readyState === 'live'),
+      ...remoteStream.getAudioTracks().filter((t) => t.readyState === 'live'),
+    ];
+    if (!tracks.length) {
+      throw new Error('No live audio tracks for direct recording.');
+    }
+    return new MediaStream(tracks);
+  }
+
+  private async startVideoRecording(localStream: MediaStream, remoteStream: MediaStream): Promise<void> {
     this.recordingType = 'video';
     const recordStream = this.buildVideoCompositionStream(localStream, remoteStream);
     this.mimeType = pickMimeType(VIDEO_MIME_CANDIDATES, 'video/webm');
-    console.log(`[VIDEO_RECORDING] mimeType=${this.mimeType}`);
 
     try {
       this.mediaRecorder = new MediaRecorder(recordStream, { mimeType: this.mimeType });
     } catch {
-      this.mimeType = pickMimeType(['video/webm'], 'video/webm');
-      console.log(`[VIDEO_RECORDING] mimeType=${this.mimeType} (fallback)`);
+      this.mimeType = 'video/webm';
       this.mediaRecorder = new MediaRecorder(recordStream, { mimeType: this.mimeType });
     }
 
@@ -155,16 +160,18 @@ export class CallRecorder {
     this.mediaRecorder.start(1000);
   }
 
-  private startAudioRecording(): void {
+  private async startAudioRecording(localStream: MediaStream, remoteStream: MediaStream): Promise<void> {
     this.recordingType = 'audio';
-    const audioTracks = this.destination?.stream.getAudioTracks() ?? [];
-    if (!audioTracks.length) {
-      throw new Error('No mixed audio tracks for audio recording.');
+
+    let recordStream: MediaStream;
+    const mixedTracks = this.destination?.stream.getAudioTracks() ?? [];
+    if (mixedTracks.length) {
+      recordStream = new MediaStream([...mixedTracks]);
+    } else {
+      recordStream = this.buildDirectAudioStream(localStream, remoteStream);
     }
 
-    const recordStream = new MediaStream([...audioTracks]);
     this.mimeType = pickMimeType(AUDIO_MIME_CANDIDATES, 'audio/webm');
-    console.log(`[VIDEO_RECORDING] mimeType=${this.mimeType} recording_type=audio`);
 
     try {
       this.mediaRecorder = new MediaRecorder(recordStream, { mimeType: this.mimeType });
@@ -182,7 +189,7 @@ export class CallRecorder {
     this.startedAt = new Date();
 
     this.mediaRecorder!.ondataavailable = (event) => {
-      console.log(`[VIDEO_RECORDING] dataavailable size=${event.data.size}`);
+      console.log(`[CALL_RECORDING_CLIENT] dataavailable size=${event.data.size}`);
       if (event.data.size > 0) {
         this.chunks.push(event.data);
       }
@@ -294,7 +301,7 @@ export class CallRecorder {
       }
     });
 
-    console.log(`[VIDEO_RECORDING] stopped blob_size=${blob.size}`);
+    console.log(`[CALL_RECORDING_CLIENT] blob_ready size=${blob.size} type=${this.mimeType}`);
 
     const durationSeconds = Math.max(1, Math.round((endedAt.getTime() - startedAt.getTime()) / 1000));
     const result: CallRecorderResult = {

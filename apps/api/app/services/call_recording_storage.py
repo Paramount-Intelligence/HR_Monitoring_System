@@ -35,11 +35,12 @@ def log_call_recordings_storage_config() -> None:
         flags = settings.call_recordings_s3_config_flags()
         logger.info(
             "[CALL_RECORDINGS_STORAGE] driver=s3 endpoint_configured=%s bucket_configured=%s "
-            "access_key_configured=%s secret_configured=%s",
+            "access_key_configured=%s secret_configured=%s url_style=%s",
             flags["endpoint_configured"],
             flags["bucket_configured"],
             flags["access_key_configured"],
             flags["secret_configured"],
+            settings.s3_url_style or "virtual",
         )
     else:
         logger.info("[CALL_RECORDINGS_STORAGE] driver=local")
@@ -228,28 +229,37 @@ class CallRecordingStorageService:
 
         try:
             client = self._s3_client()
+            logger.info("[CALL_RECORDING_UPLOAD] bucket_save_start storage_key=%s", storage_key)
             client.put_object(
                 Bucket=settings.s3_bucket,
                 Key=storage_key,
                 Body=data,
                 ContentType=mime_type,
             )
+            head = client.head_object(Bucket=settings.s3_bucket, Key=storage_key)
+            saved_size = int(head.get("ContentLength") or 0)
+            if saved_size <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Recording upload verification failed: empty object in bucket.",
+                )
+            logger.info(
+                "[CALL_RECORDING_UPLOAD] bucket_save_success storage_key=%s bytes=%s",
+                storage_key,
+                saved_size,
+            )
+        except HTTPException:
+            raise
         except Exception as exc:
-            logger.exception(
-                "[CALL_RECORDINGS_STORAGE] S3 upload failed bucket=%s key=%s",
-                settings.s3_bucket,
+            logger.error(
+                "[CALL_RECORDINGS_STORAGE] save_failed reason=%s storage_key=%s",
+                exc,
                 storage_key,
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Failed to store recording in object storage.",
             ) from exc
-
-        logger.info(
-            "[CALL_RECORDINGS_STORAGE] uploaded key=%s bytes=%s driver=s3",
-            storage_key,
-            len(data),
-        )
 
     def _read_s3(
         self,

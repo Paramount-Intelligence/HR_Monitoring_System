@@ -26,6 +26,10 @@ const nextConfig = {
           source: '/media/profile-pictures/:path*',
           destination: `${apiOrigin}/media/profile-pictures/:path*`,
         },
+        {
+          source: '/api/v1/media/profile-pictures/:path*',
+          destination: `${apiProxy}/media/profile-pictures/:path*`,
+        },
       ];
     },
   })

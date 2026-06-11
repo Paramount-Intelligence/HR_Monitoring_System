@@ -10,6 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.time_utils import ensure_pk_datetime, PK_TZ
+from app.core.attendance_policy import classification_from_session
 from app.models.attendance_session import AttendanceSession
 from app.models.attendance_correction import AttendanceCorrection
 from app.models.attendance_break import AttendanceBreak
@@ -452,13 +453,17 @@ class AttendanceService:
                     
                 session.check_out_at = co_time
                 session.session_status = AttendanceSessionStatus.COMPLETED
-                session.attendance_classification = AttendanceClassification.INSUFFICIENT
                 
                 # Calculate duration based on auto checkout time
                 delta = co_time - session.check_in_at
                 total_seconds = max(0, int(delta.total_seconds()))
                 session.worked_minutes = total_seconds // 60
                 session.total_hours = total_seconds / 3600.0
+                session.attendance_classification = classification_from_session(
+                    worked_minutes=session.worked_minutes,
+                    total_hours=session.total_hours,
+                    is_active=False,
+                )
                 
                 # Mark as auto-closed
                 session.checkout_after_shift_reason = "auto_checkout"
@@ -492,24 +497,11 @@ class AttendanceService:
         )
 
     def _calculate_classification(self, session: AttendanceSession) -> AttendanceClassification:
-        if session.session_status == AttendanceSessionStatus.ACTIVE:
-            return AttendanceClassification.ACTIVE
-        
-        # Business Rules:
-        # Full Day: >= 9 hours
-        # Half Day: >= 4.5 hours and < 9 hours
-        # Short Leave: < 4.5 hours
-        # Insufficient: if near 0 or as per current policy
-        
-        hours = session.total_hours or 0
-        if hours >= 9.0:
-            return AttendanceClassification.FULL_DAY
-        elif hours >= 4.5:
-            return AttendanceClassification.HALF_DAY
-        elif hours > 0.5: # More than 30 mins but less than 4.5h
-            return AttendanceClassification.SHORT_LEAVE
-        else:
-            return AttendanceClassification.INSUFFICIENT
+        return classification_from_session(
+            worked_minutes=session.worked_minutes,
+            total_hours=session.total_hours,
+            is_active=session.session_status == AttendanceSessionStatus.ACTIVE,
+        )
 
     # --- Break Management ---
 

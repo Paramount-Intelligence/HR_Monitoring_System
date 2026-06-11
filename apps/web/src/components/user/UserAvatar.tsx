@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +43,10 @@ export function UserAvatar({
   const initials = getUserInitials(name);
   const imageAlt = alt || `${name} profile picture`;
 
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   return (
     <Avatar
       size={size}
@@ -52,7 +56,10 @@ export function UserAvatar({
         <AvatarImage
           src={avatarUrl!}
           alt={imageAlt}
-          onError={() => setImageFailed(true)}
+          onError={() => {
+            console.warn('[UserAvatar] Failed to load profile picture:', avatarUrl);
+            setImageFailed(true);
+          }}
         />
       )}
       <AvatarFallback

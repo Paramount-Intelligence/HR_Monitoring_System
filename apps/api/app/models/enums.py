@@ -218,6 +218,7 @@ class AttendanceClassification(str, enum.Enum):
     HALF_DAY = "half_day"
     SHORT_LEAVE = "short_leave"
     INSUFFICIENT = "insufficient"
+    FULL_LEAVE = "full_leave"
     LEAVE = "leave"
 
 

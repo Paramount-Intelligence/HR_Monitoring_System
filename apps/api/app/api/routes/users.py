@@ -1,6 +1,7 @@
 """User management routes with full RBAC."""
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status, Request
@@ -17,6 +18,8 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse, UserProfileUpdate, UserPasswordChange, UserDirectoryRead, UserProfilePictureUpdate
 from app.services.profile_image_storage import ProfileImageStorageService
 from app.services.user_service import UserService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -119,15 +122,27 @@ async def _save_uploaded_profile_picture(
     file: UploadFile,
     storage: ProfileImageStorageService,
 ) -> None:
+    logger.info("[PROFILE_PICTURE_UPLOAD] received user_id=%s", user.id)
     data, ext, content_type = await storage.read_and_validate(file)
+    logger.info(
+        "[PROFILE_PICTURE_UPLOAD] mime_type=%s file_size=%s storage_driver=%s",
+        content_type,
+        len(data),
+        storage.storage_driver_label,
+    )
     storage.delete_by_url(user.avatar_url)
     storage.delete_by_filename(user.avatar_file_name)
-    filename, public_url = storage.save(user.id, data, ext)
+    storage_key, public_url = storage.save(user.id, data, ext, content_type)
     user.avatar_url = public_url
-    user.avatar_file_name = filename
+    user.avatar_file_name = storage_key
     user.avatar_content_type = content_type
     user.avatar_size = len(data)
     user.avatar_updated_at = pk_now()
+    logger.info(
+        "[PROFILE_PICTURE_UPLOAD] saved key=%s user_updated=True url=%s",
+        storage_key,
+        public_url,
+    )
 
 
 def _assert_profile_picture_access(actor: User, target_user_id: uuid.UUID) -> None:

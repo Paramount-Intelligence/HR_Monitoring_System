@@ -33,10 +33,11 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
     return token;
   }
 
-  console.log('[AUTH] access token expiring, refreshing');
+  console.log('[AUTH] token expiring, refreshing');
 
   const refreshToken = localStorage.getItem('refresh_token');
   if (!refreshToken) {
+    console.warn('[AUTH] refresh failed, logging out');
     window.dispatchEvent(new Event('auth:unauthorized'));
     return null;
   }
@@ -68,8 +69,13 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
       localStorage.setItem('refresh_token', data.refresh_token);
     }
 
+    console.log('[AUTH] refresh success');
+    window.dispatchEvent(
+      new CustomEvent('pims-token-refreshed', { detail: { access_token: data.access_token } })
+    );
     return data.access_token;
   } catch {
+    console.warn('[AUTH] refresh failed, logging out');
     window.dispatchEvent(new Event('auth:unauthorized'));
     return null;
   }

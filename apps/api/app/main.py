@@ -18,6 +18,7 @@ from app.db.encoding import assert_utf8_database
 from app.core.permission_seeder import seed_permissions
 from app.core.bootstrapper import bootstrap_admin
 from app.services.call_recording_storage import log_call_recordings_storage_config
+from app.services.profile_image_storage import log_profile_image_storage_config
 
 import subprocess
 import os
@@ -70,6 +71,7 @@ async def lifespan(app: FastAPI):
     logger.info("[CORS] allowed_origins=%s", cors_allowed)
 
     log_call_recordings_storage_config()
+    log_profile_image_storage_config()
 
     yield
 

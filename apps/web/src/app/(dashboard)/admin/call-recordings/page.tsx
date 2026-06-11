@@ -59,6 +59,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatRecordingTypeLabel(item: CallRecordingItem): string {
+  if (item.call_type === 'video' && item.recording_type === 'audio') {
+    return 'Video call — audio-only';
+  }
+  return item.recording_type;
+}
+
 function formatDuration(seconds?: number | null): string {
   if (!seconds) return '—';
   const m = Math.floor(seconds / 60);
@@ -300,6 +307,7 @@ export default function AdminCallRecordingsPage() {
                   <TableHead>Date/Time</TableHead>
                   <TableHead>Duration</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Storage</TableHead>
                   <TableHead>Recorded By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Size</TableHead>
@@ -309,13 +317,13 @@ export default function AdminCallRecordingsPage() {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="p-10">
-                      <TableSkeleton rows={5} cols={8} />
+                    <TableCell colSpan={9} className="p-10">
+                      <TableSkeleton rows={5} cols={9} />
                     </TableCell>
                   </TableRow>
                 ) : items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="p-10 text-center text-[var(--text-muted)] space-y-2">
+                    <TableCell colSpan={9} className="p-10 text-center text-[var(--text-muted)] space-y-2">
                       {loadError ? (
                         <p>Could not load recordings. Use Retry above.</p>
                       ) : hasActiveFilters ? (
@@ -351,13 +359,26 @@ export default function AdminCallRecordingsPage() {
                       <TableCell>{formatDuration(item.duration_seconds)}</TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1">
-                          <Badge variant="outline" className="text-[10px] w-fit">
+                          <Badge variant="outline" className="text-[10px] w-fit capitalize">
                             {item.call_type || 'call'}
                           </Badge>
                           <Badge variant="secondary" className="text-[10px] w-fit">
-                            {item.recording_type}
+                            {formatRecordingTypeLabel(item)}
                           </Badge>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-[10px] capitalize',
+                            item.storage_driver === 's3'
+                              ? 'border-emerald-300 text-emerald-700'
+                              : 'border-amber-300 text-amber-700'
+                          )}
+                        >
+                          {item.storage_driver === 's3' ? 's3' : item.storage_driver || 'local legacy'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-xs">{item.recorded_by.full_name}</TableCell>
                       <TableCell>

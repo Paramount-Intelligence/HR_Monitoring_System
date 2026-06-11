@@ -106,6 +106,9 @@ export function useCallManager({
     connectionStatus,
     localStream,
     remoteStream,
+    onUploadFailed: (message) => {
+      onError?.(message);
+    },
   });
 
   useEffect(() => {
