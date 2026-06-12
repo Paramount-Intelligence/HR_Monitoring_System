@@ -137,6 +137,22 @@ def require_permission(permission_key: str):
     return dependency
 
 
+def require_any_permission(*permission_keys: str):
+    """Dependency that passes if the user has at least one of the given permissions."""
+    def dependency(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> User:
+        perms = get_user_permissions(current_user, db)
+        if any(key in perms for key in permission_keys):
+            return current_user
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission denied",
+        )
+    return dependency
+
+
 # ---------------------------------------------------------------------------
 # Rate Limiting
 # ---------------------------------------------------------------------------

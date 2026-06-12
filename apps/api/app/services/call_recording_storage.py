@@ -22,7 +22,25 @@ ALLOWED_MIME_TYPES = {
     "video/ogg",
     "audio/mp4",
     "video/mp4",
+    "audio/m4a",
+    "audio/aac",
+    "audio/mpeg",
+    "audio/x-m4a",
 }
+
+
+def mime_to_extension(mime_type: str) -> str:
+    """Map normalized MIME type to storage file extension."""
+    normalized = (mime_type or "").lower().split(";")[0].strip()
+    if "webm" in normalized:
+        return "webm"
+    if "ogg" in normalized:
+        return "ogg"
+    if "mp4" in normalized or "m4a" in normalized or normalized == "audio/aac":
+        return "m4a"
+    if "mpeg" in normalized:
+        return "mp3"
+    return "webm"
 
 
 class CallRecordingStorageConfigError(RuntimeError):

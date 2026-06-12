@@ -28,6 +28,7 @@ import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
 import { getProfilePictureUrl } from '@/lib/profile-picture';
 import { AdminUserControlPanel } from '@/components/admin/users/AdminUserControlPanel';
 import { ALL_ROLES, ROLE_LABELS, ROLE_BADGE_COLORS } from '@/lib/admin-users/constants';
+import { getUserDepartmentDisplay, getUserManagerDisplay } from '@/lib/display-labels';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -461,9 +462,9 @@ export default function AdminUsersPage() {
                           {ROLE_LABELS[user.role] || user.role}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-[var(--text-secondary)] text-sm">{user.department_name || user.department || '—'}</TableCell>
+                      <TableCell className="text-[var(--text-secondary)] text-sm">{getUserDepartmentDisplay(user)}</TableCell>
                       <TableCell className="text-[var(--text-secondary)] text-sm truncate max-w-[140px]">
-                        {user.manager_name || (user.manager_id ? filteredUsers.find((u) => u.id === user.manager_id)?.full_name : '—')}
+                        {getUserManagerDisplay(user, users)}
                       </TableCell>
                       <TableCell>{getStatusBadge(user.status)}</TableCell>
                       <TableCell className="text-[var(--text-secondary)] text-sm whitespace-nowrap">

@@ -29,6 +29,25 @@ class UserService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return user
 
+    def assert_actor_can_view_user(self, actor: User, target_user_id: uuid.UUID) -> User:
+        """Enforce RBAC for reading another user's profile."""
+        user = self.get_by_id(target_user_id)
+        if actor.id == target_user_id:
+            return user
+        if actor.role in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+            return user
+        if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
+            if user.manager_id == actor.id:
+                return user
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied",
+        )
+
     def list_users(
         self,
         *,
@@ -42,8 +61,8 @@ class UserService:
 
         # Access Control:
         if actor:
-            if actor.role == UserRole.MANAGER:
-                # Managers only see their direct reports + themselves
+            if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
+                # Managers and team leads only see their direct reports + themselves
                 from sqlalchemy import or_
                 q = q.filter(or_(User.manager_id == actor.id, User.id == actor.id))
             elif actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):

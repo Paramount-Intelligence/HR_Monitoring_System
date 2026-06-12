@@ -40,6 +40,7 @@ from app.models.meetings import Meeting, MeetingParticipant  # noqa: F401
 from app.models.notifications import Notification  # noqa: F401
 from app.models.support import SupportTicket, SupportTicketComment  # noqa: F401
 from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction, MessageAttachment, CallSession, CallParticipant, CallSignal, CallRecording  # noqa: F401
+from app.models.user_device_token import UserDeviceToken  # noqa: F401
 
 __all__ = [
     "Base",
@@ -93,4 +94,5 @@ __all__ = [
     "CallParticipant",
     "CallSignal",
     "CallRecording",
+    "UserDeviceToken",
 ]

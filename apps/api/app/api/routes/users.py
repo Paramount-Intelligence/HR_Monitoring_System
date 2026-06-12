@@ -258,16 +258,9 @@ def get_user(
     actor: User = Depends(get_current_user),
 ) -> UserRead:
     svc = UserService(db)
-    user = svc.get_by_id(user_id)
-    # Employees can only view their own profile
-    if actor.role == UserRole.EMPLOYEE and actor.id != user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-    # Managers can only view users in their team
-    if actor.role == UserRole.MANAGER and user.manager_id != actor.id and actor.id != user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-    return user
+    svc.assert_actor_can_view_user(actor, user_id)
+    user = AdminUserService(db).get_user_with_relations(user_id)
+    return UserRead.model_validate(user)
 
 
 @router.patch("/{user_id}", response_model=UserRead, summary="Update user profile or status")
@@ -340,6 +333,7 @@ from app.schemas.user import AdminUserProfileAggregate
 from app.schemas.admin_user import (
     UserRoleUpdate,
     UserDepartmentUpdate,
+    UserDepartmentDetailsUpdate,
     UserStatusUpdate,
     UserReportingUpdate,
     UserAdminProfileUpdate,
@@ -397,6 +391,28 @@ def patch_user_department(
         department_id=payload.department_id,
         designation=payload.designation,
         clear_department=payload.clear_department,
+        actor=actor,
+    )
+    return UserRead.model_validate(user)
+
+
+@router.patch(
+    "/{user_id}/department-details",
+    response_model=UserRead,
+    summary="Update department, shift, manager, and designation",
+)
+def patch_user_department_details(
+    user_id: uuid.UUID,
+    payload: UserDepartmentDetailsUpdate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> UserRead:
+    user = AdminUserService(db).update_department_details(
+        user_id,
+        department_id=payload.department_id,
+        shift_id=payload.shift_id,
+        manager_id=payload.manager_id,
+        designation=payload.designation,
         actor=actor,
     )
     return UserRead.model_validate(user)

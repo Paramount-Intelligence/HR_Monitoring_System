@@ -1,0 +1,91 @@
+{
+  "expo": {
+    "name": "PIMS",
+    "slug": "pims-mobile",
+    "version": "1.3.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "pims",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#08204a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.paramountintelligence.pims",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "PIMS needs camera access for video calls and profile photo capture.",
+        "NSMicrophoneUsageDescription": "PIMS needs microphone access for voice and video calls.",
+        "NSPhotoLibraryUsageDescription": "PIMS needs photo library access to upload profile pictures and attachments.",
+        "NSPhotoLibraryAddUsageDescription": "PIMS may save exported files or reports if you choose to download them."
+      }
+    },
+    "android": {
+      "package": "com.paramount.pims",
+      "versionCode": 4,
+      "permissions": [
+        "INTERNET",
+        "RECORD_AUDIO",
+        "CAMERA",
+        "MODIFY_AUDIO_SETTINGS",
+        "BLUETOOTH_CONNECT",
+        "POST_NOTIFICATIONS"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#08204a",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-asset",
+      "expo-font",
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PIMS needs photo library access to upload profile pictures.",
+          "cameraPermission": "PIMS needs camera access for video calls and profile photo capture."
+        }
+      ],
+      [
+        "@config-plugins/react-native-webrtc",
+        {
+          "cameraPermission": "PIMS needs camera access for video calls and profile photo capture.",
+          "microphonePermission": "PIMS needs microphone access for voice and video calls."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#08204a"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "autolinkingModuleResolution": true
+    },
+    "extra": {
+      "apiBaseUrl": "https://hrmonitoringsystem-production-cb42.up.railway.app/api/v1",
+      "wsUrl": "wss://hrmonitoringsystem-production-cb42.up.railway.app/api/v1/ws",
+      "stunUrl": "stun:stun.l.google.com:19302",
+      "router": {},
+      "environment": "development",
+      "eas": {
+        "projectId": "c835a560-207c-4049-a128-0b79c2c166fc"
+      }
+    }
+  }
+}

@@ -26,6 +26,7 @@ from app.schemas.call_recording import (
 from app.services.call_recording_storage import (
     CallRecordingStorageService,
     get_call_recording_storage,
+    mime_to_extension,
     parse_range_header,
 )
 
@@ -226,8 +227,13 @@ async def upload_call_recording(
     storage.validate_upload(data, resolved_mime, safe_name)
 
     recording_id = uuid.uuid4()
-    ext = "webm" if "webm" in resolved_mime else "ogg"
+    ext = mime_to_extension(resolved_mime)
     storage_key = storage.build_storage_key(call_id, recording_id, ext)
+    if not storage_key.startswith("call-recordings/") or ".." in storage_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Invalid recording storage path.",
+        )
     logger.info(
         "[CALL_RECORDING_UPLOAD] storage_driver=%s",
         storage.driver,
