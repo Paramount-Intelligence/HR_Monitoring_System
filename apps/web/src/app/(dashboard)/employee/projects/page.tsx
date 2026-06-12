@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
@@ -11,16 +11,11 @@ import { getErrorMessage } from '@/lib/api/client';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { cn } from '@/lib/utils';
-import { 
-  Plus, Loader2, Briefcase, CheckCircle, XCircle, Calendar, ShieldCheck, Zap, MessageSquare
-} from 'lucide-react';
-
+import { Plus, Loader2, Briefcase, Calendar, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Dialog, DialogContent, DialogDescription, DialogHeader, 
-  DialogTitle, DialogTrigger 
+import {
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage,
@@ -30,13 +25,16 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
-} from '@/components/ui/table';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPKDate } from '@/lib/time';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
+import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
+import { EmployeeMetricCard } from '@/components/employee/EmployeeMetricCard';
+import { EmployeeSectionCard } from '@/components/employee/EmployeeSectionCard';
+import { EmployeeDataTable } from '@/components/employee/EmployeeDataTable';
 
 const projectSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -59,7 +57,7 @@ export default function ProjectsPage() {
       const conv = await messagesApi.getOrCreateContextThread({
         related_entity_type: 'project',
         related_entity_id: project.id,
-        title: `Project: ${project.title}`
+        title: `Project: ${project.title}`,
       });
       router.push(`/messages?conversation_id=${conv.id}`);
     } catch (error) {
@@ -83,7 +81,7 @@ export default function ProjectsPage() {
       try {
         const [projectsData, userData] = await Promise.all([
           projectsApi.getProjects(),
-          usersApi.getMe()
+          usersApi.getMe(),
         ]);
         setProjects(projectsData);
         setUser(userData);
@@ -98,12 +96,7 @@ export default function ProjectsPage() {
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
-    defaultValues: {
-      title: '',
-      description: '',
-      priority: 'medium',
-      due_date: '',
-    },
+    defaultValues: { title: '', description: '', priority: 'medium', due_date: '' },
   });
 
   const onSubmit = async (data: ProjectFormValues) => {
@@ -111,7 +104,7 @@ export default function ProjectsPage() {
       await projectsApi.createProject({
         ...data,
         due_date: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined,
-        manager_id: user?.manager_id || undefined
+        manager_id: user?.manager_id || undefined,
       });
       toast.success('Project proposed successfully');
       setIsDialogOpen(false);
@@ -122,166 +115,171 @@ export default function ProjectsPage() {
     }
   };
 
+  const stats = useMemo(() => {
+    const active = projects.filter((p) => p.project_status === 'active').length;
+    const completed = projects.filter((p) => p.project_status === 'completed').length;
+    const atRisk = projects.filter(
+      (p) => p.project_status === 'on_hold' || p.approval_status === 'rejected'
+    ).length;
+    return { total: projects.length, active, completed, atRisk };
+  }, [projects]);
+
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <Briefcase className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Proposal</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Projects</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Propose and track project requests</p>
-        </div>
+    <EmployeePageShell>
+      <EmployeePageHeader
+        title="My Projects"
+        subtitle="Assigned projects and delivery progress"
+        icon={Briefcase}
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="rounded-lg text-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                Propose Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>New Project</DialogTitle>
+                <DialogDescription>Submit a new project request to your manager</DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="project-form">
+                    <FormField control={form.control} name="title" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Project Title</FormLabel>
+                        <FormControl><Input className="h-9 rounded-lg" placeholder="Project title" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Description</FormLabel>
+                        <FormControl><Textarea className="min-h-[80px] rounded-lg resize-none" placeholder="Goals and success criteria..." {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={form.control} name="priority" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Priority</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="critical">Critical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="due_date" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Due Date</FormLabel>
+                          <FormControl><Input type="date" className="h-9 rounded-lg" {...field} /></FormControl>
+                        </FormItem>
+                      )} />
+                    </div>
+                  </form>
+                </Form>
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)}>Discard</Button>
+                <Button type="submit" form="project-form" size="sm" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                  Save Project
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl border-none shadow-xl transition-all active:scale-95">
-              <Plus className="mr-2 h-4 w-4 text-white" />
-              Propose Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[600px] rounded-[2.5rem] border-none bg-[var(--bg-surface)] shadow-[var(--shadow-hard)] p-10 animate-in zoom-in-95 duration-300 text-[var(--text-primary)]">
-            <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black tracking-tighter text-[var(--text-primary)]">New Project</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">
-                Submit a new project request to your manager
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
-                <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Project Title</FormLabel>
-                    <FormControl><Input placeholder="e.g. Infrastructure Modernization" className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Description</FormLabel>
-                    <FormControl><Textarea placeholder="Define project goals and success criteria..." className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)]/50 border-[var(--border-default)] text-[var(--text-primary)] min-h-[120px] font-bold text-sm leading-relaxed p-6 focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-6">
-                  <FormField control={form.control} name="priority" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
-                          <SelectItem value="low" className="text-[10px] font-black uppercase tracking-widest">Low</SelectItem>
-                          <SelectItem value="medium" className="text-[10px] font-black uppercase tracking-widest">Medium</SelectItem>
-                          <SelectItem value="high" className="text-[10px] font-black uppercase tracking-widest">High</SelectItem>
-                          <SelectItem value="critical" className="text-[10px] font-black uppercase tracking-widest text-rose-600">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="due_date" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Target Deadline</FormLabel>
-                      <FormControl><Input type="date" className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
-                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                    </FormItem>
-                  )} />
-                </div>
-                <div className="flex justify-end pt-6 gap-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl border-none shadow-xl transition-all active:scale-95 flex-1">
-                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
-                    Save Project
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <EmployeeMetricGrid>
+        <EmployeeMetricCard title="Assigned Projects" value={stats.total} icon={Briefcase} />
+        <EmployeeMetricCard title="Active Projects" value={stats.active} icon={Briefcase} />
+        <EmployeeMetricCard title="Completed" value={stats.completed} icon={Briefcase} />
+        <EmployeeMetricCard title="At Risk / Blocked" value={stats.atRisk} icon={Briefcase} />
+      </EmployeeMetricGrid>
 
-      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden text-[var(--text-primary)]">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
-              <Zap className="h-6 w-6 text-[var(--accent-primary)]" />
-              My Projects
-            </CardTitle>
+      <EmployeeSectionCard title="Project List" icon={Briefcase} noPadding contentClassName="p-0">
+        {isLoading ? (
+          <div className="p-4"><TableSkeleton rows={5} cols={5} /></div>
+        ) : projects.length === 0 ? (
+          <div className="p-6">
+            <EmptyState
+              title="No projects yet"
+              description="Propose your first project to organize your tasks under it."
+              icon={Briefcase}
+              action={
+                <Button size="sm" className="rounded-lg" onClick={() => setIsDialogOpen(true)}>
+                  Propose Project
+                </Button>
+              }
+            />
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="p-10"><TableSkeleton rows={5} cols={5} /></div>
-          ) : projects.length === 0 ? (
-            <div className="p-20">
-              <EmptyState 
-                  title="No projects proposed"
-                  message="Propose your first project to organize your tasks under it."
-                  icon={Briefcase}
-                  action={{
-                      label: "Propose Project",
-                      onClick: () => setIsDialogOpen(true)
-                  }}
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-[var(--bg-subtle)]">
-                  <TableRow className="hover:bg-transparent border-b border-[var(--border-subtle)] h-16">
-                    <TableHead className="w-[45%] font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] pl-10">Project Title / Description</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Priority</TableHead>
-                    <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Due Date</TableHead>
-                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Created At</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {projects.map((project) => (
-                    <TableRow key={project.id} className="hover:bg-[var(--bg-subtle)]/30 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28 text-[var(--text-primary)]">
-                      <TableCell className="pl-10">
-                        <div className="flex flex-col gap-1.5">
-                          <div className="flex items-center gap-3">
-                            <span className="font-black text-[var(--text-primary)] text-sm tracking-tight">{project.title}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 rounded-lg text-[10px] font-black uppercase tracking-wider text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/10 gap-1"
-                              onClick={() => handleDiscussProject(project)}
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              Discuss
-                            </Button>
-                          </div>
-                          <span className="text-[10px] font-bold text-[var(--text-muted)] leading-relaxed italic line-clamp-1 max-w-[400px]">
-                            {project.description}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={project.approval_status} />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={project.priority} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-tighter">
-                          <Calendar className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
-                          {project.due_date ? formatPKDate(project.due_date) : 'No Date'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right pr-10 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                        {formatPKDate(project.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+        ) : (
+          <EmployeeDataTable
+            data={projects}
+            emptyMessage="No projects"
+            columns={[
+              {
+                key: 'title',
+                header: 'Project',
+                render: (project) => (
+                  <div className="min-w-[200px]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold">{project.title}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-[10px] text-[var(--accent-primary)]"
+                        onClick={() => handleDiscussProject(project)}
+                      >
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        Discuss
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-[var(--text-muted)] line-clamp-1 mt-0.5">{project.description}</p>
+                  </div>
+                ),
+              },
+              {
+                key: 'status',
+                header: 'Status',
+                render: (p) => <StatusBadge status={p.project_status || p.approval_status} />,
+              },
+              {
+                key: 'approval',
+                header: 'Approval',
+                render: (p) => <StatusBadge status={p.approval_status} />,
+              },
+              {
+                key: 'priority',
+                header: 'Priority',
+                render: (p) => <StatusBadge status={p.priority} />,
+              },
+              {
+                key: 'due',
+                header: 'Due Date',
+                render: (p) => (
+                  <span className="text-[var(--text-secondary)] inline-flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {p.due_date ? formatPKDate(p.due_date) : '—'}
+                  </span>
+                ),
+              },
+              {
+                key: 'created',
+                header: 'Created',
+                render: (p) => formatPKDate(p.created_at),
+              },
+            ]}
+          />
+        )}
+      </EmployeeSectionCard>
+    </EmployeePageShell>
   );
 }

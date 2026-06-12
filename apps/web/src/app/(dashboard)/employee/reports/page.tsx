@@ -1,21 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { reportsApi, ReportSummary } from '@/lib/api/reports';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { format, startOfWeek, endOfWeek, subWeeks, startOfMonth } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Calendar, Clock, AlertCircle, Download, TrendingUp, Zap } from 'lucide-react';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import { Loader2, Calendar, Clock, AlertCircle, Download, TrendingUp } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
+import { EmptyState } from '@/components/ui/empty-state';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
+import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
+import { EmployeeMetricCard } from '@/components/employee/EmployeeMetricCard';
+import { EmployeeSectionCard } from '@/components/employee/EmployeeSectionCard';
+import { Skeleton } from '@/components/ui/skeletons';
 
 export default function EmployeeReportsPage() {
   const [report, setReport] = useState<ReportSummary | null>(null);
@@ -27,7 +31,7 @@ export default function EmployeeReportsPage() {
     try {
       let start: Date, end: Date;
       const now = new Date();
-      
+
       if (period === 'this_week') {
         start = startOfWeek(now, { weekStartsOn: 1 });
         end = now;
@@ -45,7 +49,7 @@ export default function EmployeeReportsPage() {
         format(end, 'yyyy-MM-dd')
       );
       setReport(data);
-    } catch (error) {
+    } catch {
       toast.error('Failed to load performance report');
     } finally {
       setIsLoading(false);
@@ -56,127 +60,158 @@ export default function EmployeeReportsPage() {
     fetchReport();
   }, [period]);
 
+  const hoursWorked = useMemo(() => {
+    const h = Number(report?.total_hours);
+    return Number.isFinite(h) ? h.toFixed(1) : '0.0';
+  }, [report]);
+
+  const periodLabel =
+    period === 'this_week' ? 'This Week' : period === 'last_week' ? 'Last Week' : 'This Month';
+
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <TrendingUp className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Analytics</span>
+    <EmployeePageShell>
+      <EmployeePageHeader
+        title="My Reports"
+        subtitle="Attendance and productivity metrics for the selected period"
+        icon={TrendingUp}
+        actions={
+          <div className="flex items-center gap-2">
+            <Select value={period} onValueChange={(val: 'this_week' | 'last_week' | 'this_month') => setPeriod(val)}>
+              <SelectTrigger className="w-[140px] h-9 rounded-lg text-xs">
+                <SelectValue placeholder="Period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="this_week">This Week</SelectItem>
+                <SelectItem value="last_week">Last Week</SelectItem>
+                <SelectItem value="this_month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" className="h-9 w-9 rounded-lg" disabled title="Export coming soon">
+              <Download className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">My Reports</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Analyze your attendance and productivity metrics</p>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Select value={period} onValueChange={(val: any) => setPeriod(val)}>
-            <SelectTrigger className="w-[180px] h-12 rounded-2xl bg-[var(--bg-surface)] border-[var(--border-default)] text-[var(--text-primary)] font-bold text-xs uppercase tracking-widest shadow-sm">
-              <SelectValue placeholder="Select period" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl shadow-[var(--shadow-card)] border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
-              <SelectItem value="this_week" className="text-xs font-bold">This Week</SelectItem>
-              <SelectItem value="last_week" className="text-xs font-bold">Last Week</SelectItem>
-              <SelectItem value="this_month" className="text-xs font-bold">This Month</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="icon" className="h-12 w-12 rounded-2xl border-[var(--border-default)] text-[var(--text-muted)] hover:text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] transition-all bg-[var(--bg-surface)] shadow-sm">
-            <Download className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map(i => <KPICardSkeleton key={i} />)}
-        </div>
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-24 rounded-xl" />
+            ))}
+          </div>
+          <Skeleton className="h-48 rounded-xl" />
+        </>
       ) : report ? (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KPICard 
-                title="Hours Worked"
-                value={report.total_hours.toFixed(1)}
-                description="Total session time"
-                icon={Clock}
-                trend={{ value: 5, isPositive: true }}
-            />
-            <KPICard 
-                title="Late Logins"
-                value={report.late_logins}
-                description="Policy exceptions"
-                icon={AlertCircle}
-                variant={report.late_logins > 0 ? "warning" : "default"}
-            />
-            <KPICard 
-                title="WFH Days"
-                value={report.wfh_days}
-                description="Remote sessions"
-                icon={Calendar}
-                variant="indigo"
-            />
-            <KPICard 
-                title="Absences"
-                value={report.absences}
-                description="Unplanned time off"
-                icon={AlertCircle}
-                variant={report.absences > 0 ? "danger" : "default"}
-            />
-          </div>
+          <EmployeeMetricGrid>
+            <EmployeeMetricCard title="Hours Worked" value={`${hoursWorked}h`} icon={Clock} subtitle={periodLabel} />
+            <EmployeeMetricCard title="Late Logins" value={report.late_logins ?? 0} icon={AlertCircle} />
+            <EmployeeMetricCard title="WFH Days" value={report.wfh_days ?? 0} icon={Calendar} />
+            <EmployeeMetricCard title="Absences" value={report.absences ?? 0} icon={AlertCircle} />
+          </EmployeeMetricGrid>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden text-[var(--text-primary)]">
-              <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
-                <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">Insights</CardTitle>
-                <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">Visual summary of your work habits</CardDescription>
-              </CardHeader>
-              <CardContent className="p-8 h-[250px] flex items-center justify-center">
-                <div className="text-center">
-                  <Clock className="h-12 w-12 text-[var(--text-muted)] opacity-30 mx-auto mb-4" />
-                  <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Trend analysis in progress...</p>
-                  <div className="flex gap-2 mt-6 justify-center">
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 font-bold rounded-lg px-3 border-none">Early Bird: 80%</Badge>
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 font-bold rounded-lg px-3 border-none">WFH Mix: 20%</Badge>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <EmployeeSectionCard title="Period Summary" icon={Calendar}>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between border-b border-[var(--border-subtle)] pb-2">
+                  <span className="text-[var(--text-muted)]">Reporting period</span>
+                  <span className="font-medium">{periodLabel}</span>
                 </div>
-              </CardContent>
-            </Card>
+                <div className="flex justify-between border-b border-[var(--border-subtle)] pb-2">
+                  <span className="text-[var(--text-muted)]">From</span>
+                  <span className="font-medium">{report.start_date || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b border-[var(--border-subtle)] pb-2">
+                  <span className="text-[var(--text-muted)]">To</span>
+                  <span className="font-medium">{report.end_date || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b border-[var(--border-subtle)] pb-2">
+                  <span className="text-[var(--text-muted)]">Early check-outs</span>
+                  <span className="font-medium">{report.early_logouts ?? 0}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="font-medium">Total hours</span>
+                  <span className="font-bold text-[var(--accent-primary)]">{hoursWorked}h</span>
+                </div>
+              </div>
+            </EmployeeSectionCard>
 
-            <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden text-[var(--text-primary)]">
-              <CardHeader className="px-8 pt-8 pb-4 border-b border-[var(--border-subtle)]">
-                <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight">System Feedback</CardTitle>
-                <CardDescription className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-tight">Observations based on recent activity</CardDescription>
-              </CardHeader>
-              <CardContent className="p-8 space-y-6">
+            <EmployeeSectionCard title="Observations" icon={TrendingUp}>
+              <div className="space-y-3">
                 {report.late_logins > 0 ? (
-                  <div className="flex items-start gap-4 p-5 bg-amber-50 border border-amber-100 rounded-2xl">
-                    <AlertCircle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-black text-amber-900 uppercase tracking-tight">Late login detected</p>
-                      <p className="text-xs text-amber-700/80 font-bold mt-1">You were late {report.late_logins} time(s). Maintain consistency to avoid policy flags.</p>
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Late logins detected</p>
+                      <p className="text-xs text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                        {report.late_logins} late login{report.late_logins === 1 ? '' : 's'} in this period.
+                      </p>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start gap-4 p-5 bg-emerald-50 border border-emerald-100 rounded-2xl">
-                    <TrendingUp className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-3 p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 rounded-lg">
+                    <TrendingUp className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-black text-emerald-900 uppercase tracking-tight">Excellent Punctuality</p>
-                      <p className="text-xs text-emerald-700/80 font-bold mt-1">No late logins detected. Outstanding punctuality.</p>
+                      <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">Strong punctuality</p>
+                      <p className="text-xs text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                        No late logins recorded for {periodLabel.toLowerCase()}.
+                      </p>
                     </div>
                   </div>
                 )}
-                
-                <div className="p-5 bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded-2xl text-[var(--text-primary)]">
-                  <p className="text-sm font-black text-[var(--text-primary)] uppercase tracking-tight">Leave Balance</p>
-                  <p className="text-xs text-[var(--text-muted)] font-bold mt-1">You have 12 days of annual leave remaining. Planning ahead helps ensure team coverage.</p>
-                </div>
-              </CardContent>
-            </Card>
+
+                {report.early_logouts > 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded-lg">
+                    <Clock className="h-4 w-4 text-[var(--text-muted)] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold">Early check-outs</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                        {report.early_logouts} early check-out{report.early_logouts === 1 ? '' : 's'} logged.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {report.absences > 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900 rounded-lg">
+                    <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">Absences recorded</p>
+                      <p className="text-xs text-rose-800/80 dark:text-rose-300/80 mt-0.5">
+                        {report.absences} absence{report.absences === 1 ? '' : 's'} in this period.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {report.wfh_days > 0 && (
+                  <div className="flex items-start gap-3 p-3 bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded-lg">
+                    <Calendar className="h-4 w-4 text-[var(--accent-primary)] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold">Remote work</p>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                        {report.wfh_days} approved WFH day{report.wfh_days === 1 ? '' : 's'}.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </EmployeeSectionCard>
           </div>
         </>
       ) : (
-        <div className="text-center py-24 text-[var(--text-muted)] font-black uppercase tracking-widest border-2 border-dashed rounded-[2.5rem] border-[var(--border-subtle)]">
-          No data found for the selected period
-        </div>
+        <EmptyState
+          title="No report data"
+          description="No data found for the selected period. Try a different range."
+          icon={TrendingUp}
+          action={
+            <Button size="sm" className="rounded-lg" onClick={fetchReport}>
+              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Retry'}
+            </Button>
+          }
+        />
       )}
-    </div>
+    </EmployeePageShell>
   );
 }

@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -620,108 +621,107 @@ export default function AttendancePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Early Checkout Reason Dialog */}
       <Dialog open={earlyCheckoutDialog.isOpen} onOpenChange={(open) => setEarlyCheckoutDialog({ isOpen: open })}>
-        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] max-h-[90vh] overflow-y-auto p-0 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="h-3 bg-gradient-to-r from-red-400 to-rose-600 w-full" />
-          <div className="p-12">
-            <DialogHeader className="space-y-4">
-              <div className="h-16 w-16 rounded-3xl bg-rose-50 flex items-center justify-center text-rose-500 shadow-inner mb-2 ring-4 ring-rose-50/50">
-                <AlertCircle className="h-8 w-8" />
-              </div>
-              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
-                Early Checkout Reason
-              </DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] leading-relaxed uppercase tracking-tight">
-                You are checking out before your scheduled shift end time. Please provide a reason.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-8 py-10">
-              <div className="space-y-4">
-                <Label htmlFor="early-note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason for early checkout</Label>
-                <Textarea
-                  id="early-note"
-                  placeholder="Provide a reason for checking out early..."
-                  className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm p-6 resize-none transition-all"
-                  value={earlyCheckoutReason}
-                  onChange={(e) => setEarlyCheckoutReason(e.target.value)}
-                />
-              </div>
-            </div>
-            <DialogFooter className="gap-4 flex sm:flex-row flex-col">
-              <Button variant="ghost" className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1" onClick={() => setEarlyCheckoutDialog({ isOpen: false })}>Cancel</Button>
-              <Button
-                className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all active:scale-95 flex-1 border-none"
-                disabled={isActionLoading || earlyCheckoutReason.trim().length < 5}
-                onClick={() => performCheckOut({ early_checkout_reason: earlyCheckoutReason })}
-              >
-                {isActionLoading && <Loader2 className="mr-3 h-5 w-5 animate-spin" />}
-                Submit Checkout
-              </Button>
-            </DialogFooter>
-          </div>
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh] overflow-hidden p-0">
+          <div className="h-1 bg-gradient-to-r from-red-400 to-rose-600 w-full shrink-0" />
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Early Checkout Reason</DialogTitle>
+            <DialogDescription>
+              You are checking out before your scheduled shift end time. Please provide a reason.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody>
+            <Label htmlFor="early-note" className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 block">Reason for early checkout</Label>
+            <Textarea
+              id="early-note"
+              placeholder="Provide a reason for checking out early..."
+              className="min-h-[120px] rounded-lg bg-[var(--bg-subtle)] border-[var(--border-default)] text-sm resize-none"
+              value={earlyCheckoutReason}
+              onChange={(e) => setEarlyCheckoutReason(e.target.value)}
+            />
+          </DialogBody>
+          <DialogFooter className="sticky bottom-0 border-t border-slate-200 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 flex-col gap-3 sm:flex-col">
+            <Button variant="ghost" className="w-full" onClick={() => setEarlyCheckoutDialog({ isOpen: false })}>Cancel</Button>
+            <Button
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+              disabled={isActionLoading || earlyCheckoutReason.trim().length < 5}
+              onClick={() => performCheckOut({ early_checkout_reason: earlyCheckoutReason })}
+            >
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking out...
+                </>
+              ) : (
+                'Submit Checkout'
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Checkout Justification Dialog */}
       <Dialog open={checkoutDialog.isOpen} onOpenChange={(open) => setCheckoutDialog({ isOpen: open })}>
-        <DialogContent className="sm:max-w-lg rounded-[2.5rem] border-none shadow-[var(--shadow-card)] bg-[var(--bg-surface)] text-[var(--text-primary)] max-h-[90vh] overflow-y-auto p-0 animate-in slide-in-from-bottom-8 duration-500">
-          <div className="h-3 bg-gradient-to-r from-amber-400 to-orange-500 w-full" />
-          <div className="p-12">
-            <DialogHeader className="space-y-4">
-              <div className="h-16 w-16 rounded-3xl bg-amber-50 flex items-center justify-center text-amber-500 shadow-inner mb-2 ring-4 ring-amber-50/50">
-                <AlertCircle className="h-8 w-8" />
-              </div>
-              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
-                Overtime Justification
-              </DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] leading-relaxed uppercase tracking-tight">
-                You are checking out after your shift has ended. Please provide a reason.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-8 py-10">
-              <div className="space-y-4">
-                <Label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Reason Type</Label>
-                <RadioGroup value={checkoutReason} onValueChange={(val: 'overtime' | 'forgot_checkout') => setCheckoutReason(val)} className="flex flex-col gap-3">
-                  <div className={cn(
-                    "flex items-center space-x-4 p-5 rounded-2xl border transition-all cursor-pointer group",
-                    checkoutReason === 'overtime' ? "bg-indigo-50 border-indigo-200 shadow-sm ring-4 ring-indigo-50/50" : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
-                  )} onClick={() => setCheckoutReason('overtime')}>
-                    <RadioGroupItem value="overtime" id="overtime" className="h-5 w-5 text-[var(--accent-primary)]" />
-                    <Label htmlFor="overtime" className="flex-1 font-black text-[var(--text-secondary)] cursor-pointer text-sm">Overtime Work (Business Requirement)</Label>
-                  </div>
-                  <div className={cn(
-                    "flex items-center space-x-4 p-5 rounded-2xl border transition-all cursor-pointer group",
-                    checkoutReason === 'forgot_checkout' ? "bg-amber-50 border-amber-200 shadow-sm ring-4 ring-amber-50/50" : "bg-[var(--bg-surface)] border-[var(--border-default)] hover:bg-[var(--bg-subtle)]"
-                  )} onClick={() => setCheckoutReason('forgot_checkout')}>
-                    <RadioGroupItem value="forgot_checkout" id="forgot_checkout" className="h-5 w-5 text-amber-600" />
-                    <Label htmlFor="forgot_checkout" className="flex-1 font-black text-[var(--text-secondary)] cursor-pointer text-sm">Forgot to check out</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              <div className="space-y-4">
-                <Label htmlFor="note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Explanation Notes</Label>
-                <Textarea
-                  id="note"
-                  placeholder="Provide a reason for this request..."
-                  className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-2xl bg-[var(--bg-subtle)] text-[var(--text-primary)] font-bold text-sm p-6 resize-none transition-all"
-                  value={checkoutNote}
-                  onChange={(e) => setCheckoutNote(e.target.value)}
-                />
-              </div>
+        <DialogContent className="sm:max-w-lg flex flex-col max-h-[90vh] overflow-hidden p-0">
+          <div className="h-1 bg-gradient-to-r from-amber-400 to-orange-500 w-full shrink-0" />
+          <DialogHeader className="px-6 pt-6">
+            <DialogTitle>Overtime Justification</DialogTitle>
+            <DialogDescription>
+              You are checking out after your shift has ended. Please provide a reason.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            <div>
+              <Label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-2 block">Reason Type</Label>
+              <RadioGroup value={checkoutReason} onValueChange={(val: 'overtime' | 'forgot_checkout') => setCheckoutReason(val)} className="flex flex-col gap-3">
+                <div className={cn(
+                  "flex items-center space-x-4 p-4 rounded-xl border transition-all cursor-pointer",
+                  checkoutReason === 'overtime' ? "bg-indigo-50 border-indigo-200 dark:bg-indigo-950/40 dark:border-indigo-800" : "border-[var(--border-default)]"
+                )} onClick={() => setCheckoutReason('overtime')}>
+                  <RadioGroupItem value="overtime" id="overtime" />
+                  <Label htmlFor="overtime" className="flex-1 cursor-pointer text-sm font-semibold">Overtime Work (Business Requirement)</Label>
+                </div>
+                <div className={cn(
+                  "flex items-center space-x-4 p-4 rounded-xl border transition-all cursor-pointer",
+                  checkoutReason === 'forgot_checkout' ? "bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800" : "border-[var(--border-default)]"
+                )} onClick={() => setCheckoutReason('forgot_checkout')}>
+                  <RadioGroupItem value="forgot_checkout" id="forgot_checkout" />
+                  <Label htmlFor="forgot_checkout" className="flex-1 cursor-pointer text-sm font-semibold">Forgot to check out</Label>
+                </div>
+              </RadioGroup>
             </div>
-            <DialogFooter>
-              <Button
-                className="w-full h-16 bg-[var(--bg-elevated)] hover:bg-slate-800 text-white font-black text-sm uppercase tracking-[0.2em] rounded-2xl shadow-xl transition-all active:scale-95 mt-4 border-none"
-                disabled={isActionLoading || !checkoutNote.trim()}
-                onClick={() => performCheckOut({ checkout_after_shift_reason: checkoutReason, checkout_after_shift_note: checkoutNote })}
-              >
-                {isActionLoading && <Loader2 className="mr-3 h-5 w-5 animate-spin" />}
-                Check Out
-              </Button>
-            </DialogFooter>
-          </div>
+            <div>
+              <Label htmlFor="note" className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-2 block">Explanation Notes</Label>
+              <Textarea
+                id="note"
+                placeholder="Provide a reason for this request..."
+                className="min-h-[120px] rounded-xl border-[var(--border-default)] bg-[var(--bg-subtle)] text-sm resize-none"
+                value={checkoutNote}
+                onChange={(e) => setCheckoutNote(e.target.value)}
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter className="sticky bottom-0 border-t border-slate-200 bg-white/95 p-4 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95 flex-col gap-3 sm:flex-col">
+            <Button
+              className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
+              disabled={isActionLoading || !checkoutNote.trim()}
+              onClick={() => performCheckOut({ checkout_after_shift_reason: checkoutReason, checkout_after_shift_note: checkoutNote })}
+            >
+              {isActionLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Checking out...
+                </>
+              ) : (
+                'Check Out'
+              )}
+            </Button>
+            {!checkoutNote.trim() && !isActionLoading && (
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                Add explanation notes to enable checkout.
+              </p>
+            )}
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

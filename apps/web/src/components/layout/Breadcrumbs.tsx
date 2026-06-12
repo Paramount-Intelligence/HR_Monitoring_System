@@ -48,7 +48,7 @@ export function Breadcrumbs() {
   });
 
   return (
-    <nav className="flex items-center space-x-1 text-sm text-[var(--text-secondary)] font-medium">
+    <nav className="flex items-center space-x-1 text-xs text-[var(--text-secondary)] font-medium">
       <Link 
         href="/" 
         className="flex items-center hover:text-[var(--text-primary)] transition-colors"

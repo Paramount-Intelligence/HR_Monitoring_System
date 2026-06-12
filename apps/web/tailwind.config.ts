@@ -9,6 +9,14 @@ const config: Config = {
   ],
   theme: {
   	extend: {
+  		fontSize: {
+  			'page-title': ['1.25rem', { lineHeight: '1.75rem', fontWeight: '700' }],
+  			'section-title': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],
+  		},
+  		fontFamily: {
+  			sans: ['"Google Sans"', 'var(--font-roboto)', 'Arial', 'sans-serif'],
+  			heading: ['"Google Sans"', 'var(--font-roboto)', 'Arial', 'sans-serif'],
+  		},
   		colors: {
   			background: 'var(--bg-base)',
   			foreground: 'var(--text-primary)',

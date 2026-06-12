@@ -3,22 +3,32 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usersApi } from '@/lib/api/users';
+import { getErrorMessage } from '@/lib/api/client';
 import { User } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  User as UserIcon, Lock, Phone, Mail, Shield, Building, Clock, Calendar, CheckCircle, Save
+  User as UserIcon, Lock, Phone, Mail, Shield, Building, Clock, Calendar, CheckCircle, Save, Bell
 } from 'lucide-react';
+import { UserProfilePicture } from '@/components/user/UserProfilePicture';
+import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
+import { getProfilePictureUrl } from '@/lib/profile-picture';
+import {
+  requestBrowserNotificationPermission,
+  setBrowserNotificationsEnabled,
+  useBrowserNotificationsEnabled,
+} from '@/components/notifications/BrowserNotificationProvider';
 
 export default function ProfilePage() {
   const { user: authUser, updateUser } = useAuth();
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'info' | 'security'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'security' | 'notifications'>('info');
 
   // Edit states
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [browserNotifEnabled, setBrowserNotifEnabled] = useState(false);
   
   // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -37,6 +47,13 @@ export default function ProfilePage() {
       setProfile(data);
       setFullName(data.full_name || '');
       setPhone(data.phone || '');
+      updateUser({
+        full_name: data.full_name,
+        avatar_url: data.profile_picture_url || data.avatar_url || null,
+        profile_picture_url: data.profile_picture_url || data.avatar_url || null,
+        profile_picture_updated_at: data.profile_picture_updated_at || data.avatar_updated_at || null,
+        avatar_updated_at: data.avatar_updated_at || data.profile_picture_updated_at || null,
+      });
     } catch (err: any) {
       setErrorMsg(err.response?.data?.detail || 'Failed to load profile.');
     } finally {
@@ -46,6 +63,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchProfile();
+    setBrowserNotifEnabled(useBrowserNotificationsEnabled());
   }, []);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -72,6 +90,62 @@ export default function ProfilePage() {
       setErrorMsg(err.response?.data?.detail || 'Failed to update profile.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleUploadProfilePicture = async (file: File) => {
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    try {
+      const updated = await usersApi.uploadMyProfilePicture(file);
+      const pictureUrl = updated.profile_picture_url || updated.avatar_url || null;
+      const cacheBust = Date.now();
+      setProfile({
+        ...updated,
+        profile_picture_url: pictureUrl,
+        avatar_url: pictureUrl,
+        profile_picture_updated_at: updated.profile_picture_updated_at || new Date(cacheBust).toISOString(),
+      });
+      updateUser({
+        avatar_url: pictureUrl,
+        profile_picture_url: pictureUrl,
+        profile_picture_updated_at: updated.profile_picture_updated_at || new Date(cacheBust).toISOString(),
+      });
+      setSuccessMsg('Profile picture uploaded successfully.');
+    } catch (err) {
+      throw new Error(getErrorMessage(err));
+    }
+  };
+
+  const handleRemoveProfilePicture = async () => {
+    setSuccessMsg(null);
+    setErrorMsg(null);
+    try {
+      const updated = await usersApi.deleteMyProfilePicture();
+      setProfile(updated);
+      updateUser({ avatar_url: null, profile_picture_url: null });
+      setSuccessMsg('Profile picture removed.');
+    } catch (err) {
+      throw new Error(getErrorMessage(err));
+    }
+  };
+
+  const handleToggleBrowserNotifications = async () => {
+    if (!browserNotifEnabled) {
+      const permission = await requestBrowserNotificationPermission();
+      if (permission !== 'granted') {
+        setErrorMsg('Browser notifications were denied. You can enable them in browser settings.');
+        return;
+      }
+      setBrowserNotificationsEnabled(true);
+      setBrowserNotifEnabled(true);
+      window.dispatchEvent(new Event('pims-browser-notifications-changed'));
+      setSuccessMsg('Browser notifications enabled.');
+    } else {
+      setBrowserNotificationsEnabled(false);
+      setBrowserNotifEnabled(false);
+      window.dispatchEvent(new Event('pims-browser-notifications-changed'));
+      setSuccessMsg('Browser notifications disabled.');
     }
   };
 
@@ -143,9 +217,12 @@ export default function ProfilePage() {
       <div className="relative p-6 sm:p-8 rounded-3xl overflow-hidden border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl">
         <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-primary)]/5 via-transparent to-transparent pointer-events-none" />
         <div className="relative flex flex-col md:flex-row items-center md:items-start gap-6">
-          <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-primary)]/60 text-white flex items-center justify-center shadow-lg shadow-[var(--accent-primary)]/20">
-            <UserIcon className="h-10 w-10 text-white" />
-          </div>
+          <UserProfilePicture
+            user={profile}
+            name={profile?.full_name || 'User'}
+            size="lg"
+            className="h-20 w-20 rounded-2xl text-xl"
+          />
           <div className="flex-1 text-center md:text-left space-y-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)]">
               {profile?.full_name}
@@ -208,6 +285,18 @@ export default function ProfilePage() {
             >
               <Lock className="h-4 w-4" />
               Security & Credentials
+            </button>
+
+            <button
+              onClick={() => setActiveTab('notifications')}
+              className={`w-full text-left px-4 py-3 rounded-2xl font-bold text-sm flex items-center gap-3 transition-all duration-200 ${
+                activeTab === 'notifications'
+                  ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[var(--accent-primary)]/20'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-sidebar-hover)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <Bell className="h-4 w-4" />
+              Notifications
             </button>
           </Card>
 
@@ -317,6 +406,21 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
+                <div className="space-y-2 pt-2 border-t border-[var(--border-default)]">
+                  <label className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
+                    Profile Picture
+                  </label>
+                  <ProfilePictureUpload
+                    name={profile?.full_name || 'User'}
+                    profilePictureUrl={getProfilePictureUrl(profile, {
+                      cacheBust: profile?.profile_picture_updated_at || profile?.avatar_updated_at,
+                    })}
+                    onUpload={handleUploadProfilePicture}
+                    onRemove={handleRemoveProfilePicture}
+                    disabled={actionLoading}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-muted)]">
                     Work Email Address
@@ -347,7 +451,7 @@ export default function ProfilePage() {
                 </div>
               </form>
             </Card>
-          ) : (
+          ) : activeTab === 'security' ? (
             <Card className="p-6 sm:p-8 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl space-y-6">
               <div>
                 <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Security Preferences</h2>
@@ -418,6 +522,31 @@ export default function ProfilePage() {
                   </Button>
                 </div>
               </form>
+            </Card>
+          ) : (
+            <Card className="p-6 sm:p-8 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl space-y-6">
+              <div>
+                <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Browser Notifications</h2>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Receive desktop alerts for messages, meetings, tasks, and announcements while PIMS is open.
+                </p>
+              </div>
+              <div className="flex items-center justify-between p-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
+                <div>
+                  <p className="text-sm font-bold text-[var(--text-primary)]">Enable browser notifications</p>
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                    {browserNotifEnabled ? 'Enabled — you will receive alerts for new events.' : 'Disabled — in-app notifications still work.'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleToggleBrowserNotifications}
+                  variant={browserNotifEnabled ? 'outline' : 'default'}
+                  className="rounded-xl font-bold text-xs"
+                >
+                  {browserNotifEnabled ? 'Disable' : 'Enable'}
+                </Button>
+              </div>
             </Card>
           )}
         </div>

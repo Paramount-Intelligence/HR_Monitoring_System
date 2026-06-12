@@ -106,13 +106,45 @@ class Message(Base, TimestampMixin):
     is_edited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
+    deleted_by = relationship("User", foreign_keys=[deleted_by_id])
+    parent_message = relationship("Message", remote_side="Message.id", foreign_keys=[parent_message_id])
     mentions = relationship("MessageMention", back_populates="message", cascade="all, delete-orphan")
     reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan")
     attachments = relationship("MessageAttachment", back_populates="message", cascade="all, delete-orphan")
+    receipts = relationship("MessageReceipt", back_populates="message", cascade="all, delete-orphan")
+
+
+class MessageReceipt(Base):
+    __tablename__ = "message_receipts"
+
+    __table_args__ = (
+        Index("ix_message_receipts_message_id", "message_id"),
+        Index("ix_message_receipts_user_id", "user_id"),
+        Index("uq_message_receipts_message_user", "message_id", "user_id", unique=True),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+    message = relationship("Message", back_populates="receipts")
+    user = relationship("User", foreign_keys=[user_id])
 
 
 class MessageMention(Base):
@@ -223,6 +255,7 @@ class CallSession(Base):
     started_by = relationship("User", foreign_keys=[started_by_id])
     participants = relationship("CallParticipant", back_populates="call_session", cascade="all, delete-orphan")
     signals = relationship("CallSignal", back_populates="call_session", cascade="all, delete-orphan")
+    recordings = relationship("CallRecording", back_populates="call_session", cascade="all, delete-orphan")
 
 
 class CallParticipant(Base):
@@ -280,4 +313,56 @@ class CallSignal(Base):
     call_session = relationship("CallSession", back_populates="signals")
     sender = relationship("User", foreign_keys=[sender_id])
     recipient = relationship("User", foreign_keys=[recipient_id])
+
+
+class CallRecording(Base):
+    __tablename__ = "call_recordings"
+
+    __table_args__ = (
+        Index("ix_call_recordings_call_session_id", "call_session_id"),
+        Index("ix_call_recordings_conversation_id", "conversation_id"),
+        Index("ix_call_recordings_recorded_by_user_id", "recorded_by_user_id"),
+        Index("ix_call_recordings_status", "status"),
+        Index("ix_call_recordings_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    call_session_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("call_sessions.id", ondelete="CASCADE"), nullable=False
+    )
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True
+    )
+    recorded_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    caller_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    receiver_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    storage_driver: Mapped[str] = mapped_column(String(32), nullable=False, default="local")
+    file_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    mime_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(nullable=False, default=0)
+    duration_seconds: Mapped[int | None] = mapped_column(nullable=True)
+    recording_type: Mapped[str] = mapped_column(String(20), nullable=False, default="audio")  # audio | video
+    call_type: Mapped[str | None] = mapped_column(String(50), nullable=True)  # voice | video
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="available")
+    participants_snapshot: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    call_session = relationship("CallSession", back_populates="recordings")
+    recorded_by = relationship("User", foreign_keys=[recorded_by_user_id])
+    caller = relationship("User", foreign_keys=[caller_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
 

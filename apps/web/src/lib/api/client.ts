@@ -56,6 +56,13 @@ apiClient.interceptors.request.use(
       }
     }
 
+    // Let the browser set multipart boundary for FormData uploads
+    if (config.data instanceof FormData) {
+      if (config.headers && 'Content-Type' in config.headers) {
+        delete config.headers['Content-Type'];
+      }
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -102,6 +109,10 @@ apiClient.interceptors.response.use(
           if (new_refresh_token) {
             localStorage.setItem('refresh_token', new_refresh_token);
           }
+
+          window.dispatchEvent(
+            new CustomEvent('pims-token-refreshed', { detail: { access_token } })
+          );
 
           originalRequest.headers.Authorization = `Bearer ${access_token}`;
 

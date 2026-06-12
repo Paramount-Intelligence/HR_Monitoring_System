@@ -237,7 +237,10 @@ class UserService:
         return token, email_sent, email_error
 
     def update_user(self, user_id: uuid.UUID, payload: UserUpdate, actor: User) -> User:
+        from app.services.admin_user_service import AdminUserService
+
         user = self.get_by_id(user_id)
+        admin_svc = AdminUserService(self.db)
 
         # Employees can only update their own profile (limited fields)
         if actor.role == UserRole.EMPLOYEE and actor.id != user_id:
@@ -252,6 +255,18 @@ class UserService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only admins and HR can change user roles",
             )
+
+        if payload.role is not None:
+            admin_svc.assert_last_admin_safe(actor, user, new_role=payload.role)
+            admin_svc.assert_self_lockout_safe(actor, user, new_role=payload.role)
+
+        if payload.status is not None:
+            admin_svc.assert_last_admin_safe(actor, user, new_status=payload.status)
+            admin_svc.assert_self_lockout_safe(actor, user, new_status=payload.status)
+
+        changed_fields = payload.model_dump(exclude_unset=True)
+        if "manager_id" in changed_fields:
+            admin_svc.validate_manager(user_id, payload.manager_id)
 
         # Prevent privilege escalation: no one can assign a role higher than their own
         ROLE_HIERARCHY = [
@@ -286,7 +301,13 @@ class UserService:
         return user
 
     def deactivate_user(self, user_id: uuid.UUID, actor: User) -> User:
+        from app.services.admin_user_service import AdminUserService
+
         user = self.get_by_id(user_id)
+        admin_svc = AdminUserService(self.db)
+        admin_svc.assert_last_admin_safe(actor, user, new_status=UserStatus.INACTIVE)
+        admin_svc.assert_self_lockout_safe(actor, user, new_status=UserStatus.INACTIVE)
+
         if user.status == UserStatus.INACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="User is already inactive"
@@ -305,11 +326,16 @@ class UserService:
 
     def suspend_user(self, user_id: uuid.UUID, actor: User, reason: str | None = None) -> User:
         """Suspend a user account. Only admin can suspend."""
+        from app.services.admin_user_service import AdminUserService
+
         if actor.role != UserRole.ADMIN:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can suspend users"
             )
         user = self.get_by_id(user_id)
+        admin_svc = AdminUserService(self.db)
+        admin_svc.assert_last_admin_safe(actor, user, new_status=UserStatus.SUSPENDED)
+        admin_svc.assert_self_lockout_safe(actor, user, new_status=UserStatus.SUSPENDED)
         old_status = user.status.value
         user.status = UserStatus.SUSPENDED
         self._write_audit(

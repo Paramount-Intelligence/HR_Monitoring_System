@@ -1,0 +1,222 @@
+'use client';
+
+import Link from 'next/link';
+import {
+  Users, CheckCircle2, Clock, Calendar, HelpCircle, Activity,
+  UserPlus, Megaphone, Video, ClipboardPlus,
+} from 'lucide-react';
+import { AdminMetricCard } from './AdminMetricCard';
+import { AdminChartCard } from './AdminChartCard';
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
+import { format, parseISO } from 'date-fns';
+import { safeArray, safeNumber } from '@/lib/admin-dashboard/utils';
+
+const CHART_COLORS = ['#1E66C1', '#38BDF8', '#047857', '#B45309', '#B91C1C', '#607A99'];
+
+interface AdminOverviewTabProps {
+  data: any;
+  tickets: any[];
+  meetings: any[];
+  onRefresh: () => void;
+}
+
+function hasAttendanceData(trend: Record<string, unknown>[]) {
+  return trend.some(
+    (d) =>
+      safeNumber(d.checked_in) > 0 ||
+      safeNumber(d.late) > 0 ||
+      safeNumber(d.absent) > 0
+  );
+}
+
+export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabProps) {
+  const kpis = data?.kpis || {};
+  const taskStats = data?.task_statistics || {};
+  const openTickets = tickets.filter((t) => !['resolved', 'closed'].includes(t.status)).length;
+  const upcomingMeetings = meetings.filter((m) => m.status === 'scheduled').length;
+
+  const quickActions = [
+    { label: 'Add User', href: '/admin/users', icon: UserPlus, color: 'text-emerald-600' },
+    { label: 'Announcement', href: '/admin/announcements', icon: Megaphone, color: 'text-blue-600' },
+    { label: 'Create Meeting', href: '/calendar', icon: Video, color: 'text-purple-600' },
+    { label: 'Assign Task', href: '/admin/tasks', icon: ClipboardPlus, color: 'text-orange-600' },
+  ];
+
+  const attendanceTrend = safeArray<Record<string, unknown>>(data?.attendance_trend);
+  const showAttendanceChart = attendanceTrend.length > 0 && hasAttendanceData(attendanceTrend);
+
+  const taskPie = [
+    { name: 'Completed', value: safeNumber(taskStats.completed) },
+    { name: 'In Progress', value: safeNumber(taskStats.in_progress) },
+    { name: 'Pending', value: safeNumber(taskStats.pending) },
+    { name: 'Blocked', value: safeNumber(taskStats.rejected) },
+  ].filter((d) => d.value > 0);
+  const taskTotal = taskPie.reduce((sum, d) => sum + d.value, 0);
+
+  const recentActivity = safeArray<Record<string, unknown>>(data?.recent_activity);
+  const systemHealth = data?.system_health;
+
+  return (
+    <div className="space-y-4">
+      {/* Section 1: Quick actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+        {quickActions.map((action) => {
+          const Icon = action.icon;
+          return (
+            <Link
+              key={action.label}
+              href={action.href}
+              className="flex items-center gap-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2.5 hover:shadow-md transition-all min-h-[52px] h-full"
+            >
+              <div className={`h-8 w-8 shrink-0 rounded-md bg-[var(--bg-subtle)] flex items-center justify-center ${action.color}`}>
+                <Icon className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-semibold text-[var(--text-primary)]">{action.label}</span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Section 2: KPI cards */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+        <AdminMetricCard title="Total Employees" value={safeNumber(kpis.total_employees)} icon={Users} subtitle={`${safeNumber(kpis.checked_in_today)} checked in`} />
+        <AdminMetricCard title="Present Today" value={safeNumber(kpis.checked_in_today)} icon={CheckCircle2} subtitle={`${safeNumber(kpis.attendance_rate)}% rate`} />
+        <AdminMetricCard title="Pending Approvals" value={safeNumber(kpis.pending_approvals)} icon={Clock} subtitle="Awaiting review" />
+        <AdminMetricCard title="Active Tasks" value={safeNumber(taskStats.in_progress)} icon={Activity} subtitle={`${safeNumber(taskStats.total)} total`} />
+        <AdminMetricCard title="Open Tickets" value={openTickets} icon={HelpCircle} subtitle="Support feed" />
+        <AdminMetricCard title="Upcoming Meetings" value={upcomingMeetings} icon={Calendar} subtitle="Scheduled" />
+      </div>
+
+      {/* Section 3: Main analytics grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-3">
+        <AdminChartCard
+          title="Attendance Trend"
+          description="Last 7 days"
+          contentClassName="min-h-[240px] flex items-center"
+        >
+          {!showAttendanceChart ? (
+            <p className="text-xs text-[var(--text-muted)] italic text-center w-full py-10">
+              No attendance trend data yet
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={attendanceTrend} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
+                  tickFormatter={(v) => {
+                    try { return format(parseISO(String(v)), 'MMM d'); } catch { return String(v); }
+                  }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip />
+                <Area type="monotone" dataKey="checked_in" stroke="#1E66C1" fill="#DCEEFF" name="Checked In" strokeWidth={2} />
+                <Area type="monotone" dataKey="late" stroke="#B45309" fill="#FEF3C7" name="Late" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
+        </AdminChartCard>
+
+        <div className="flex flex-col gap-4">
+          <AdminChartCard
+            title="Task Summary"
+            description="Status distribution"
+            contentClassName="min-h-[180px] flex items-center justify-center py-2"
+          >
+            {taskPie.length === 0 ? (
+              <p className="text-xs text-[var(--text-muted)] italic text-center w-full py-6">
+                No task data available
+              </p>
+            ) : (
+              <div className="relative w-full h-[180px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={taskPie}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={taskPie.length === 1 ? 42 : 36}
+                      outerRadius={taskPie.length === 1 ? 52 : 48}
+                      paddingAngle={taskPie.length > 1 ? 2 : 0}
+                    >
+                      {taskPie.map((_, i) => (
+                        <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    {taskPie.length === 1 && (
+                      <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle" className="fill-[var(--text-primary)] text-lg font-black">
+                        {taskTotal}
+                      </text>
+                    )}
+                    <Legend verticalAlign="bottom" height={28} wrapperStyle={{ fontSize: 10 }} iconSize={8} />
+                    <Tooltip formatter={(value: number) => [value, 'Tasks']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </AdminChartCard>
+
+          <AdminChartCard
+            title="System Health"
+            description="Service cluster validation"
+            contentClassName="min-h-0 py-3"
+          >
+            {systemHealth ? (
+              <div className="space-y-2">
+                {Object.entries(systemHealth as Record<string, string>).map(([key, val]) => (
+                  <div key={key} className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[var(--text-secondary)] capitalize">{key.replace(/_/g, ' ')}</span>
+                    <span className="font-bold text-[var(--status-success-text)]">{String(val)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[
+                  { label: 'API', status: 'Nominal' },
+                  { label: 'Database', status: 'Connected' },
+                  { label: 'Workers', status: 'Active' },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[var(--text-secondary)]">{row.label}</span>
+                    <span className="inline-flex items-center rounded-md bg-[var(--status-success-bg)] px-2 py-0.5 text-[10px] font-bold text-[var(--status-success-text)]">
+                      {row.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </AdminChartCard>
+        </div>
+      </div>
+
+      {/* Section 4: Recent activity */}
+      <AdminChartCard
+        title="Recent Activity"
+        description="Latest system events"
+        contentClassName="min-h-[120px] max-h-[240px] overflow-y-auto custom-scrollbar py-3"
+      >
+        {recentActivity.length === 0 ? (
+          <p className="text-xs text-[var(--text-muted)] italic text-center py-4">No recent activity</p>
+        ) : (
+          <div className="space-y-2">
+            {recentActivity.map((item, i) => (
+              <div key={i} className="rounded-lg border border-[var(--border-subtle)] px-3 py-2">
+                <p className="text-xs font-black text-[var(--text-primary)] truncate">{String(item.title || '—')}</p>
+                <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1 mt-0.5">{String(item.description || '')}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </AdminChartCard>
+    </div>
+  );
+}

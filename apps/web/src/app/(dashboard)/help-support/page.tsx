@@ -9,6 +9,15 @@ import { User } from '@/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   HelpCircle,
   Plus,
   MessageSquare,
@@ -26,6 +35,8 @@ import {
   Check,
   ArrowLeft,
 } from 'lucide-react';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
 
 export default function HelpSupportPage() {
   const { user: authUser } = useAuth();
@@ -301,32 +312,18 @@ export default function HelpSupportPage() {
   const isStaff = authUser?.role === 'admin' || authUser?.role === 'hr_operations';
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 p-1 sm:p-4 text-[var(--text-primary)]">
-      {/* Header Panel */}
-      <div className="relative p-6 sm:p-8 rounded-3xl overflow-hidden border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-primary)]/5 via-transparent to-transparent pointer-events-none" />
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 relative">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-[var(--accent-primary)] to-[var(--accent-primary)]/60 text-white flex items-center justify-center shadow-lg shadow-[var(--accent-primary)]/20">
-              <HelpCircle className="h-7 w-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)]">Help & Support Desk</h1>
-              <p className="text-xs sm:text-sm font-semibold text-[var(--text-muted)]">
-                Submit tech problems, query payrolls, ask human resources, and converse directly on active tickets.
-              </p>
-            </div>
-          </div>
-
-          <Button
-            className="px-5 py-2.5 rounded-2xl text-xs font-extrabold flex items-center gap-2 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white shadow-lg shadow-[var(--accent-primary)]/15 shrink-0"
-            onClick={() => setShowCreateModal(true)}
-          >
-            <Plus className="h-4.5 w-4.5" />
+    <EmployeePageShell>
+      <EmployeePageHeader
+        title="Help & Support"
+        subtitle="Submit tickets and track support requests"
+        icon={HelpCircle}
+        actions={
+          <Button size="sm" className="rounded-lg text-xs" onClick={() => setShowCreateModal(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
             Submit Ticket
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Alert Banners */}
       {(successMsg || errorMsg) && (
@@ -715,24 +712,16 @@ export default function HelpSupportPage() {
       </div>
 
       {/* TICKET SUBMIT CREATE MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-3xl w-full max-w-xl p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <button
-              onClick={() => setShowCreateModal(false)}
-              className="absolute right-6 top-6 p-2 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface)] transition-all"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div>
-              <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Submit Support Request</h2>
-              <p className="text-xs text-[var(--text-muted)] mt-1">
-                Your ticket will be routed immediately to administrative agents. Alerts will be sent upon reply.
-              </p>
-            </div>
-
-            <form onSubmit={handleCreateTicket} className="space-y-5">
+      <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <DialogContent className="sm:max-w-xl">
+          <form onSubmit={handleCreateTicket} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <DialogHeader>
+              <DialogTitle>Submit Support Request</DialogTitle>
+              <DialogDescription>
+                Your ticket will be routed to support staff. You will be notified upon reply.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogBody className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-secondary)]">
                   Subject *
@@ -796,28 +785,18 @@ export default function HelpSupportPage() {
                   className="w-full px-4 py-3 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] font-bold text-sm focus:outline-none focus:border-[var(--accent-primary)] min-h-[120px]"
                 />
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-default)]">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="px-5 py-2.5 rounded-2xl text-xs font-bold border border-[var(--border-default)] text-[var(--text-secondary)]"
-                  onClick={() => setShowCreateModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={actionLoading}
-                  className="px-6 py-2.5 rounded-2xl text-xs font-extrabold bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white shadow-lg shadow-[var(--accent-primary)]/15"
-                >
-                  {actionLoading ? 'Creating...' : 'Submit Support Request'}
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            </DialogBody>
+            <DialogFooter>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setShowCreateModal(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" disabled={actionLoading}>
+                {actionLoading ? 'Creating...' : 'Submit Request'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </EmployeePageShell>
   );
 }

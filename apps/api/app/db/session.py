@@ -5,6 +5,7 @@ from app.core.config import settings
 
 engine = create_engine(
     settings.database_url,
+    connect_args={"options": "-c client_encoding=UTF8"},
     future=True,
 )
 

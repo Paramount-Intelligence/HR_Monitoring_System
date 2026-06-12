@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -6,13 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from pathlib import Path
 
-from app.core.config import settings
+from app.core.config import settings, resolve_cors_origins
 from app.api.router import api_router
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, engine
+from app.db.encoding import assert_utf8_database
 from app.core.permission_seeder import seed_permissions
 from app.core.bootstrapper import bootstrap_admin
+from app.services.call_recording_storage import log_call_recordings_storage_config
+from app.services.profile_image_storage import log_profile_image_storage_config
 
 import subprocess
 import os
@@ -23,6 +29,13 @@ logger = logging.getLogger("uvicorn.error")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Seed permissions and bootstrap admin on startup."""
+    from app.services.realtime_bridge import set_main_event_loop, start_bridge, stop_bridge
+
+    loop = asyncio.get_running_loop()
+    set_main_event_loop(loop)
+    await start_bridge()
+
+    assert_utf8_database(engine)
     db = SessionLocal()
     try:
         from sqlalchemy import text
@@ -31,7 +44,7 @@ async def lifespan(app: FastAPI):
             db.commit()
             logger.info("Database evolved successfully: added users.phone column.")
         except Exception:
-            pass
+            db.rollback()
         seed_permissions(db)
         bootstrap_admin(db)
     finally:
@@ -54,8 +67,15 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Production env detected. Background Celery worker subprocess skipped.")
 
+    cors_allowed = resolve_cors_origins(settings)
+    logger.info("[CORS] allowed_origins=%s", cors_allowed)
+
+    log_call_recordings_storage_config()
+    log_profile_image_storage_config()
+
     yield
 
+    await stop_bridge()
 
     # Shutdown Celery worker
     if celery_worker:
@@ -122,31 +142,29 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 
-default_cors_origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "http://127.0.0.1:3002",
-    "https://aware-harmony-production-b1c1.up.railway.app",
-    "https://workforce-intelligence-os.up.railway.app",
-    "https://pims-os.up.railway.app",
-]
-configured_cors_origins = [
-    *default_cors_origins,
-    settings.frontend_base_url,
-    *(origin for origin in settings.cors_origins if origin != "*"),
-]
+_cors_allowed_origins = resolve_cors_origins(settings)
+logger.info("[CORS] configured allow_origins=%s", _cors_allowed_origins)
 
-# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=list(dict.fromkeys(origin for origin in configured_cors_origins if origin)),
+    allow_origins=_cors_allowed_origins,
     allow_origin_regex=r"^http://(localhost|127\.0\.0\.1):\d+$",
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "Range",
+        "X-Requested-With",
+    ],
+    expose_headers=[
+        "Content-Disposition",
+        "Content-Length",
+        "Content-Range",
+        "Accept-Ranges",
+    ],
 )
 
 
@@ -161,3 +179,11 @@ def healthcheck() -> dict[str, str]:
 
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
+
+profile_pictures_dir = Path(settings.profile_image_upload_dir)
+profile_pictures_dir.mkdir(parents=True, exist_ok=True)
+app.mount(
+    "/media/profile-pictures",
+    StaticFiles(directory=str(profile_pictures_dir)),
+    name="profile_pictures",
+)

@@ -8,10 +8,12 @@ from app.models.user import User
 from app.models.notifications import Notification
 from app.schemas.notifications import NotificationRead
 
+from app.services.realtime_service import RealtimeService
+
 router = APIRouter()
 
 
-@router.get("/", response_model=list[NotificationRead])
+@router.get("", response_model=list[NotificationRead])
 def get_notifications(
     limit: int = 50,
     db: Session = Depends(get_db),
@@ -63,6 +65,7 @@ def mark_notification_read(
     notif.read_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(notif)
+    RealtimeService.emit_notification_read(current_user.id, notification_id)
     return notif
 
 
@@ -81,4 +84,11 @@ def mark_all_notifications_read(
     )
     
     db.commit()
+    RealtimeService.emit_to_user(
+        current_user.id,
+        RealtimeService.event(
+            "notifications_count_updated",
+            {"user_id": str(current_user.id)},
+        ),
+    )
     return {"message": "All notifications marked as read."}

@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Enum, ForeignKey, Index, String, Uuid
+from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -38,6 +39,13 @@ class User(Base, TimestampMixin):
     )
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    avatar_url: Mapped[str | None] = mapped_column(String(2048), nullable=True, default=None)
+    avatar_file_name: Mapped[str | None] = mapped_column(String(255), nullable=True, default=None)
+    avatar_content_type: Mapped[str | None] = mapped_column(String(100), nullable=True, default=None)
+    avatar_size: Mapped[int | None] = mapped_column(nullable=True, default=None)
+    avatar_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
     )
 
     # Relationships

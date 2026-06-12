@@ -53,6 +53,16 @@ class TaskService:
         self._write_audit(actor, "TASK_CREATED", task.id, new_value={"title": task.title})
         self.db.commit()
         self.db.refresh(task)
+        from app.services.realtime_service import RealtimeService
+
+        RealtimeService.emit_task_event(
+            "task_assigned",
+            task_id=task.id,
+            title=task.title,
+            assignee_id=task.assigned_to,
+            actor_id=actor.id,
+            status=task.status.value if hasattr(task.status, "value") else str(task.status),
+        )
         return task
 
     def list_tasks(self, *, project_id: uuid.UUID | None = None, assigned_to: uuid.UUID | None = None, task_status: TaskStatus | None = None, actor: User) -> list[Task]:
@@ -92,6 +102,17 @@ class TaskService:
         self._write_audit(actor, "TASK_UPDATED", task.id, old_value=old_snapshot, new_value=changes)
         self.db.commit()
         self.db.refresh(task)
+        from app.services.realtime_service import RealtimeService
+
+        event_type = "task_completed" if task.status == TaskStatus.COMPLETED else "task_updated"
+        RealtimeService.emit_task_event(
+            event_type,
+            task_id=task.id,
+            title=task.title,
+            assignee_id=task.assigned_to,
+            actor_id=actor.id,
+            status=task.status.value if hasattr(task.status, "value") else str(task.status),
+        )
         return task
 
     def set_complexity(self, task_id: uuid.UUID, payload: TaskComplexity, actor: User) -> Task:

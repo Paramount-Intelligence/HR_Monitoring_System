@@ -33,7 +33,9 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { messagesApi } from '@/lib/api/messages';
+import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -59,6 +61,11 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const role = user?.role || 'employee';
 
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const { isConnected } = useRealtimeStatus();
+
+  useRealtimeEvent(['new_message', 'conversation_updated'], () => {
+    messagesApi.getUnreadMessageCount().then(res => setUnreadMsgCount(res.unread_conversations)).catch(() => {});
+  });
 
   useEffect(() => {
     if (user) {
@@ -71,7 +78,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         }
       };
       fetchCount();
-      const interval = setInterval(fetchCount, 30000); // poll every 30s
+      const pollMs = isConnected ? 60000 : 30000;
+      const interval = setInterval(fetchCount, pollMs);
 
       const handleUpdate = () => {
         fetchCount();
@@ -83,7 +91,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         window.removeEventListener('pims-messages-unread-update', handleUpdate);
       };
     }
-  }, [user]);
+  }, [user, isConnected]);
 
   const ROLE_CONFIG: Record<string, { label: string, color: string }> = {
     admin: { label: 'Admin', color: 'bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] border-[var(--status-danger-border)]' },
@@ -161,6 +169,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           { title: 'Permissions', href: '/admin/permissions', icon: Shield },
           { title: 'Reports', href: '/admin/reports', icon: FileText },
           { title: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
+          { title: 'Call Recordings', href: '/admin/call-recordings', icon: Activity, permission: 'call_recordings.view' },
           { title: 'Alerts', href: '/admin/alerts', icon: Bell },
         ];
         break;
@@ -185,13 +194,13 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const SidebarContent = ({ collapsed = false, onLinkClick }: { collapsed?: boolean; onLinkClick?: () => void }) => (
     <div className="flex h-full flex-col bg-[var(--bg-sidebar)] text-[var(--text-sidebar)] transition-all duration-300">
       {/* Sidebar Header */}
-      <div className="flex h-16 items-center justify-between px-4 bg-[var(--bg-sidebar)] border-b border-[var(--border-subtle)] transition-all duration-300">
+      <div className="flex h-14 items-center justify-between px-3 bg-[var(--bg-sidebar)] border-b border-[var(--border-subtle)] transition-all duration-300">
         <Link href="/" onClick={onLinkClick} className="flex items-center gap-3">
           <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-[var(--bg-soft)] shadow-[var(--shadow-soft)] ring-1 ring-[var(--border-subtle)] overflow-hidden shrink-0">
             <img src="/logo.png" alt="Paramount Logo" className="h-full w-full object-contain p-1" />
           </div>
           <span className={cn(
-            "text-base font-extrabold tracking-tight text-[var(--text-sidebar)] transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden",
+            "text-sm font-extrabold tracking-tight text-[var(--text-sidebar)] transition-all duration-300 ease-in-out whitespace-nowrap overflow-hidden",
             collapsed ? "w-0 opacity-0 pointer-events-none" : "w-auto opacity-100"
           )}>
             PIMS
@@ -214,8 +223,8 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
       
       {/* Navigation */}
-      <div className="flex-1 overflow-y-auto py-6 px-4 custom-scrollbar">
-        <nav className="space-y-1">
+      <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
+        <nav className="space-y-0.5">
           {navLinks.map((item) => {
             const isActive = pathname?.startsWith(item.href);
             const Icon = item.icon;
@@ -225,7 +234,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 href={item.href}
                 onClick={onLinkClick}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 group relative",
+                  "flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-all duration-200 group relative",
                   isActive 
                     ? "bg-[var(--bg-sidebar-active)] text-[var(--text-sidebar)] shadow-[var(--shadow-soft)] border border-[var(--border-subtle)]" 
                     : "text-[var(--text-sidebar-muted)] hover:bg-[var(--bg-sidebar-hover)] hover:text-[var(--text-sidebar)]"
@@ -233,7 +242,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                 title={collapsed ? item.title : undefined}
               >
                 <Icon className={cn(
-                  "h-5 w-5 shrink-0 transition-colors", 
+                  "h-4 w-4 shrink-0 transition-colors", 
                   isActive ? "text-[var(--text-sidebar)]" : "text-[var(--text-sidebar-muted)] group-hover:text-[var(--text-sidebar)]"
                 )} />
                 <span className={cn(
@@ -263,18 +272,21 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
       
       {/* Footer / User Area */}
-      <div className="mt-auto border-t border-[var(--border-subtle)] bg-[var(--bg-sidebar)] p-4 transition-all duration-300">
+      <div className="mt-auto border-t border-[var(--border-subtle)] bg-[var(--bg-sidebar)] p-3 transition-all duration-300">
         <div className="relative overflow-hidden w-full transition-all duration-300">
           <div className={cn(
-            "flex flex-col gap-4 transition-all duration-300 ease-in-out",
+            "flex flex-col gap-3 transition-all duration-300 ease-in-out",
             collapsed ? "opacity-0 scale-95 pointer-events-none h-0 overflow-hidden" : "opacity-100 scale-100"
           )}>
-            <div className="flex items-center gap-3 p-2.5 rounded-xl bg-[var(--bg-soft)] border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-[var(--accent-primary)] to-[var(--text-secondary)] flex items-center justify-center text-xs font-black text-white ring-2 ring-[var(--bg-sidebar)] shadow-lg shrink-0">
-                {user?.full_name?.charAt(0).toUpperCase()}
-              </div>
+            <div className="flex items-center gap-2.5 p-2 rounded-lg bg-[var(--bg-soft)] border border-[var(--border-subtle)] shadow-[var(--shadow-soft)]">
+              <UserProfilePicture
+                user={user}
+                name={user?.full_name || 'User'}
+                size="default"
+                className="ring-2 ring-[var(--bg-sidebar)] shadow-lg"
+              />
               <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-[var(--text-sidebar)] truncate leading-none mb-1.5">
+                <span className="text-xs font-bold text-[var(--text-sidebar)] truncate leading-none mb-1">
                   {user?.full_name}
                 </span>
                 <span className={cn(
@@ -288,7 +300,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             
             <button
               onClick={() => setShowLogoutDialog(true)}
-              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-xs font-bold text-[var(--text-sidebar-muted)] hover:bg-[var(--status-danger-bg)]/40 hover:text-[var(--status-danger-text)] transition-all duration-200 w-full border border-[var(--border-subtle)] hover:border-[var(--status-danger-border)] group bg-[var(--bg-soft)] shadow-[var(--shadow-soft)] whitespace-nowrap overflow-hidden"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-bold text-[var(--text-sidebar-muted)] hover:bg-[var(--status-danger-bg)]/40 hover:text-[var(--status-danger-text)] transition-all duration-200 w-full border border-[var(--border-subtle)] hover:border-[var(--status-danger-border)] group bg-[var(--bg-soft)] shadow-[var(--shadow-soft)] whitespace-nowrap overflow-hidden"
             >
               <LogOut className="h-4 w-4 transition-transform group-hover:-translate-x-0.5 shrink-0 text-[var(--text-sidebar-muted)] group-hover:text-[var(--status-danger-text)]" />
               <span>LOGOUT SESSION</span>

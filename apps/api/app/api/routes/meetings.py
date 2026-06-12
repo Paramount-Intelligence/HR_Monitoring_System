@@ -1,17 +1,29 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_
 
 from app.core.deps import get_current_user, get_db
+from app.core.time_utils import pk_day_start, pk_today
 from app.models.meetings import Meeting, MeetingParticipant
 from app.models.user import User
 from app.models.enums import UserRole, NotificationType
 from app.models.notifications import Notification
 from app.schemas.meetings import MeetingCreate, MeetingUpdate, MeetingRead, MeetingRespond
 
+from app.services.realtime_service import RealtimeService
+
 router = APIRouter()
+
+
+def _meeting_participant_ids(db: Session, meeting_id: uuid.UUID) -> list[uuid.UUID]:
+    rows = (
+        db.query(MeetingParticipant.user_id)
+        .filter(MeetingParticipant.meeting_id == meeting_id)
+        .all()
+    )
+    return [row[0] for row in rows]
 
 
 @router.get("", response_model=list[MeetingRead])
@@ -83,6 +95,46 @@ def get_upcoming_meetings(
             seen.add(m.id)
             unique_meetings.append(m)
             
+    return unique_meetings
+
+
+@router.get("/today", response_model=list[MeetingRead])
+def get_today_meetings(
+    scope: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MeetingRead]:
+    """Get today's meetings in Asia/Karachi timezone."""
+    today_start = pk_day_start()
+    today_end = today_start + timedelta(days=1)
+
+    query = db.query(Meeting).filter(
+        Meeting.start_at >= today_start,
+        Meeting.start_at < today_end,
+        Meeting.status == "scheduled",
+    )
+
+    if scope == "all" and current_user.role in [UserRole.ADMIN, UserRole.HR_OPERATIONS]:
+        pass
+    else:
+        query = query.join(
+            MeetingParticipant,
+            MeetingParticipant.meeting_id == Meeting.id,
+            isouter=True,
+        ).filter(
+            or_(
+                Meeting.organizer_id == current_user.id,
+                MeetingParticipant.user_id == current_user.id,
+            )
+        )
+
+    meetings = query.order_by(Meeting.start_at.asc()).all()
+    unique_meetings = []
+    seen = set()
+    for m in meetings:
+        if m.id not in seen:
+            seen.add(m.id)
+            unique_meetings.append(m)
     return unique_meetings
 
 
@@ -183,10 +235,19 @@ def create_meeting(
         
     db.commit()
     db.refresh(meeting)
+
+    participant_ids = _meeting_participant_ids(db, meeting.id)
+    RealtimeService.emit_meeting_event(
+        "meeting_created",
+        meeting_id=meeting.id,
+        title=meeting.title,
+        participant_ids=participant_ids,
+        organizer_id=meeting.organizer_id,
+        actor_id=current_user.id,
+        extra={"start_at": meeting.start_at.isoformat() if meeting.start_at else None},
+    )
+
     return meeting
-
-
-@router.patch("/{meeting_id}", response_model=MeetingRead)
 def update_meeting(
     meeting_id: uuid.UUID,
     payload: MeetingUpdate,
@@ -301,6 +362,17 @@ def update_meeting(
         
     db.commit()
     db.refresh(meeting)
+
+    participant_ids = _meeting_participant_ids(db, meeting.id)
+    RealtimeService.emit_meeting_event(
+        "meeting_updated",
+        meeting_id=meeting.id,
+        title=meeting.title,
+        participant_ids=participant_ids,
+        organizer_id=meeting.organizer_id,
+        actor_id=current_user.id,
+    )
+
     return meeting
 
 
@@ -343,6 +415,18 @@ def cancel_meeting(
         
     db.commit()
     db.refresh(meeting)
+
+    participant_ids = _meeting_participant_ids(db, meeting.id)
+    RealtimeService.emit_meeting_event(
+        "meeting_deleted",
+        meeting_id=meeting.id,
+        title=meeting.title,
+        participant_ids=participant_ids,
+        organizer_id=meeting.organizer_id,
+        actor_id=current_user.id,
+        extra={"status": "cancelled"},
+    )
+
     return meeting
 
 
@@ -378,4 +462,18 @@ def respond_meeting(
     part.response_status = payload.response_status
     db.commit()
     db.refresh(meeting)
+
+    RealtimeService.emit_meeting_event(
+        "meeting_rsvp_updated",
+        meeting_id=meeting.id,
+        title=meeting.title,
+        participant_ids=[meeting.organizer_id],
+        organizer_id=meeting.organizer_id,
+        actor_id=current_user.id,
+        extra={
+            "response_status": payload.response_status,
+            "participant_id": str(current_user.id),
+        },
+    )
+
     return meeting

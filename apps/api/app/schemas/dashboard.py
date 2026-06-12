@@ -176,3 +176,296 @@ class AdminAnalyticsDashboard(BaseModel):
     department_comparison: list[AdminAnalyticsDeptComparison]
     people_exceptions: list[AdminAnalyticsPeopleException]
     recent_activity: list[AdminAnalyticsRecentActivity]
+
+
+# ---------------------------------------------------------------------------
+# Tab-specific admin analytics
+# ---------------------------------------------------------------------------
+
+class DistributionItem(BaseModel):
+    label: str
+    count: int
+
+
+class EmployeeRosterItem(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    email: str
+    avatar_url: str | None = None
+    role: str
+    department: str | None = None
+    designation: str | None = None
+    status: str
+    today_attendance: str
+    active_tasks: int
+    completed_tasks: int
+    logged_hours: float
+    productivity_score: float | None = None
+    last_active: str | None = None
+
+
+class EmployeePerformanceItem(BaseModel):
+    id: uuid.UUID
+    full_name: str
+    avatar_url: str | None = None
+    department: str | None = None
+    attendance_rate: float
+    task_completion_rate: float
+    average_logged_hours: float
+    late_count: int
+    eod_completion_rate: float | None = None
+    productivity_index: float | None = None
+    current_workload: int
+    risk_flag: str | None = None
+
+
+class UsersAnalyticsSummary(BaseModel):
+    total_employees: int
+    active_employees: int
+    admins: int
+    managers: int
+    employees: int
+    interns: int
+    present_today: int
+    late_today: int
+    on_leave: int
+    wfh_today: int
+    new_users_this_month: int
+
+
+class UsersAnalyticsDashboard(BaseModel):
+    summary: UsersAnalyticsSummary
+    role_distribution: list[DistributionItem]
+    department_distribution: list[DistributionItem]
+    attendance_rate_by_department: list[DistributionItem]
+    employee_activity_trend: list[AdminAnalyticsAttendanceTrend]
+    employee_roster: list[EmployeeRosterItem]
+    employee_performance: list[EmployeePerformanceItem]
+    recent_user_activity: list[AdminAnalyticsRecentActivity]
+
+
+class CommunicationAnalyticsSummary(BaseModel):
+    unread_messages: int
+    active_conversations: int
+    meetings_today: int
+    upcoming_meetings: int
+    announcements_this_week: int
+    open_support_tickets: int
+
+
+class MessagesByDayItem(BaseModel):
+    date: str
+    count: int
+
+
+class RecentConversationItem(BaseModel):
+    id: uuid.UUID
+    title: str
+    conversation_type: str
+    participant_count: int
+    last_message_at: str | None = None
+    unread: bool
+
+
+class UpcomingMeetingItem(BaseModel):
+    id: uuid.UUID
+    title: str
+    start_at: str
+    end_at: str
+    status: str
+    organizer_name: str
+    participant_count: int
+
+
+class SupportTicketSummaryItem(BaseModel):
+    id: uuid.UUID
+    ticket_number: int
+    subject: str
+    priority: str
+    status: str
+    created_by_name: str
+    created_at: str
+
+
+class CommunicationAnalyticsDashboard(BaseModel):
+    summary: CommunicationAnalyticsSummary
+    messages_by_day: list[MessagesByDayItem]
+    meetings_by_week: list[DistributionItem]
+    support_tickets_by_status: list[DistributionItem]
+    recent_conversations: list[RecentConversationItem]
+    upcoming_meetings: list[UpcomingMeetingItem]
+    recent_announcements: list[AdminAnalyticsRecentActivity]
+    support_tickets: list[SupportTicketSummaryItem]
+
+
+class ProjectsTasksSummary(BaseModel):
+    total_projects: int
+    active_projects: int
+    completed_projects: int
+    blocked_projects: int
+    active_tasks: int
+    overdue_tasks: int
+    completed_tasks: int
+    pending_tasks: int
+
+
+class ProjectTableItem(BaseModel):
+    id: uuid.UUID
+    name: str
+    owner_name: str
+    team_size: int
+    status: str
+    progress: float
+    active_tasks: int
+    completed_tasks: int
+    overdue_tasks: int
+    deadline: str | None = None
+
+
+class TaskTableItem(BaseModel):
+    id: uuid.UUID
+    title: str
+    project_name: str | None = None
+    assignee_id: uuid.UUID
+    assignee_name: str
+    assignee_avatar_url: str | None = None
+    priority: str
+    status: str
+    due_date: str | None = None
+    logged_minutes: int
+    project_id: uuid.UUID | None = None
+
+
+class ProjectsTasksAnalyticsDashboard(BaseModel):
+    summary: ProjectsTasksSummary
+    task_status_distribution: list[DistributionItem]
+    task_priority_distribution: list[DistributionItem]
+    project_progress: list[DistributionItem]
+    tasks_by_department: list[DistributionItem]
+    projects: list[ProjectTableItem]
+    tasks: list[TaskTableItem]
+
+
+# ---------------------------------------------------------------------------
+# Manager Command Center analytics (team-scoped)
+# ---------------------------------------------------------------------------
+
+class ManagerOverviewKPIs(BaseModel):
+    team_members: int
+    present_today: int
+    pending_approvals: int
+    active_tasks: int
+    overdue_tasks: int
+    projects_in_progress: int
+    eod_reports_pending: int
+    team_workload: int
+
+
+class ManagerTeamHealth(BaseModel):
+    score: int
+    label: str
+    blocked_tasks: int
+    overdue_tasks: int
+    active_members: int
+
+
+class ManagerPendingAction(BaseModel):
+    title: str
+    description: str
+    route: str
+    priority: str = "normal"
+
+
+class ManagerOverviewDashboard(BaseModel):
+    kpis: ManagerOverviewKPIs
+    attendance_trend: list[AdminAnalyticsAttendanceTrend]
+    team_health: ManagerTeamHealth
+    pending_actions: list[ManagerPendingAction]
+    recent_activity: list[AdminAnalyticsRecentActivity]
+    members_needing_attention: list[AdminAnalyticsPeopleException]
+    upcoming_meetings: list[UpcomingMeetingItem]
+
+
+class ManagerTeamSummary(BaseModel):
+    total_members: int
+    checked_in: int
+    late_today: int
+    on_leave: int
+    wfh_today: int
+    high_workload_members: int
+
+
+class ManagerTeamAnalyticsDashboard(BaseModel):
+    summary: ManagerTeamSummary
+    attendance_by_member: list[DistributionItem]
+    workload_distribution: list[DistributionItem]
+    task_completion_by_member: list[DistributionItem]
+    logged_hours_trend: list[AdminAnalyticsAttendanceTrend]
+    employee_roster: list[EmployeeRosterItem]
+    employee_performance: list[EmployeePerformanceItem]
+
+
+class ManagerApprovalsSummary(BaseModel):
+    pending_leave_requests: int
+    pending_wfh_requests: int
+    attendance_corrections: int
+    eod_reports_pending: int
+    approved_this_week: int
+    rejected_this_week: int
+
+
+class ManagerApprovalLeaveItem(BaseModel):
+    id: uuid.UUID
+    requester_name: str
+    requester_avatar_url: str | None = None
+    leave_type: str
+    start_date: str
+    end_date: str
+    reason: str
+    submitted_at: str
+    status: str
+
+
+class ManagerApprovalCorrectionItem(BaseModel):
+    id: uuid.UUID
+    requester_name: str
+    requester_avatar_url: str | None = None
+    session_date: str
+    reason: str
+    submitted_at: str
+    status: str
+
+
+class ManagerApprovalsAnalyticsDashboard(BaseModel):
+    summary: ManagerApprovalsSummary
+    pending_leaves: list[ManagerApprovalLeaveItem]
+    pending_corrections: list[ManagerApprovalCorrectionItem]
+
+
+class ManagerEodSummary(BaseModel):
+    submitted_today: int
+    pending_reviews: int
+    average_productivity: float
+    blockers_reported: int
+    team_logged_hours: float
+    missing_eods: int
+
+
+class ManagerEodReportItem(BaseModel):
+    id: uuid.UUID
+    employee_name: str
+    employee_avatar_url: str | None = None
+    date: str
+    attendance_status: str
+    logged_hours: float
+    productivity_score: float | None = None
+    tasks_completed: int
+    blockers: int
+    status: str
+
+
+class ManagerEodReportsAnalyticsDashboard(BaseModel):
+    summary: ManagerEodSummary
+    reports: list[ManagerEodReportItem]
+    productivity_trend: list[DistributionItem]
+    blocker_trend: list[DistributionItem]

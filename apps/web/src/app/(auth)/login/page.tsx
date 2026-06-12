@@ -21,6 +21,8 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { autoRequestBrowserNotificationsAfterLogin } from '@/lib/notifications/auto-request';
+import { unlockSounds } from '@/lib/calls/sounds';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
@@ -57,6 +59,8 @@ export default function LoginPage() {
       
       toast.success('Logged in successfully');
       login(access_token, refresh_token, user);
+      void autoRequestBrowserNotificationsAfterLogin();
+      void unlockSounds();
     } catch (error: any) {
       console.error('Login error', error);
       let errorMessage = 'Failed to login. Please check your credentials.';

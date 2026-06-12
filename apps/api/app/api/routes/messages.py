@@ -1,6 +1,7 @@
 import uuid
 import os
 import shutil
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
 from sqlalchemy import and_, or_, func
@@ -18,6 +19,12 @@ from app.models.eod_report import EODReport
 from app.models.approval import Approval
 from app.models.notifications import Notification
 
+from app.services.realtime_service import RealtimeService
+from app.services.websocket_manager import ws_manager
+from app.services import message_receipt_service as receipt_svc
+
+logger = logging.getLogger(__name__)
+
 from app.schemas.communication import (
     ConversationRead,
     ConversationCreate,
@@ -32,6 +39,7 @@ from app.schemas.communication import (
     ConversationSettingsUpdate,
     ConversationParticipantRead,
     MessageAttachmentRead,
+    MessageInfoRead,
     CallSessionRead,
     CallStartRequest,
     CallSignalCreate,
@@ -39,6 +47,7 @@ from app.schemas.communication import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def check_thread_access(db: Session, user: User, relation_type: str, relation_id: uuid.UUID) -> bool:
@@ -464,7 +473,7 @@ def get_messages(
     before: datetime | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[Message]:
+) -> list[MessageRead]:
     """Retrieve messages in a conversation."""
     # Check permission
     participant = db.query(ConversationParticipant).filter_by(
@@ -478,7 +487,6 @@ def get_messages(
 
     query = db.query(Message).filter(
         Message.conversation_id == conversation_id,
-        Message.is_deleted == False
     )
 
     if before:
@@ -496,8 +504,26 @@ def get_messages(
         .all()
     )
 
+    delivered_updates = receipt_svc.mark_delivered_for_conversation_fetch(
+        db, conversation_id, current_user.id
+    )
+    if delivered_updates:
+        db.commit()
+        for message_id, user_id, delivered_at in delivered_updates:
+            msg = db.get(Message, message_id)
+            if msg:
+                RealtimeService.emit_message_delivered(
+                    db,
+                    conversation_id=conversation_id,
+                    message_id=message_id,
+                    user_id=user_id,
+                    delivered_at=delivered_at.isoformat(),
+                    sender_id=msg.sender_id,
+                )
+
     # Return in chronological order
-    return list(reversed(messages))
+    chronological = list(reversed(messages))
+    return [receipt_svc.serialize_message(db, m, current_user.id) for m in chronological]
 
 
 @router.post("/conversations/{conversation_id}/messages", response_model=MessageRead, status_code=status.HTTP_201_CREATED)
@@ -506,7 +532,7 @@ def send_message(
     payload: MessageCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> Message:
+) -> MessageRead:
     """Send a message to a conversation."""
     # Check participant visibility
     participant = db.query(ConversationParticipant).filter_by(
@@ -574,11 +600,21 @@ def send_message(
                 )
             attachments.append(att)
 
+    parent_message_id = payload.reply_to_message_id
+    if parent_message_id:
+        parent = db.get(Message, parent_message_id)
+        if not parent or parent.conversation_id != conversation_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Reply target must belong to this conversation.",
+            )
+
     new_msg = Message(
         conversation_id=conversation_id,
         sender_id=current_user.id,
-        body=payload.body or "",
+        body=(payload.body or "").strip() if payload.body is not None else "",
         message_type=MessageType.TEXT,
+        parent_message_id=parent_message_id,
     )
     db.add(new_msg)
     db.flush()
@@ -610,6 +646,8 @@ def send_message(
     # Automatically mark conversation as read for the sender
     participant.last_read_at = datetime.now(timezone.utc)
 
+    receipt_svc.create_receipts_for_message(db, new_msg)
+
     db.commit()
     db.refresh(new_msg)
 
@@ -628,12 +666,12 @@ def send_message(
     else:
         notif_title = f"[{conv_title}] {current_user.full_name}"
 
+    created_notifications: list[Notification] = []
     for op in other_participants:
         is_mentioned = op.user_id in payload.mentioned_user_ids
         n_type = NotificationType.MENTION if is_mentioned else NotificationType.MESSAGE
         n_title = f"You were mentioned by {current_user.full_name}" if is_mentioned else notif_title
-        
-        # Populate Notification
+
         db_notif = Notification(
             user_id=op.user_id,
             title=n_title,
@@ -643,11 +681,30 @@ def send_message(
             related_entity_id=conversation_id,
         )
         db.add(db_notif)
+        created_notifications.append(db_notif)
 
     db.commit()
 
+    preview = payload.body or "Sent an attachment"
+    try:
+        RealtimeService.emit_new_message(
+            db,
+            conversation_id=conversation_id,
+            message_id=new_msg.id,
+            sender_id=current_user.id,
+            sender_name=current_user.full_name,
+            preview=preview,
+            created_at=new_msg.created_at.isoformat() if new_msg.created_at else datetime.now(timezone.utc).isoformat(),
+        )
+        RealtimeService.emit_conversation_updated(db, conversation_id)
+        for notif in created_notifications:
+            db.refresh(notif)
+            RealtimeService.emit_notification_created(notif)
+    except Exception:
+        logger.exception("Failed to emit realtime events for new message %s", new_msg.id)
+
     # Reload message to populate sender details
-    return (
+    loaded = (
         db.query(Message)
         .filter(Message.id == new_msg.id)
         .options(
@@ -658,6 +715,7 @@ def send_message(
         )
         .first()
     )
+    return receipt_svc.serialize_message(db, loaded, current_user.id)
 
 
 @router.patch("/{message_id}", response_model=MessageRead)
@@ -683,7 +741,14 @@ def edit_message(
     msg.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(msg)
-    
+
+    RealtimeService.emit_message_updated(
+        db,
+        conversation_id=msg.conversation_id,
+        message_id=msg.id,
+        preview=msg.body or "",
+    )
+
     return msg
 
 
@@ -693,22 +758,65 @@ def delete_message(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
-    """Soft delete own message."""
+    """Soft delete a message with permission checks."""
     msg = db.get(Message, message_id)
     if not msg:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
 
-    # Admins can delete any message, others only their own
-    if msg.sender_id != current_user.id and current_user.role != UserRole.ADMIN:
+    participant = (
+        db.query(ConversationParticipant)
+        .filter_by(conversation_id=msg.conversation_id, user_id=current_user.id)
+        .first()
+    )
+    if not participant:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to delete this message."
+            detail="You do not have permission to access this message.",
         )
+
+    if not receipt_svc.can_user_delete_message(msg, current_user, participant):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this message.",
+        )
+
+    if msg.is_deleted:
+        return {"message": "Message already deleted."}
 
     msg.is_deleted = True
     msg.deleted_at = datetime.now(timezone.utc)
+    msg.deleted_by_id = current_user.id
+    conv_id = msg.conversation_id
+    msg_id = msg.id
     db.commit()
+
+    RealtimeService.emit_message_deleted(
+        db,
+        conversation_id=conv_id,
+        message_id=msg_id,
+        is_deleted=True,
+    )
+
     return {"message": "Message deleted successfully."}
+
+
+@router.get("/{message_id}/info", response_model=MessageInfoRead)
+def get_message_info(
+    message_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessageInfoRead:
+    """Get delivery and read receipt info for a message."""
+    try:
+        info = receipt_svc.get_message_info(db, message_id, current_user)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this message info.",
+        )
+    return MessageInfoRead.model_validate(info)
 
 
 @router.post("/conversations/{conversation_id}/read")
@@ -727,8 +835,34 @@ def mark_conversation_read(
             detail="You do not participate in this conversation."
         )
 
-    participant.last_read_at = datetime.now(timezone.utc)
+    read_at = datetime.now(timezone.utc)
+    participant.last_read_at = read_at
+
+    seen_updates = receipt_svc.mark_seen_for_conversation_read(
+        db, conversation_id, current_user.id, read_at
+    )
     db.commit()
+
+    read_at_iso = read_at.isoformat()
+    RealtimeService.emit_conversation_read(
+        db,
+        conversation_id=conversation_id,
+        user_id=current_user.id,
+        read_at=read_at_iso,
+    )
+
+    for message_id, user_id, seen_time in seen_updates:
+        msg = db.get(Message, message_id)
+        if msg:
+            RealtimeService.emit_message_seen(
+                db,
+                conversation_id=conversation_id,
+                message_id=message_id,
+                user_id=user_id,
+                seen_at=seen_time.isoformat(),
+                sender_id=msg.sender_id,
+            )
+
     return {"message": "Conversation marked as read."}
 
 
@@ -1488,8 +1622,9 @@ def start_call(
 
     # Find the recipient (the participant who is not the current user)
     recipient = next((p for p in other_participants if p.user_id != current_user.id), None)
+    call_notification = None
     if recipient:
-        notification = Notification(
+        call_notification = Notification(
             id=uuid.uuid4(),
             user_id=recipient.user_id,
             title="Incoming Call",
@@ -1500,10 +1635,38 @@ def start_call(
             is_read=False,
             created_at=datetime.now(timezone.utc)
         )
-        db.add(notification)
+        db.add(call_notification)
 
     db.commit()
     db.refresh(call_session)
+
+    if recipient:
+        receiver_connected = ws_manager.connection_count(str(recipient.user_id)) > 0
+        logger.info(
+            "[CALL] start call_id=%s caller=%s receiver=%s receiver_connected=%s",
+            call_session.id,
+            current_user.id,
+            recipient.user_id,
+            receiver_connected,
+        )
+        RealtimeService.emit_call_event(
+            "call_incoming",
+            call_session_id=call_session.id,
+            conversation_id=conversation_id,
+            call_type=req.call_type,
+            target_user_ids=[recipient.user_id],
+            actor_id=current_user.id,
+            extra={"started_by_name": current_user.full_name},
+        )
+        if call_notification:
+            db.refresh(call_notification)
+            RealtimeService.emit_notification_created(call_notification)
+        logger.info(
+            "[CALL] sent call_incoming to user_id=%s call_id=%s",
+            recipient.user_id,
+            call_session.id,
+        )
+
     return call_session
 
 
@@ -1560,6 +1723,27 @@ def accept_call(
 
     db.commit()
     db.refresh(call_session)
+
+    logger.info(
+        "[CALL] accepted call_id=%s receiver=%s caller=%s",
+        call_session.id,
+        current_user.id,
+        call_session.started_by_id,
+    )
+    RealtimeService.emit_call_event(
+        "call_accepted",
+        call_session_id=call_session.id,
+        conversation_id=call_session.conversation_id,
+        call_type=call_session.call_type,
+        target_user_ids=[call_session.started_by_id],
+        actor_id=current_user.id,
+    )
+    logger.info(
+        "[CALL] sent call_accepted to caller=%s call_id=%s",
+        call_session.started_by_id,
+        call_session.id,
+    )
+
     return call_session
 
 
@@ -1613,6 +1797,16 @@ def decline_call(
 
     db.commit()
     db.refresh(call_session)
+
+    RealtimeService.emit_call_event(
+        "call_declined",
+        call_session_id=call_session.id,
+        conversation_id=call_session.conversation_id,
+        call_type=call_session.call_type,
+        target_user_ids=[call_session.started_by_id],
+        actor_id=current_user.id,
+    )
+
     return call_session
 
 
@@ -1688,6 +1882,18 @@ def end_call(
             )
             db.add(missed_notif)
 
+            RealtimeService.emit_call_event(
+                "call_missed",
+                call_session_id=call_session.id,
+                conversation_id=call_session.conversation_id,
+                call_type=call_session.call_type,
+                target_user_ids=[call_session.started_by_id, receiver_part.user_id],
+                actor_id=current_user.id,
+            )
+            if missed_notif:
+                db.flush()
+                RealtimeService.emit_notification_created(missed_notif)
+
     elif call_session.status == "active":
         # Call was active and is being ended
         call_session.status = "ended"
@@ -1717,6 +1923,21 @@ def end_call(
 
     db.commit()
     db.refresh(call_session)
+
+    call_participant_ids = [
+        p.user_id
+        for p in db.query(CallParticipant).filter_by(call_session_id=call_id).all()
+    ]
+    RealtimeService.emit_call_event(
+        "call_ended",
+        call_session_id=call_session.id,
+        conversation_id=call_session.conversation_id,
+        call_type=call_session.call_type,
+        target_user_ids=call_participant_ids,
+        actor_id=current_user.id,
+        extra={"status": call_session.status},
+    )
+
     return call_session
 
 
@@ -1768,6 +1989,35 @@ def send_call_signal(
     db.add(signal)
     db.commit()
     db.refresh(signal)
+
+    recipient_connected = ws_manager.connection_count(str(req.recipient_id)) > 0
+    logger.info(
+        "[CALL] ICE/signal from=%s to=%s call_id=%s type=%s delivered_target_connected=%s",
+        current_user.id,
+        req.recipient_id,
+        call_id,
+        req.signal_type,
+        recipient_connected,
+    )
+
+    RealtimeService.emit_to_user(
+        req.recipient_id,
+        RealtimeService.event(
+            "call_signal",
+            {
+                "call_session_id": str(call_id),
+                "signal_type": req.signal_type,
+                "signal_id": str(signal.id),
+                "sender_id": str(current_user.id),
+                "payload": req.payload,
+            },
+            actor_id=current_user.id,
+            conversation_id=call_session.conversation_id,
+            entity_type="call",
+            entity_id=call_session.id,
+        ),
+    )
+
     return signal
 
 

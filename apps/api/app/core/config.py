@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     @model_validator(mode="before")
     @classmethod
     def populate_smtp_and_frontend_defaults(cls, data: Any) -> Any:
+        import os
+
         if isinstance(data, dict):
             # SMTP Host
             if "SMTP_HOST" in data and data["SMTP_HOST"] is not None:
@@ -61,6 +63,26 @@ class Settings(BaseSettings):
                 data["frontend_base_url"] = data["FRONTEND_URL"]
             elif "FRONTEND_BASE_URL" in data and data["FRONTEND_BASE_URL"] is not None:
                 data["frontend_base_url"] = data["FRONTEND_BASE_URL"]
+
+            # Call recording storage — read Railway/AWS env vars explicitly
+            driver_env = os.getenv("CALL_RECORDINGS_STORAGE_DRIVER")
+            if driver_env and str(driver_env).strip():
+                data["call_recordings_storage_driver"] = str(driver_env).strip()
+
+            aws_env_map = {
+                "s3_endpoint_url": ["AWS_ENDPOINT_URL", "S3_ENDPOINT_URL"],
+                "s3_bucket": ["AWS_S3_BUCKET_NAME", "S3_BUCKET"],
+                "s3_access_key_id": ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
+                "s3_secret_access_key": ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"],
+                "s3_region": ["AWS_DEFAULT_REGION", "S3_REGION"],
+                "s3_url_style": ["AWS_S3_URL_STYLE", "S3_URL_STYLE"],
+            }
+            for field, env_keys in aws_env_map.items():
+                for env_key in env_keys:
+                    val = os.getenv(env_key)
+                    if val is not None and str(val).strip():
+                        data[field] = str(val).strip()
+                        break
         return data
 
     app_env: str = "development"
@@ -97,18 +119,129 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     cors_origins: list[str] = ["*"]
 
+    profile_image_storage: str = ""
+    profile_image_upload_dir: str = "storage/profile-pictures"
+    profile_image_public_base_url: str = ""
+
+    call_recordings_storage_driver: str = ""
+    call_recordings_local_dir: str = "storage/call-recordings"
+    call_recordings_max_upload_mb: int = 100
+    call_recordings_max_bytes: int = 100 * 1024 * 1024
+    s3_endpoint_url: str | None = None
+    s3_bucket: str | None = None
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: str | None = None
+    s3_region: str | None = None
+    s3_url_style: str | None = None
+    s3_public_base_url: str | None = None
+
+    @model_validator(mode="after")
+    def apply_storage_and_aws_aliases(self) -> "Settings":
+        # Re-read env so Railway/AWS vars always win over defaults or .env placeholders
+        import os
+
+        driver_env = os.getenv("CALL_RECORDINGS_STORAGE_DRIVER")
+        if driver_env and str(driver_env).strip():
+            object.__setattr__(self, "call_recordings_storage_driver", str(driver_env).strip())
+
+        profile_driver_env = os.getenv("PROFILE_IMAGE_STORAGE")
+        if profile_driver_env and str(profile_driver_env).strip():
+            object.__setattr__(self, "profile_image_storage", str(profile_driver_env).strip())
+
+        alias_map = {
+            "s3_endpoint_url": ["AWS_ENDPOINT_URL", "S3_ENDPOINT_URL"],
+            "s3_bucket": ["AWS_S3_BUCKET_NAME", "S3_BUCKET"],
+            "s3_access_key_id": ["AWS_ACCESS_KEY_ID", "S3_ACCESS_KEY_ID"],
+            "s3_secret_access_key": ["AWS_SECRET_ACCESS_KEY", "S3_SECRET_ACCESS_KEY"],
+            "s3_region": ["AWS_DEFAULT_REGION", "S3_REGION"],
+            "s3_url_style": ["AWS_S3_URL_STYLE", "S3_URL_STYLE"],
+        }
+
+        for field, env_keys in alias_map.items():
+            for key in env_keys:
+                val = os.getenv(key)
+                if val is not None and str(val).strip():
+                    object.__setattr__(self, field, str(val).strip())
+                    break
+
+        driver = (self.call_recordings_storage_driver or "local").lower().strip()
+        if driver in ("railway_bucket", "railway", "s3"):
+            object.__setattr__(self, "call_recordings_storage_driver", "s3")
+
+        if not self.s3_region:
+            object.__setattr__(self, "s3_region", "auto")
+        if not self.s3_url_style:
+            object.__setattr__(self, "s3_url_style", "virtual")
+
+        max_mb_env = os.getenv("CALL_RECORDINGS_MAX_UPLOAD_MB")
+        if max_mb_env and str(max_mb_env).strip().isdigit():
+            object.__setattr__(self, "call_recordings_max_upload_mb", int(str(max_mb_env).strip()))
+
+        max_mb = self.call_recordings_max_upload_mb or 100
+        object.__setattr__(self, "call_recordings_max_bytes", max_mb * 1024 * 1024)
+        return self
+
+    def resolved_call_recordings_driver(self) -> str:
+        driver = (self.call_recordings_storage_driver or "").lower().strip()
+        if driver in ("s3", "railway_bucket", "railway"):
+            return "s3"
+        if driver == "local":
+            return "local"
+        if self.call_recordings_s3_config_flags() and all(self.call_recordings_s3_config_flags().values()):
+            return "s3"
+        return "local"
+
+    def is_production(self) -> bool:
+        return (self.app_env or "").lower().strip() not in ("development", "dev", "local", "test")
+
+    def resolved_profile_image_driver(self) -> str:
+        driver = (self.profile_image_storage or "").lower().strip()
+        if driver in ("s3", "railway_bucket", "railway"):
+            return "s3"
+        if driver == "local":
+            return "local"
+        flags = self.call_recordings_s3_config_flags()
+        if all(flags.values()):
+            return "s3"
+        return "local"
+
+    def call_recordings_s3_config_flags(self) -> dict[str, bool]:
+        return {
+            "endpoint_configured": bool(self.s3_endpoint_url and str(self.s3_endpoint_url).strip()),
+            "bucket_configured": bool(self.s3_bucket and str(self.s3_bucket).strip()),
+            "access_key_configured": bool(self.s3_access_key_id and str(self.s3_access_key_id).strip()),
+            "secret_configured": bool(self.s3_secret_access_key and str(self.s3_secret_access_key).strip()),
+        }
+
     @field_validator("cors_origins", mode="before")
     @classmethod
-    def parse_cors_origins(cls, value: str | list[str]) -> list[str]:
-        if isinstance(value, str):
-            return [item.strip() for item in value.split(",") if item.strip()]
-        return value
+    def parse_cors_origins(cls, value: str | list[str] | None) -> list[str]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [
+                normalize_origin(str(item).strip())
+                for item in value
+                if str(item).strip() and str(item).strip() != "*"
+            ]
+        raw = str(value).strip()
+        if not raw or raw == "*":
+            return []
+        if raw.startswith("["):
+            import json
+
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, list):
+                    return [normalize_origin(str(item).strip()) for item in parsed if str(item).strip()]
+            except json.JSONDecodeError:
+                pass
+        return [normalize_origin(item) for item in raw.split(",") if item.strip()]
 
     @field_validator("database_url", mode="before")
     @classmethod
     def fix_postgres_scheme(cls, v: str | None, info) -> str:
         url = None
-        # 1. If DATABASE_URL is provided, normalize the scheme
         if v and isinstance(v, str):
             if is_unresolved_template(v):
                 public_url = info.data.get("database_public_url")
@@ -116,8 +249,7 @@ class Settings(BaseSettings):
                     url = normalize_postgres_url(public_url)
             elif v:
                 url = normalize_postgres_url(v)
-            
-        # 2. Fallback: Try to construct from individual PG variables
+
         if not url:
             data = info.data
             pghost = data.get("pghost")
@@ -125,24 +257,48 @@ class Settings(BaseSettings):
             pgpass = data.get("pgpassword")
             pgdb = data.get("pgdatabase")
             pgport = data.get("pgport", "5432")
-            
+
             if all([pghost, pguser, pgpass, pgdb]) and not any(
                 is_unresolved_template(value) for value in [pghost, pguser, pgpass, pgdb, pgport]
             ):
                 url = f"postgresql://{pguser}:{pgpass}@{pghost}:{pgport}/{pgdb}"
-            
-        # 3. Validations
+
         if not url or url.strip() == "":
             raise ValueError(
                 "DATABASE_URL is missing. Please configure a PostgreSQL DATABASE_URL in your environment."
             )
-            
+
         if url.startswith("sqlite"):
             raise ValueError(
                 "SQLite is no longer supported. Please configure PostgreSQL DATABASE_URL."
             )
-            
+
         return url
+
+
+def normalize_origin(origin: str) -> str:
+    return origin.rstrip("/")
+
+
+def resolve_cors_origins(settings_obj: Settings) -> list[str]:
+    """Build deduplicated CORS allowlist for production + local dev."""
+    defaults = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "https://diligent-elegance-production-52de.up.railway.app",
+        "https://aware-harmony-production-b1c1.up.railway.app",
+        "https://workforce-intelligence-os.up.railway.app",
+        "https://pims-os.up.railway.app",
+    ]
+    extra: list[str] = []
+    if settings_obj.frontend_base_url:
+        extra.append(settings_obj.frontend_base_url)
+    for origin in settings_obj.cors_origins or []:
+        if origin and origin != "*":
+            extra.append(origin)
+    merged = [normalize_origin(o) for o in [*defaults, *extra] if o]
+    return list(dict.fromkeys(merged))
 
 
 settings = Settings()

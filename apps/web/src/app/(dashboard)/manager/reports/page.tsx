@@ -21,6 +21,8 @@ import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils';
 import { getErrorMessage } from '@/lib/api/client';
+import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
+import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
 
 export default function ManagerReportsPage() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
@@ -66,18 +68,13 @@ export default function ManagerReportsPage() {
   const totalAbsences = reports.reduce((acc, curr) => acc + curr.absences, 0);
 
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <ShieldCheck className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Team Reports</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Team Reports</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Aggregated performance and activity metrics for your direct reports</p>
-        </div>
-        
-        <div className="flex items-center gap-4">
+    <ManagerPageShell>
+      <ManagerPageHeader
+        title="Team Reports"
+        subtitle="Aggregated performance and activity metrics for your direct reports"
+        icon={ShieldCheck}
+        actions={
+        <div className="flex items-center gap-3">
           <Select value={period} onValueChange={(val: any) => setPeriod(val)}>
             <SelectTrigger className="w-[180px] h-12 rounded-2xl bg-[var(--bg-surface)] border-[var(--border-default)] font-bold text-xs uppercase tracking-widest text-[var(--text-primary)] shadow-sm">
               <SelectValue placeholder="Select period" />
@@ -88,14 +85,15 @@ export default function ManagerReportsPage() {
               <SelectItem value="this_month" className="text-xs font-bold">This Month</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" className="h-12 rounded-2xl border-[var(--border-default)] font-black text-[10px] uppercase tracking-[0.2em] px-8 bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--bg-subtle)] transition-all">
-            <Download className="mr-2 h-4 w-4 text-[var(--accent-primary)]" />
+          <Button variant="outline" className="h-9 rounded-xl border-[var(--border-default)] font-bold text-xs px-4 bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-sm hover:bg-[var(--bg-subtle)] transition-all">
+            <Download className="mr-2 h-3.5 w-3.5 text-[var(--accent-primary)]" />
             Export Data
           </Button>
         </div>
-      </div>
+        }
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <KPICard 
             title="Team Hours"
             value={totalTeamHours.toFixed(1)}
@@ -215,6 +213,6 @@ export default function ManagerReportsPage() {
             </CardContent>
           </Card>
       )}
-    </div>
+    </ManagerPageShell>
   );
 }

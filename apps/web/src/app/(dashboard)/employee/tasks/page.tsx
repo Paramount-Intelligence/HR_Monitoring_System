@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { tasksApi, Task } from '@/lib/api/tasks';
 import { projectsApi, Project } from '@/lib/api/projects';
@@ -11,16 +11,16 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Plus, Loader2, Shield, Download, BarChart3, Globe, Zap, FileText, TrendingUp, Users, Clock, Play, StopCircle, Calendar, Briefcase, Flame, Trophy, PlayCircle, CheckCircle2, Circle, MessageSquare
+  Plus, Loader2, Shield, Download, BarChart3, Globe, Zap, FileText, TrendingUp, Users, Clock, Play, StopCircle, Calendar, Briefcase, Flame, Trophy, PlayCircle, CheckCircle2, Circle, MessageSquare, AlertCircle
 } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { toast } from 'sonner';
 import apiClient, { getErrorMessage } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { TaskTimerSession } from '@/lib/api/timeLogs';
 import { AttendanceSession } from '@/lib/api/attendance';
 import { 
-  Dialog, DialogContent, DialogDescription, DialogHeader, 
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, 
   DialogTitle, DialogTrigger 
 } from '@/components/ui/dialog';
 import {
@@ -40,6 +40,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPKDate } from '@/lib/time';
+import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
+import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
+import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
+import { EmployeeMetricCard } from '@/components/employee/EmployeeMetricCard';
+import { EmployeeSectionCard } from '@/components/employee/EmployeeSectionCard';
 
 const taskSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -209,193 +214,149 @@ export default function EmployeeTasksPage() {
     return 'Paused';
   };
 
+  const taskStats = useMemo(() => {
+    const isOverdue = (t: Task) => {
+      if (!t.due_date || t.status === 'completed' || t.status === 'reviewed') return false;
+      const d = parseISO(t.due_date);
+      return isValid(d) && d < new Date();
+    };
+    return {
+      total: tasks.length,
+      inProgress: tasks.filter((t) => t.status === 'in_progress').length,
+      completed: tasks.filter((t) => t.status === 'completed' || t.status === 'reviewed').length,
+      overdue: tasks.filter(isOverdue).length,
+    };
+  }, [tasks]);
+
   return (
-    <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
-      {/* Active Session Header */}
+    <EmployeePageShell>
       {activeTimer && (
-        <div className={cn(
-            "relative overflow-hidden rounded-[2.5rem] p-1 shadow-[var(--shadow-soft)] transition-all duration-500",
-            activeTimer.status === 'running' ? "bg-[var(--accent-primary)]" : "bg-slate-400"
-        )}>
-          <div className={cn(
-              "absolute inset-0 bg-gradient-to-r animate-gradient-x opacity-90",
-              activeTimer.status === 'running' ? "from-[var(--accent-primary)] via-indigo-500 to-violet-600" : "from-slate-500 via-slate-400 to-slate-600"
-          )} />
-          <div className="relative flex flex-col md:flex-row items-center justify-between gap-6 px-10 py-8 bg-white/5 backdrop-blur-xl rounded-[2.3rem]">
-            <div className="flex items-center gap-6">
-                <div className="h-16 w-16 rounded-[1.5rem] bg-white/10 flex items-center justify-center text-white ring-4 ring-white/10">
-                    {activeTimer.status === 'running' ? <Zap className="h-8 w-8 animate-pulse" /> : <Clock className="h-8 w-8" />}
-                </div>
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-100/60">
-                            {activeTimer.status === 'running' ? 'Currently Running' : getPauseLabel(activeTimer.pause_reason)}
-                        </span>
-                        {activeTimer.status === 'running' && <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />}
-                    </div>
-                    <h2 className="text-2xl font-black text-white tracking-tight leading-none">{activeTimer.task_title || 'Active Task'}</h2>
-                    <div className="flex items-center gap-2 text-indigo-100/40 text-[10px] font-black uppercase tracking-widest">
-                        <Briefcase className="h-3 w-3" />
-                        {activeTimer.project_title || 'Project Task'}
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center gap-10">
-                <div className="text-right">
-                    <span className="block text-[10px] font-black uppercase tracking-[0.2em] text-indigo-100/40 mb-1">Session Duration</span>
-                    <div className="text-4xl font-black text-white tracking-tighter tabular-nums">
-                        <TaskTimer 
-                          startedAt={activeTimer.started_at} 
-                          lastResumedAt={activeTimer.last_resumed_at}
-                          accumulatedSeconds={activeTimer.accumulated_seconds}
-                          status={activeTimer.status}
-                        />
-                    </div>
-                </div>
-                <div className="flex items-center gap-3">
-                    {activeTimer.status === 'running' ? (
-                        <Button 
-                            size="lg" 
-                            variant="outline"
-                            className="h-14 px-8 rounded-2xl bg-white/90 hover:bg-white text-[var(--accent-primary)] border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
-                            onClick={() => handlePauseTimer(activeTimer.task_id)}
-                            disabled={isActionLoading === activeTimer.task_id}
-                        >
-                            {isActionLoading === activeTimer.task_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                            Pause
-                        </Button>
-                    ) : (
-                        <Button 
-                            size="lg" 
-                            variant="outline"
-                            className="h-14 px-8 rounded-2xl bg-[var(--accent-primary)] hover:opacity-90 text-white border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95 disabled:bg-slate-300"
-                            onClick={() => handleResumeTimer(activeTimer.task_id)}
-                            disabled={isActionLoading === activeTimer.task_id || !isCheckedIn}
-                        >
-                            {isActionLoading === activeTimer.task_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                            Resume
-                        </Button>
-                    )}
-                    <Button 
-                        size="lg" 
-                        variant="outline"
-                        className="h-14 px-8 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white border-none font-black text-[10px] uppercase tracking-[0.2em] shadow-xl transition-all active:scale-95"
-                        onClick={() => handleStopTimer(activeTimer.task_id)}
-                        disabled={isActionLoading === activeTimer.task_id}
-                    >
-                        {isActionLoading === activeTimer.task_id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <StopCircle className="mr-2 h-4 w-4" />}
-                        Stop
-                    </Button>
-                </div>
-            </div>
+        <div className="rounded-xl border border-[var(--accent-primary)]/30 bg-[var(--accent-soft)] p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--accent-primary)]">
+              {activeTimer.status === 'running' ? 'Active Timer' : getPauseLabel(activeTimer.pause_reason)}
+            </p>
+            <p className="text-sm font-semibold truncate">{activeTimer.task_title || 'Active Task'}</p>
+            <p className="text-[11px] text-[var(--text-secondary)]">{activeTimer.project_title || 'Project Task'}</p>
           </div>
-          {!isCheckedIn && activeTimer.status === 'paused' && (
-              <div className="px-10 py-3 bg-[var(--bg-elevated)]/10 text-[9px] font-bold text-white uppercase tracking-[0.3em] text-center border-t border-white/5">
-                  Attendance Offline: Please check in to resume tracking focus
-              </div>
-          )}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="text-lg font-bold text-[var(--accent-primary)] tabular-nums">
+              <TaskTimer
+                startedAt={activeTimer.started_at}
+                lastResumedAt={activeTimer.last_resumed_at}
+                accumulatedSeconds={activeTimer.accumulated_seconds}
+                status={activeTimer.status}
+              />
+            </div>
+            {activeTimer.status === 'running' ? (
+              <Button size="sm" variant="outline" className="rounded-lg" onClick={() => handlePauseTimer(activeTimer.task_id)} disabled={isActionLoading === activeTimer.task_id}>
+                {isActionLoading === activeTimer.task_id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Pause'}
+              </Button>
+            ) : (
+              <Button size="sm" className="rounded-lg" onClick={() => handleResumeTimer(activeTimer.task_id)} disabled={isActionLoading === activeTimer.task_id || !isCheckedIn}>
+                Resume
+              </Button>
+            )}
+            <Button size="sm" variant="destructive" className="rounded-lg" onClick={() => handleStopTimer(activeTimer.task_id)} disabled={isActionLoading === activeTimer.task_id}>
+              Stop
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5 text-[var(--accent-primary)] mb-1.5">
-            <Zap className="h-4 w-4" />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Tasks Dashboard</span>
-          </div>
-          <h1 className="text-4xl font-black tracking-tight text-[var(--text-primary)] sm:text-5xl">Tasks</h1>
-          <p className="text-[var(--text-secondary)] font-bold text-sm tracking-tight uppercase opacity-60">Real-time Task Status & Priority Tracking</p>
-        </div>
+      <EmployeePageHeader
+        title="My Tasks"
+        subtitle="Assigned work, priorities, timers, and discussions"
+        icon={Zap}
+        actions={
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="rounded-lg text-xs">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                New Task
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Create Task</DialogTitle>
+                <DialogDescription>Create a new task under a project context</DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" id="create-task-form">
+                    <FormField control={form.control} name="title" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Task Title</FormLabel>
+                        <FormControl><Input placeholder="Task title" className="h-9 rounded-lg" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="project_id" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Project</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl><SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            {projects.map(p => (
+                              <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="description" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">Description</FormLabel>
+                        <FormControl><Textarea placeholder="Task details..." className="min-h-[80px] rounded-lg resize-none" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField control={form.control} name="priority" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Priority</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl><SelectTrigger className="h-9 rounded-lg"><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="critical">Critical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="due_date" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Deadline</FormLabel>
+                          <FormControl><Input type="date" className="h-9 rounded-lg" {...field} /></FormControl>
+                        </FormItem>
+                      )} />
+                    </div>
+                  </form>
+                </Form>
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsDialogOpen(false)}>Discard</Button>
+                <Button type="submit" form="create-task-form" size="sm" disabled={form.formState.isSubmitting}>
+                  {form.formState.isSubmitting && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+                  Create Task
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-8 rounded-2xl shadow-xl transition-all active:scale-95 border-none">
-              <Plus className="mr-2 h-4 w-4" />
-              New Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)] animate-in zoom-in-95 duration-300">
-            <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Create Task</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">
-                Create a new task under a project context
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
-                <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Task Title</FormLabel>
-                    <FormControl><Input placeholder="e.g. Refactor API Interceptors" className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold focus:bg-[var(--bg-surface)] transition-all text-[var(--text-primary)]" {...field} /></FormControl>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="project_id" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Project</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                      <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
-                        {projects.map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-xs font-bold">{p.title}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Description</FormLabel>
-                    <FormControl><Textarea placeholder="Provide context/details for this task..." className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)] border-[var(--border-default)] min-h-[100px] font-bold text-sm leading-relaxed p-6 focus:bg-[var(--bg-surface)] transition-all text-[var(--text-primary)]" {...field} /></FormControl>
-                    <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                  </FormItem>
-                )} />
-                <div className="grid grid-cols-2 gap-6">
-                  <FormField control={form.control} name="priority" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Priority</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
-                        <SelectContent className="rounded-2xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
-                          <SelectItem value="low" className="text-[10px] font-black uppercase tracking-widest">Low</SelectItem>
-                          <SelectItem value="medium" className="text-[10px] font-black uppercase tracking-widest">Medium</SelectItem>
-                          <SelectItem value="high" className="text-[10px] font-black uppercase tracking-widest">High</SelectItem>
-                          <SelectItem value="critical" className="text-[10px] font-black uppercase tracking-widest text-rose-600">Critical</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="due_date" render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] ml-1">Deadline</FormLabel>
-                      <FormControl><Input type="date" className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold focus:bg-[var(--bg-surface)] transition-all text-[var(--text-primary)]" {...field} /></FormControl>
-                      <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
-                    </FormItem>
-                  )} />
-                </div>
-                <div className="flex justify-end pt-6 gap-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl shadow-xl transition-all active:scale-95 flex-1 border-none">
-                    {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Create Task
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
+      <EmployeeMetricGrid>
+        <EmployeeMetricCard title="Assigned Tasks" value={taskStats.total} icon={Briefcase} />
+        <EmployeeMetricCard title="In Progress" value={taskStats.inProgress} icon={Clock} />
+        <EmployeeMetricCard title="Completed" value={taskStats.completed} icon={CheckCircle2} />
+        <EmployeeMetricCard title="Overdue" value={taskStats.overdue} icon={AlertCircle} />
+      </EmployeeMetricGrid>
 
-      <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden">
-        <CardHeader className="px-10 pt-10 pb-6 border-b border-[var(--border-subtle)]">
-          <CardTitle className="text-xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-3">
-            <Trophy className="h-6 w-6 text-[var(--accent-primary)]" />
-            Task List
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <EmployeeSectionCard title="Task List" icon={Trophy} noPadding contentClassName="p-0">
           {isLoading ? (
             <div className="p-10"><TableSkeleton rows={5} cols={5} /></div>
           ) : tasks.length === 0 ? (
@@ -428,7 +389,7 @@ export default function EmployeeTasksPage() {
                 </TableHeader>
                 <TableBody>
                   {tasks.map((task) => (
-                    <TableRow key={task.id} className="hover:bg-[var(--bg-subtle)]/50 transition-all duration-300 border-b border-[var(--border-subtle)] last:border-0 h-28">
+                    <TableRow key={task.id} className="hover:bg-[var(--bg-subtle)]/50 transition-all border-b border-[var(--border-subtle)] last:border-0 h-14">
                       <TableCell className="pl-10">
                         <div className="flex flex-col gap-1.5">
                           <div className="flex items-center gap-3">
@@ -523,131 +484,62 @@ export default function EmployeeTasksPage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </EmployeeSectionCard>
 
-      {/* Task Details Dialog */}
       <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-[var(--shadow-card)] p-10 bg-[var(--bg-surface)] text-[var(--text-primary)]">
+        <DialogContent className="sm:max-w-md">
           {selectedTask && (
             <>
-              <DialogHeader className="space-y-3">
-                <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">
-                  {selectedTask.title}
-                </DialogTitle>
-                <DialogDescription className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">
-                  Task Details
-                </DialogDescription>
+              <DialogHeader>
+                <DialogTitle>{selectedTask.title}</DialogTitle>
+                <DialogDescription>Task Details</DialogDescription>
               </DialogHeader>
-              <div className="space-y-6 py-6 text-sm">
+              <DialogBody className="space-y-4">
                 {selectedTask.description && (
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Description</span>
-                    <p className="font-medium text-[var(--text-primary)] leading-relaxed bg-[var(--bg-subtle)] p-4 rounded-xl">
-                      {selectedTask.description}
-                    </p>
-                  </div>
+                  <p className="text-xs leading-relaxed text-[var(--text-secondary)] bg-[var(--bg-subtle)] rounded-lg p-3">
+                    {selectedTask.description}
+                  </p>
                 )}
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Project</span>
-                    <span className="block font-bold text-[var(--text-primary)]">
-                      {selectedTask.project_title || 'General / Internal'}
-                    </span>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-[var(--text-muted)] block mb-0.5">Project</span>
+                    <span className="font-semibold">{selectedTask.project_title || 'General / Internal'}</span>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Priority</span>
-                    <span className="block font-bold capitalize text-[var(--text-primary)]">
-                      {selectedTask.priority}
-                    </span>
+                  <div>
+                    <span className="text-[var(--text-muted)] block mb-0.5">Priority</span>
+                    <StatusBadge status={selectedTask.priority} />
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Status</span>
-                    <span className="block font-bold capitalize text-[var(--text-primary)]">
-                      {selectedTask.status.replace('_', ' ')}
-                    </span>
+                  <div>
+                    <span className="text-[var(--text-muted)] block mb-0.5">Status</span>
+                    <StatusBadge status={selectedTask.status} />
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Due Date</span>
-                    <span className="block font-bold text-[var(--text-primary)]">
-                      {selectedTask.due_date ? format(parseISO(selectedTask.due_date), 'MMM d, yyyy') : 'No Deadline'}
-                    </span>
+                  <div>
+                    <span className="text-[var(--text-muted)] block mb-0.5">Due Date</span>
+                    <span className="font-semibold">{selectedTask.due_date ? format(parseISO(selectedTask.due_date), 'MMM d, yyyy') : 'No Deadline'}</span>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Assigned To</span>
-                    <span className="block font-bold text-[var(--text-primary)]">
-                      {selectedTask.assigned_to_name || 'Unassigned'}
-                    </span>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)]">Complexity Level</span>
-                    <span className="block font-bold text-[var(--text-primary)]">
-                      {selectedTask.complexity_level ? `${selectedTask.complexity_level}/10` : 'Not Set'}
-                    </span>
+                  <div className="col-span-2">
+                    <span className="text-[var(--text-muted)] block mb-0.5">Assigned To</span>
+                    <span className="font-semibold">{selectedTask.assigned_to_name || 'Unassigned'}</span>
                   </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-4 border-t border-[var(--border-subtle)] pt-6">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setIsDetailOpen(false)}
-                  className="h-12 rounded-xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1"
-                >
-                  Close
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setIsDetailOpen(false);
-                    handleDiscussTask(selectedTask);
-                  }}
-                  className="h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none"
-                >
-                  Discuss
-                </Button>
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setIsDetailOpen(false)}>Close</Button>
+                <Button type="button" size="sm" onClick={() => { setIsDetailOpen(false); handleDiscussTask(selectedTask); }}>Discuss</Button>
                 {activeTimer && activeTimer.task_id === selectedTask.id ? (
                   activeTimer.status === 'running' ? (
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setIsDetailOpen(false);
-                        handlePauseTimer(selectedTask.id);
-                      }}
-                      className="h-12 bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none"
-                    >
-                      Pause Timer
-                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => { setIsDetailOpen(false); handlePauseTimer(selectedTask.id); }}>Pause Timer</Button>
                   ) : (
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setIsDetailOpen(false);
-                        handleResumeTimer(selectedTask.id);
-                      }}
-                      className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none"
-                    >
-                      Resume Timer
-                    </Button>
+                    <Button type="button" size="sm" onClick={() => { setIsDetailOpen(false); handleResumeTimer(selectedTask.id); }}>Resume Timer</Button>
                   )
                 ) : (
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      setIsDetailOpen(false);
-                      handleStartTimer(selectedTask.id);
-                    }}
-                    disabled={activeTimer !== null || !isCheckedIn}
-                    className="h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl flex-1 border-none disabled:opacity-50"
-                  >
-                    Start Timer
-                  </Button>
+                  <Button type="button" size="sm" onClick={() => { setIsDetailOpen(false); handleStartTimer(selectedTask.id); }} disabled={activeTimer !== null || !isCheckedIn}>Start Timer</Button>
                 )}
-              </div>
+              </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </EmployeePageShell>
   );
 }

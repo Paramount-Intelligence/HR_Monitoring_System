@@ -7,18 +7,20 @@ import { Breadcrumbs } from './Breadcrumbs';
 import { HeaderTimer } from './HeaderTimer';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuGroup, 
   DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { 
-  Menu, LogOut, User as UserIcon, Bell, Check, 
+  Menu, LogOut, User as UserIcon, Bell, Check, BellOff, BellRing,
   MessageSquare, Calendar, ShieldCheck, MailOpen, AlertCircle, Settings 
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { messagesApi } from '@/lib/api/messages';
+import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
+import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
 
 
 interface HeaderProps {
@@ -37,6 +39,8 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const [notifLoading, setNotifLoading] = useState(false);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const [notifError, setNotifError] = useState<string | null>(null);
+  const { isConnected } = useRealtimeStatus();
+  const { permission, isSupported } = useBrowserNotifications();
 
   const fetchUnreadCount = async () => {
     try {
@@ -70,14 +74,26 @@ export function Header({ onMenuToggle }: HeaderProps) {
     }
   };
 
+  useRealtimeEvent(
+    ['notification_created', 'notifications_count_updated', 'notification_read'],
+    () => {
+      fetchUnreadCount();
+    }
+  );
+
+  useRealtimeEvent(['new_message', 'conversation_updated'], () => {
+    fetchUnreadMsgCount();
+  });
+
   useEffect(() => {
     if (user) {
       fetchUnreadCount();
       fetchUnreadMsgCount();
+      const pollMs = isConnected ? 60000 : 30000;
       const interval = setInterval(() => {
         fetchUnreadCount();
         fetchUnreadMsgCount();
-      }, 30000); // Poll every 30s
+      }, pollMs);
 
       const handleUpdate = () => {
         fetchUnreadMsgCount();
@@ -89,7 +105,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         window.removeEventListener('pims-messages-unread-update', handleUpdate);
       };
     }
-  }, [user]);
+  }, [user, isConnected]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -109,10 +125,14 @@ export function Header({ onMenuToggle }: HeaderProps) {
       }
       
       // Dynamic navigation
-      if (n.related_entity_type === 'meeting') {
-        router.push('/calendar');
-      } else if (n.related_entity_type === 'support_ticket') {
-        router.push('/help-support');
+      const route = n.route || (
+        n.related_entity_type === 'meeting' ? '/calendar'
+        : n.related_entity_type === 'support_ticket' ? '/help-support'
+        : n.notification_type?.startsWith('meeting') ? '/calendar'
+        : null
+      );
+      if (route) {
+        router.push(route);
       }
     } catch (err) {
       console.error('[Header] Failed to process notification click:', err);
@@ -133,24 +153,37 @@ export function Header({ onMenuToggle }: HeaderProps) {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
-
   const handleLogout = async () => {
     setIsLoggingOut(true);
     await logout(true);
     setIsLoggingOut(false);
   };
 
+  const getNotificationBellIcon = () => {
+    if (!isSupported || permission === 'unsupported') {
+      return <BellOff className="h-5 w-5 opacity-40" />;
+    }
+    if (permission === 'denied') {
+      return <BellOff className="h-5 w-5 text-[var(--text-muted)]" />;
+    }
+    if (permission === 'default') {
+      return <BellRing className="h-5 w-5 opacity-70" />;
+    }
+    return <Bell className="h-5 w-5" />;
+  };
+
+  const notificationTooltip =
+    !isSupported || permission === 'unsupported'
+      ? 'Browser notifications are not supported'
+      : permission === 'denied'
+        ? 'Browser notifications are blocked. Enable them from browser site settings.'
+        : permission === 'default'
+          ? 'Browser notifications pending approval'
+          : 'Notifications enabled';
+
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-[var(--border-subtle)] bg-[var(--bg-header)] backdrop-blur-xl px-4 sm:px-8 transition-colors duration-300">
+      <header className="app-header backdrop-blur-xl px-3 sm:px-5 transition-colors duration-300">
         <div className="flex items-center gap-4">
           <Button 
             variant="ghost" 
@@ -206,9 +239,10 @@ export function Header({ onMenuToggle }: HeaderProps) {
               <Button
                 variant="ghost"
                 size="icon"
+                title={notificationTooltip}
                 className="relative text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-sidebar-hover)] h-9 w-9 rounded-xl transition-all focus:outline-none"
               >
-                <Bell className="h-5 w-5" />
+                {getNotificationBellIcon()}
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1.5 rounded-full bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] text-[10px] font-black border-2 border-[var(--bg-surface)] flex items-center justify-center">
                     {unreadCount}
@@ -280,11 +314,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="group relative flex items-center gap-3 rounded-full py-1 pl-1 pr-3 hover:bg-[var(--bg-subtle)] transition-all focus:outline-none ring-1 ring-transparent hover:ring-[var(--border-default)] text-left">
-                <Avatar className="h-8 w-8 border-2 border-[var(--bg-elevated)] shadow-sm ring-1 ring-[var(--border-default)] group-hover:ring-[var(--accent-primary)] transition-all">
-                  <AvatarFallback className="bg-[var(--text-secondary)] text-[10px] font-black text-white">
-                    {user ? getInitials(user.full_name) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
+                <UserProfilePicture
+                  user={user}
+                  name={user?.full_name || 'User'}
+                  size="default"
+                  className="h-8 w-8 border-2 border-[var(--bg-elevated)] shadow-sm ring-1 ring-[var(--border-default)] group-hover:ring-[var(--accent-primary)] transition-all"
+                />
                 <div className="hidden sm:flex flex-col items-start leading-none">
                   <span className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[100px]">
                     {user?.full_name?.split(' ')[0]}

@@ -1,10 +1,12 @@
 """Dashboard aggregation routes — employee, manager, admin."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_user, get_db, require_admin, require_admin_or_manager
+from app.core.deps import get_current_user, get_db, require_admin, require_admin_or_manager, require_admin_hr
 from app.core.time_utils import ensure_pk_datetime, pk_day_start, pk_now, pk_today
 from app.models.alert import Alert
 from app.models.approval import Approval
@@ -40,7 +42,18 @@ from app.schemas.dashboard import (
     AdminAnalyticsDeptComparison,
     AdminAnalyticsPeopleException,
     AdminAnalyticsRecentActivity,
+    UsersAnalyticsDashboard,
+    CommunicationAnalyticsDashboard,
+    ProjectsTasksAnalyticsDashboard,
+    ManagerOverviewDashboard,
+    ManagerTeamAnalyticsDashboard,
+    ManagerApprovalsAnalyticsDashboard,
+    ManagerEodReportsAnalyticsDashboard,
 )
+from app.services.admin_dashboard_service import AdminDashboardService
+from app.services.manager_dashboard_service import ManagerDashboardService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -384,3 +397,108 @@ def admin_analytics_dashboard(db: Session = Depends(get_db), actor: User = Depen
         people_exceptions=exceptions[:15],  # Limit to top 15
         recent_activity=recent[:5]
     )
+
+
+@router.get("/admin/users-analytics", response_model=UsersAnalyticsDashboard, summary="Admin users tab analytics")
+def admin_users_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_hr),
+) -> UsersAnalyticsDashboard:
+    try:
+        return AdminDashboardService(db).users_analytics()
+    except Exception as exc:
+        logger.exception("users_analytics failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load users analytics",
+        ) from exc
+
+
+@router.get("/admin/communication-analytics", response_model=CommunicationAnalyticsDashboard, summary="Admin communication tab analytics")
+def admin_communication_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_hr),
+) -> CommunicationAnalyticsDashboard:
+    try:
+        return AdminDashboardService(db).communication_analytics(actor)
+    except Exception as exc:
+        logger.exception("communication_analytics failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load communication analytics",
+        ) from exc
+
+
+@router.get("/admin/projects-tasks-analytics", response_model=ProjectsTasksAnalyticsDashboard, summary="Admin projects & tasks tab analytics")
+def admin_projects_tasks_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_hr),
+) -> ProjectsTasksAnalyticsDashboard:
+    try:
+        return AdminDashboardService(db).projects_tasks_analytics()
+    except Exception as exc:
+        logger.exception("projects_tasks_analytics failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to load projects and tasks analytics",
+        ) from exc
+
+
+@router.get("/manager/overview", response_model=ManagerOverviewDashboard, summary="Manager overview tab")
+def manager_overview(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_or_manager),
+) -> ManagerOverviewDashboard:
+    try:
+        return ManagerDashboardService(db).overview(actor)
+    except Exception as exc:
+        logger.exception("manager_overview failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load manager overview") from exc
+
+
+@router.get("/manager/team-analytics", response_model=ManagerTeamAnalyticsDashboard, summary="Manager team tab")
+def manager_team_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_or_manager),
+) -> ManagerTeamAnalyticsDashboard:
+    try:
+        return ManagerDashboardService(db).team_analytics(actor)
+    except Exception as exc:
+        logger.exception("manager_team_analytics failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load team analytics") from exc
+
+
+@router.get("/manager/approvals-analytics", response_model=ManagerApprovalsAnalyticsDashboard, summary="Manager approvals tab")
+def manager_approvals_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_or_manager),
+) -> ManagerApprovalsAnalyticsDashboard:
+    try:
+        return ManagerDashboardService(db).approvals_analytics(actor)
+    except Exception as exc:
+        logger.exception("manager_approvals_analytics failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load approvals analytics") from exc
+
+
+@router.get("/manager/projects-tasks-analytics", response_model=ProjectsTasksAnalyticsDashboard, summary="Manager projects & tasks tab")
+def manager_projects_tasks_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_or_manager),
+) -> ProjectsTasksAnalyticsDashboard:
+    try:
+        return ManagerDashboardService(db).projects_tasks_analytics(actor)
+    except Exception as exc:
+        logger.exception("manager_projects_tasks_analytics failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load projects and tasks analytics") from exc
+
+
+@router.get("/manager/eod-reports-analytics", response_model=ManagerEodReportsAnalyticsDashboard, summary="Manager EOD & reports tab")
+def manager_eod_reports_analytics(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_or_manager),
+) -> ManagerEodReportsAnalyticsDashboard:
+    try:
+        return ManagerDashboardService(db).eod_reports_analytics(actor)
+    except Exception as exc:
+        logger.exception("manager_eod_reports_analytics failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to load EOD analytics") from exc

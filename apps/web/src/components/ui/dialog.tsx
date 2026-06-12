@@ -64,21 +64,19 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-[101] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl bg-[var(--bg-elevated)] shadow-premium-xl border border-[var(--border-default)] p-0 max-h-[90vh] overflow-hidden text-[var(--text-primary)] duration-200 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-[101] flex w-full max-w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-0 text-[var(--text-primary)] shadow-premium-xl duration-200 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
       >
-        <div className="overflow-y-auto max-h-[90vh] w-full custom-scrollbar pr-1">
-          {children}
-        </div>
+        {children}
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
             render={
               <Button
                 variant="ghost"
-                className="absolute top-4 right-4 z-[102] rounded-full h-8 w-8 hover:bg-[var(--bg-subtle)]"
+                className="absolute top-3 right-3 z-[102] h-8 w-8 shrink-0 rounded-full hover:bg-[var(--bg-subtle)]"
                 size="icon"
               />
             }
@@ -92,11 +90,28 @@ function DialogContent({
   )
 }
 
+/** Scrollable modal body — place between DialogHeader and DialogFooter */
+function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="dialog-body"
+      className={cn(
+        "min-h-0 flex-1 overflow-y-auto px-5 py-4 custom-scrollbar",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2 p-6 pb-0", className)}
+      className={cn(
+        "shrink-0 flex flex-col gap-1.5 border-b border-[var(--border-subtle)] px-5 pb-3 pt-5 pr-12",
+        className
+      )}
       {...props}
     />
   )
@@ -114,7 +129,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 bg-[var(--bg-subtle)] p-6 sm:flex-row sm:justify-end border-t border-[var(--border-default)]",
+        "shrink-0 flex flex-col-reverse gap-2 border-t border-[var(--border-default)] bg-[var(--bg-subtle)] p-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}
@@ -134,7 +149,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-base leading-none font-medium text-[var(--text-primary)]",
+        "font-heading text-sm font-semibold leading-none text-[var(--text-primary)]",
         className
       )}
       {...props}
@@ -150,7 +165,7 @@ function DialogDescription({
     <DialogPrimitive.Description
       data-slot="dialog-description"
       className={cn(
-        "text-sm text-[var(--text-secondary)] *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-[var(--text-primary)]",
+        "text-xs text-[var(--text-secondary)] *:[a]:underline *:[a]:underline-offset-3 *:[a]:hover:text-[var(--text-primary)]",
         className
       )}
       {...props}
@@ -160,6 +175,7 @@ function DialogDescription({
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,

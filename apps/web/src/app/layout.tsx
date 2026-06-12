@@ -1,8 +1,16 @@
 import type { Metadata } from "next";
+import { Roboto } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+
+const roboto = Roboto({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700", "900"],
+  variable: "--font-roboto",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "PIMS - Paramount Intelligence Monitoring System",
@@ -15,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${roboto.variable} font-sans`}>
       <head suppressHydrationWarning>
         <script
           suppressHydrationWarning
@@ -31,7 +39,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
+      <body className={`${roboto.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
