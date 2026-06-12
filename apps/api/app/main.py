@@ -7,11 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
-from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pathlib import Path
 
-from app.core.config import settings, resolve_cors_origins
+from app.core.config import settings, resolve_cors_origins, validate_production_settings
 from app.api.router import api_router
 from app.db.session import SessionLocal, engine
 from app.db.encoding import assert_utf8_database
@@ -36,6 +35,7 @@ async def lifespan(app: FastAPI):
     await start_bridge()
 
     assert_utf8_database(engine)
+    validate_production_settings(settings)
     db = SessionLocal()
     try:
         from sqlalchemy import text
@@ -50,7 +50,13 @@ async def lifespan(app: FastAPI):
     finally:
         db.close()
     
-    logger.info(f"SMTP Config: Host={settings.smtp_host}, Port={settings.smtp_port}, User={settings.smtp_user}")
+    if settings.app_env == "development":
+        logger.info(
+            "SMTP Config: Host=%s Port=%s configured=%s",
+            settings.smtp_host,
+            settings.smtp_port,
+            bool(settings.smtp_user),
+        )
 
     # Start Celery worker as a background process (Local development only)
     celery_worker = None
@@ -180,10 +186,6 @@ def healthcheck() -> dict[str, str]:
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+# Profile pictures are served only via profile_media router (path-validated), not raw StaticFiles.
 profile_pictures_dir = Path(settings.profile_image_upload_dir)
 profile_pictures_dir.mkdir(parents=True, exist_ok=True)
-app.mount(
-    "/media/profile-pictures",
-    StaticFiles(directory=str(profile_pictures_dir)),
-    name="profile_pictures",
-)

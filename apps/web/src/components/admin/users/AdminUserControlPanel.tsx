@@ -17,6 +17,13 @@ import {
   ROLE_LABELS,
   STATUS_OPTIONS,
 } from '@/lib/admin-users/constants';
+import {
+  buildDepartmentOptions,
+  buildManagerOptions,
+  buildShiftOptions,
+  getDepartmentTabState,
+  isDepartmentTabDirty,
+} from '@/lib/admin-users/department-form';
 import { getProfilePictureUrl } from '@/lib/profile-picture';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
@@ -151,6 +158,31 @@ export function AdminUserControlPanel({
     [users]
   );
 
+  const departmentOptions = useMemo(
+    () => buildDepartmentOptions(user, departments),
+    [user, departments]
+  );
+
+  const shiftOptions = useMemo(
+    () => buildShiftOptions(user, shifts),
+    [user, shifts]
+  );
+
+  const managerOptions = useMemo(
+    () => buildManagerOptions(user, managers.filter((m) => m.id !== user?.id)),
+    [user, managers]
+  );
+
+  const departmentTabDirty = useMemo(() => {
+    if (!user) return false;
+    return isDepartmentTabDirty(user, departments, {
+      departmentId,
+      shiftId,
+      managerId,
+      designation: reportingDesignation,
+    });
+  }, [user, departments, departmentId, shiftId, managerId, reportingDesignation]);
+
   const adminCount = useMemo(
     () => users.filter((u) => u.role === 'admin' && u.status === 'active').length,
     [users]
@@ -183,6 +215,17 @@ export function AdminUserControlPanel({
     [permissions]
   );
 
+  const applyDepartmentTabState = useCallback(
+    (data: User) => {
+      const next = getDepartmentTabState(data, departments);
+      setDepartmentId(next.departmentId);
+      setManagerId(next.managerId);
+      setShiftId(next.shiftId);
+      setReportingDesignation(next.designation);
+    },
+    [departments]
+  );
+
   const loadUser = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
@@ -197,16 +240,13 @@ export function AdminUserControlPanel({
       });
       setRoleValue(data.role);
       setStatusValue(data.status);
-      setDepartmentId(data.department_id || 'none');
-      setManagerId(data.manager_id || 'none');
-      setShiftId(data.shift_id || 'none');
-      setReportingDesignation(data.designation || '');
+      applyDepartmentTabState(data);
     } catch (error) {
       toast.error(getErrorMessage(error) || 'Failed to load user');
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, applyDepartmentTabState]);
 
   const loadPermissions = useCallback(async () => {
     if (!userId) return;
@@ -325,41 +365,22 @@ export function AdminUserControlPanel({
     }
   };
 
-  const saveDepartment = async () => {
+  const saveDepartmentAndReporting = async () => {
     if (!userId) return;
     setSaving('department');
     try {
-      const updated = await usersApi.updateUserDepartment(userId, {
+      const updated = await usersApi.updateUserDepartmentDetails(userId, {
         department_id: departmentId === 'none' ? null : departmentId,
-        clear_department: departmentId === 'none',
-        designation: reportingDesignation || undefined,
-      });
-      setUser(updated);
-      toast.success('Department updated successfully');
-      await refreshAll();
-    } catch (error) {
-      toast.error(getErrorMessage(error) || 'Failed to update department');
-    } finally {
-      setSaving(null);
-    }
-  };
-
-  const saveReporting = async () => {
-    if (!userId) return;
-    setSaving('reporting');
-    try {
-      const updated = await usersApi.updateUserReporting(userId, {
-        manager_id: managerId === 'none' ? null : managerId,
         shift_id: shiftId === 'none' ? null : shiftId,
-        designation: reportingDesignation || undefined,
-        update_manager: true,
-        update_shift: true,
+        manager_id: managerId === 'none' ? null : managerId,
+        designation: reportingDesignation.trim() || null,
       });
       setUser(updated);
-      toast.success('Reporting line updated successfully');
+      applyDepartmentTabState(updated);
+      toast.success('Department and reporting details updated.');
       await refreshAll();
     } catch (error) {
-      toast.error(getErrorMessage(error) || 'Failed to update reporting');
+      toast.error(getErrorMessage(error) || 'Unable to update department details. Please try again.');
     } finally {
       setSaving(null);
     }
@@ -658,7 +679,7 @@ export function AdminUserControlPanel({
                       <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {departments.map((d) => (
+                        {departmentOptions.map((d) => (
                           <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                         ))}
                       </SelectContent>
@@ -669,10 +690,10 @@ export function AdminUserControlPanel({
                     <Select value={shiftId} onValueChange={setShiftId}>
                       <SelectTrigger><SelectValue placeholder="Select shift" /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Default</SelectItem>
-                        {shifts.map((s) => (
+                        <SelectItem value="none">None</SelectItem>
+                        {shiftOptions.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
-                            {s.name} — {s.start_time} to {s.end_time}
+                            {s.name}{s.start_time && s.end_time ? ` — ${s.start_time} to ${s.end_time}` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -685,9 +706,9 @@ export function AdminUserControlPanel({
                       <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {managers.filter((m) => m.id !== user.id).map((m) => (
+                        {managerOptions.map((m) => (
                           <SelectItem key={m.id} value={m.id}>
-                            {m.full_name} — {ROLE_LABELS[m.role]} — {m.email}
+                            {m.full_name}{m.designation ? ` — ${m.designation}` : ''}{m.email ? ` — ${m.email}` : ''}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -698,12 +719,11 @@ export function AdminUserControlPanel({
                     <Input value={reportingDesignation} onChange={(e) => setReportingDesignation(e.target.value)} />
                   </div>
                   <div className="flex flex-wrap gap-3 sm:col-span-2 pt-1">
-                    <Button onClick={saveDepartment} disabled={saving === 'department'}>
+                    <Button
+                      onClick={saveDepartmentAndReporting}
+                      disabled={saving === 'department' || !departmentTabDirty}
+                    >
                       {saving === 'department' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Department
-                    </Button>
-                    <Button onClick={saveReporting} disabled={saving === 'reporting'}>
-                      {saving === 'reporting' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                       Save Department & Reporting
                     </Button>
                   </div>

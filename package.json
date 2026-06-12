@@ -6,8 +6,21 @@
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "mobile": {
+      "react": "19.1.0",
+      "react-dom": "19.1.0"
+    },
+    "@react-navigation/core": {
+      "react": "19.1.0"
+    },
+    "@expo/metro-runtime": {
+      "react": "19.1.0"
+    }
+  },
   "scripts": {
     "dev:web": "npm --workspace apps/web run dev",
+    "dev:mobile": "npm --workspace apps/mobile run start",
     "build:web": "npm --workspace apps/web run build",
     "build": "npm run build:web",
     "start": "npm --workspace apps/web start"

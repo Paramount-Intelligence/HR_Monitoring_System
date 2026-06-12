@@ -1,0 +1,54 @@
+export const queryKeys = {
+  dashboard: ['dashboard', 'employee'] as const,
+  dashboardAdmin: ['dashboard', 'admin'] as const,
+  dashboardAdminAnalytics: ['dashboard', 'admin', 'analytics'] as const,
+  dashboardManager: ['dashboard', 'manager'] as const,
+  dashboardManagerOverview: ['dashboard', 'manager', 'overview'] as const,
+  attendanceActive: ['attendance', 'active'] as const,
+  attendanceHistory: ['attendance', 'history'] as const,
+  attendanceTeam: (params?: Record<string, string | undefined>) =>
+    ['attendance', 'team', params ?? {}] as const,
+  user: ['user', 'me'] as const,
+  users: (params?: Record<string, string | undefined>) => ['users', params ?? {}] as const,
+  userDetail: (id: string) => ['users', id] as const,
+  manageSummary: (role?: string) => ['manage', 'summary', role ?? 'unknown'] as const,
+  pendingLeaves: ['approvals', 'leaves', 'pending'] as const,
+  pendingCorrections: ['approvals', 'corrections', 'pending'] as const,
+  leaveTimeline: (id: string) => ['approvals', 'leaves', id, 'timeline'] as const,
+  conversations: ['conversations'] as const,
+  conversation: (id: string) => ['conversation', id] as const,
+  messages: (conversationId: string) => ['messages', conversationId] as const,
+  unreadCount: ['messages', 'unread-count'] as const,
+  notifications: ['notifications'] as const,
+  notificationsUnread: ['notifications', 'unread-count'] as const,
+  reportsEmployee: (params: Record<string, string>) => ['reports', 'employee', params] as const,
+  reportsTeam: (params: Record<string, string>) => ['reports', 'team', params] as const,
+  reportsWorkforce: (params: Record<string, string>, scope: string) =>
+    ['reports', 'workforce', scope, params] as const,
+  reportsAdminAnalytics: ['reports', 'admin-analytics'] as const,
+  reportsTeamAnalytics: ['reports', 'team-analytics'] as const,
+  reportsApprovalsAnalytics: ['reports', 'approvals-analytics'] as const,
+  reportsBestPerformers: ['reports', 'best-performers'] as const,
+  reportsWorkload: ['reports', 'workload-balance'] as const,
+  myLeaves: ['leaves', 'me'] as const,
+  userReport: (userId: string, params: Record<string, string>) =>
+    ['reports', 'user', userId, params] as const,
+};
+
+export const manageQueryKeys = [
+  queryKeys.manageSummary(),
+  queryKeys.pendingLeaves,
+  queryKeys.pendingCorrections,
+  queryKeys.dashboardAdmin,
+  queryKeys.dashboardManager,
+] as const;
+
+export const reportQueryKeys = [
+  ['reports'],
+  queryKeys.reportsAdminAnalytics,
+  queryKeys.reportsTeamAnalytics,
+  queryKeys.reportsApprovalsAnalytics,
+  queryKeys.reportsBestPerformers,
+  queryKeys.reportsWorkload,
+  queryKeys.myLeaves,
+] as const;

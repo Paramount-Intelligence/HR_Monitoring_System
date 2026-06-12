@@ -33,6 +33,15 @@ class UserReportingUpdate(BaseModel):
     update_shift: bool = False
 
 
+class UserDepartmentDetailsUpdate(BaseModel):
+    """Unified admin update for department tab fields."""
+
+    department_id: uuid.UUID | None = None
+    shift_id: uuid.UUID | None = None
+    manager_id: uuid.UUID | None = None
+    designation: str | None = None
+
+
 class UserAdminProfileUpdate(BaseModel):
     full_name: str | None = Field(None, min_length=1, max_length=255)
     email: EmailStr | None = None

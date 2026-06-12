@@ -135,6 +135,10 @@ class Settings(BaseSettings):
     s3_url_style: str | None = None
     s3_public_base_url: str | None = None
 
+    push_notifications_enabled: bool = True
+    expo_push_api_url: str = "https://exp.host/--/api/v2/push/send"
+    push_notification_message_preview_enabled: bool = True
+
     @model_validator(mode="after")
     def apply_storage_and_aws_aliases(self) -> "Settings":
         # Re-read env so Railway/AWS vars always win over defaults or .env placeholders
@@ -299,6 +303,25 @@ def resolve_cors_origins(settings_obj: Settings) -> list[str]:
             extra.append(origin)
     merged = [normalize_origin(o) for o in [*defaults, *extra] if o]
     return list(dict.fromkeys(merged))
+
+
+INSECURE_SECRET_DEFAULTS = frozenset({"change-me-in-env", "changeme", "secret"})
+
+
+def validate_production_settings(settings_obj: Settings) -> None:
+    """Fail fast when production is deployed with known-insecure defaults."""
+    if settings_obj.app_env == "development":
+        return
+    secret = (settings_obj.app_secret_key or "").strip()
+    if not secret or secret in INSECURE_SECRET_DEFAULTS:
+        raise RuntimeError(
+            "APP_SECRET_KEY must be set to a strong value in non-development environments."
+        )
+    bootstrap_pw = (settings_obj.bootstrap_admin_password or "").strip()
+    if bootstrap_pw in {"change-this-password", "changeme", "password"}:
+        raise RuntimeError(
+            "BOOTSTRAP_ADMIN_PASSWORD must be changed in non-development environments."
+        )
 
 
 settings = Settings()

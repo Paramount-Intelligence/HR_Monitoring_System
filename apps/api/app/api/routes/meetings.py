@@ -17,6 +17,12 @@ from app.services.realtime_service import RealtimeService
 router = APIRouter()
 
 
+def _emit_created_notifications(db: Session, notifications: list[Notification]) -> None:
+    for notif in notifications:
+        db.refresh(notif)
+        RealtimeService.emit_notification_created(notif)
+
+
 def _meeting_participant_ids(db: Session, meeting_id: uuid.UUID) -> list[uuid.UUID]:
     rows = (
         db.query(MeetingParticipant.user_id)
@@ -201,6 +207,7 @@ def create_meeting(
     invited_user_ids = set(payload.participants)
     invited_user_ids.discard(current_user.id) # Organizer already added
     
+    created_notifications: list[Notification] = []
     for uid in invited_user_ids:
         user = db.get(User, uid)
         if not user:
@@ -232,9 +239,11 @@ def create_meeting(
             is_read=False
         )
         db.add(notif)
+        created_notifications.append(notif)
         
     db.commit()
     db.refresh(meeting)
+    _emit_created_notifications(db, created_notifications)
 
     participant_ids = _meeting_participant_ids(db, meeting.id)
     RealtimeService.emit_meeting_event(
@@ -280,6 +289,7 @@ def update_meeting(
     if payload.location is not None:
         meeting.location = payload.location
         
+    created_notifications: list[Notification] = []
     # Handle participant changes if provided
     if payload.participants is not None:
         new_invited_ids = set(payload.participants)
@@ -308,6 +318,7 @@ def update_meeting(
                     is_read=False
                 )
                 db.add(notif)
+                created_notifications.append(notif)
                 
         # Add new participants
         for uid in new_invited_ids:
@@ -341,6 +352,7 @@ def update_meeting(
                     is_read=False
                 )
                 db.add(notif)
+                created_notifications.append(notif)
                 
     # Create notification for remaining unchanged participants
     remaining_parts = db.query(MeetingParticipant).filter(
@@ -359,9 +371,11 @@ def update_meeting(
             is_read=False
         )
         db.add(notif)
+        created_notifications.append(notif)
         
     db.commit()
     db.refresh(meeting)
+    _emit_created_notifications(db, created_notifications)
 
     participant_ids = _meeting_participant_ids(db, meeting.id)
     RealtimeService.emit_meeting_event(
@@ -401,6 +415,7 @@ def cancel_meeting(
         MeetingParticipant.user_id != meeting.organizer_id
     ).all()
     
+    created_notifications: list[Notification] = []
     for p in participants:
         notif = Notification(
             user_id=p.user_id,
@@ -412,9 +427,11 @@ def cancel_meeting(
             is_read=False
         )
         db.add(notif)
+        created_notifications.append(notif)
         
     db.commit()
     db.refresh(meeting)
+    _emit_created_notifications(db, created_notifications)
 
     participant_ids = _meeting_participant_ids(db, meeting.id)
     RealtimeService.emit_meeting_event(

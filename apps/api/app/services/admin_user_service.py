@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import check_permission, get_user_permissions
 from app.core.permissions import ALL_PERMISSIONS
@@ -179,6 +179,21 @@ class AdminUserService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         return user
 
+    def get_user_with_relations(self, user_id: uuid.UUID) -> User:
+        user = (
+            self.db.query(User)
+            .options(
+                joinedload(User.dept),
+                joinedload(User.shift),
+                joinedload(User.manager),
+            )
+            .filter(User.id == user_id)
+            .first()
+        )
+        if not user:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+        return user
+
     def validate_department(self, department_id: uuid.UUID | None) -> None:
         if department_id is None:
             return
@@ -331,8 +346,67 @@ class AdminUserService:
             new_value=new,
         )
         self.db.commit()
-        self.db.refresh(user)
-        return user
+        return self.get_user_with_relations(user_id)
+
+    def update_department_details(
+        self,
+        user_id: uuid.UUID,
+        *,
+        department_id: uuid.UUID | None,
+        shift_id: uuid.UUID | None,
+        manager_id: uuid.UUID | None,
+        designation: str | None,
+        actor: User,
+    ) -> User:
+        """Update department, shift, manager, and designation in one transaction."""
+        self.assert_can_manage_users(actor)
+        user = self.get_user(user_id)
+
+        if department_id is not None:
+            self.validate_department(department_id)
+        if shift_id is not None:
+            from app.models.shift import Shift
+
+            shift = self.db.get(Shift, shift_id)
+            if not shift:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Shift not found")
+        self.validate_manager(user_id, manager_id)
+
+        old = {
+            "department_id": str(user.department_id) if user.department_id else None,
+            "shift_id": str(user.shift_id) if user.shift_id else None,
+            "manager_id": str(user.manager_id) if user.manager_id else None,
+            "designation": user.designation,
+        }
+
+        if department_id is not None:
+            dept = self.db.get(Department, department_id)
+            user.department_id = department_id
+            user.department = dept.name if dept else user.department
+        else:
+            user.department_id = None
+            user.department = None
+
+        user.shift_id = shift_id
+        user.manager_id = manager_id
+        if designation is not None:
+            user.designation = designation.strip() or None
+
+        new = {
+            "department_id": str(user.department_id) if user.department_id else None,
+            "shift_id": str(user.shift_id) if user.shift_id else None,
+            "manager_id": str(user.manager_id) if user.manager_id else None,
+            "designation": user.designation,
+        }
+        self.write_audit(
+            actor=actor,
+            target_id=user.id,
+            action="user.department_details_changed",
+            old_value=old,
+            new_value=new,
+        )
+        self.db.commit()
+        return self.get_user_with_relations(user_id)
 
     def update_status(self, user_id: uuid.UUID, new_status: UserStatus, actor: User) -> User:
         self.assert_can_manage_users(actor)
@@ -355,8 +429,7 @@ class AdminUserService:
             new_value={"status": new_status.value},
         )
         self.db.commit()
-        self.db.refresh(user)
-        return user
+        return self.get_user_with_relations(user_id)
 
     def update_reporting(
         self,
@@ -408,8 +481,7 @@ class AdminUserService:
             new_value=new,
         )
         self.db.commit()
-        self.db.refresh(user)
-        return user
+        return self.get_user_with_relations(user_id)
 
     def update_profile(
         self,

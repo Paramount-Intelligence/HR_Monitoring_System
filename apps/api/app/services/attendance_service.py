@@ -484,6 +484,10 @@ class AttendanceService:
                 )
                 self.db.add(notif)
                 self.db.commit()
+                self.db.refresh(notif)
+                from app.services.realtime_service import RealtimeService
+
+                RealtimeService.emit_notification_created(notif)
 
     def _get_active_session(self, user_id: uuid.UUID) -> AttendanceSession | None:
         self._check_and_auto_close_stale_sessions(user_id)

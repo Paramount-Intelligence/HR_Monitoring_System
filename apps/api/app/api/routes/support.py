@@ -15,8 +15,15 @@ from app.schemas.support import (
     SupportTicketRead,
     SupportTicketCommentCreate,
 )
+from app.services.realtime_service import RealtimeService
 
 router = APIRouter()
+
+
+def _emit_created_notifications(db: Session, notifications: list[Notification]) -> None:
+    for notif in notifications:
+        db.refresh(notif)
+        RealtimeService.emit_notification_created(notif)
 
 
 @router.get("/tickets", response_model=list[SupportTicketRead])
@@ -61,6 +68,7 @@ def create_ticket(
         User.status == "active"
     ).all()
     
+    created_notifications: list[Notification] = []
     for staff in support_staff:
         # Avoid self-notification if admin is creating a ticket
         if staff.id == current_user.id:
@@ -76,9 +84,11 @@ def create_ticket(
             is_read=False
         )
         db.add(notif)
+        created_notifications.append(notif)
         
     db.commit()
     db.refresh(ticket)
+    _emit_created_notifications(db, created_notifications)
     return ticket
 
 
@@ -140,6 +150,7 @@ def update_ticket(
     if payload.priority is not None and is_staff:
         ticket.priority = payload.priority
         
+    created_notifications: list[Notification] = []
     if payload.assigned_to_id is not None and is_staff:
         # Verify assigned user exists and is active admin/hr
         assignee = db.get(User, payload.assigned_to_id)
@@ -162,6 +173,7 @@ def update_ticket(
                 is_read=False
             )
             db.add(notif)
+            created_notifications.append(notif)
             
     # Notify creator if ticket status changed by support staff
     if payload.status is not None and is_staff and ticket.created_by_id != current_user.id:
@@ -175,9 +187,11 @@ def update_ticket(
             is_read=False
         )
         db.add(notif)
+        created_notifications.append(notif)
         
     db.commit()
     db.refresh(ticket)
+    _emit_created_notifications(db, created_notifications)
     return ticket
 
 
@@ -210,6 +224,7 @@ def add_ticket_comment(
     )
     db.add(comment)
     
+    created_notifications: list[Notification] = []
     # Notify ticket participants
     if is_staff:
         # Support agent commented -> notify creator
@@ -224,6 +239,7 @@ def add_ticket_comment(
                 is_read=False
             )
             db.add(notif)
+            created_notifications.append(notif)
     else:
         # Ticket creator commented -> notify assigned agent or global support team
         targets = []
@@ -250,7 +266,9 @@ def add_ticket_comment(
                 is_read=False
             )
             db.add(notif)
+            created_notifications.append(notif)
             
     db.commit()
     db.refresh(ticket)
+    _emit_created_notifications(db, created_notifications)
     return ticket

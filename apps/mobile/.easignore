@@ -1,0 +1,15 @@
+# EAS upload exclusions for apps/mobile.
+# Never exclude app/, src/, app.config.ts, or package.json.
+
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+*.md
+!README.md
+google-service-account.json
+*.keystore
+credentials.json
+.env*.local

@@ -10,6 +10,7 @@ from app.db.session import SessionLocal
 from app.models.meetings import Meeting, MeetingParticipant
 from app.models.notifications import Notification
 from app.models.enums import NotificationType
+from app.services.realtime_service import RealtimeService
 
 @celery_app.task(name="app.tasks.meetings.send_meeting_reminders")
 def send_meeting_reminders(db: Session | None = None):
@@ -38,6 +39,7 @@ def send_meeting_reminders(db: Session | None = None):
             return "No meeting reminders to send."
             
         reminders_sent = 0
+        created_notifications: list[Notification] = []
         for part in participants_to_notify:
             meeting = part.meeting
             
@@ -52,12 +54,16 @@ def send_meeting_reminders(db: Session | None = None):
                 is_read=False
             )
             db.add(notif)
+            created_notifications.append(notif)
             
             # Mark reminder as sent
             part.reminder_sent_at = now
             reminders_sent += 1
             
         db.commit()
+        for notif in created_notifications:
+            db.refresh(notif)
+            RealtimeService.emit_notification_created(notif)
         return f"Sent meeting reminders to {reminders_sent} participants."
     finally:
         if should_close:

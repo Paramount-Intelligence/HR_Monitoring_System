@@ -1,6 +1,7 @@
 """Realtime event builder and dispatcher."""
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
@@ -12,6 +13,8 @@ from app.models.notifications import Notification
 from app.models.user import User
 from app.schemas.realtime import RealtimeEvent
 from app.services.realtime_bridge import schedule_emit_to_user, schedule_emit_to_users
+
+logger = logging.getLogger(__name__)
 
 
 class RealtimeService:
@@ -115,6 +118,13 @@ class RealtimeService:
                 {"user_id": str(notif.user_id)},
             ),
         )
+
+        try:
+            from app.services.push_notification_service import PushNotificationService
+
+            PushNotificationService.schedule_send_for_notification(notif)
+        except Exception:
+            logger.exception("[PUSH] schedule_failed notification_id=%s", notif.id)
 
     @staticmethod
     def emit_notification_read(user_id: uuid.UUID, notification_id: uuid.UUID) -> None:

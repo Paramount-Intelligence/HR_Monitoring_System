@@ -113,6 +113,19 @@ export const usersApi = {
     return response.data;
   },
 
+  updateUserDepartmentDetails: async (
+    userId: string,
+    payload: {
+      department_id?: string | null;
+      shift_id?: string | null;
+      manager_id?: string | null;
+      designation?: string | null;
+    }
+  ) => {
+    const response = await apiClient.patch<User>(`/users/${userId}/department-details`, payload);
+    return response.data;
+  },
+
   updateUserStatus: async (userId: string, status: string) => {
     const response = await apiClient.patch<User>(`/users/${userId}/status`, { status });
     return response.data;

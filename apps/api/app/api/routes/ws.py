@@ -40,11 +40,10 @@ def _authenticate_websocket_user(token: str | None, db: Session) -> tuple[User |
 
     token_type = payload.get("type")
     if token_type != "access":
-        logger.warning("[WS_AUTH] rejected reason=wrong_token_type type=%s", token_type)
+        logger.warning("[WS_AUTH] rejected reason=wrong_token_type")
         return None, "wrong_token_type"
 
     user_id_raw = payload.get("sub")
-    logger.info("[WS_AUTH] decoded sub=%s", user_id_raw)
     if not user_id_raw:
         logger.warning("[WS_AUTH] rejected reason=missing_sub")
         return None, "missing_sub"
@@ -56,17 +55,15 @@ def _authenticate_websocket_user(token: str | None, db: Session) -> tuple[User |
         return None, "invalid_sub"
 
     user = db.get(User, user_uuid)
-    logger.info("[WS_AUTH] user found=%s", user is not None)
     if not user:
         logger.warning("[WS_AUTH] rejected reason=user_not_found")
         return None, "user_not_found"
 
     role_value = user.role.value if hasattr(user.role, "value") else str(user.role)
     logger.info("[WS_AUTH] role=%s", role_value)
-    logger.info("[WS_AUTH] user active=%s", user.status == UserStatus.ACTIVE)
 
     if user.status in (UserStatus.INACTIVE, UserStatus.SUSPENDED):
-        logger.warning("[WS_AUTH] rejected reason=inactive_user status=%s", user.status.value)
+        logger.warning("[WS_AUTH] rejected reason=inactive_user")
         return None, "inactive_user"
 
     return user, None
@@ -90,6 +87,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             user_id=str(user.id),
             role=user.role.value,
         )
+        logger.info("[WS] user connected user_id=%s", user.id)
 
         connected = RealtimeService.event(
             "connected",
