@@ -69,4 +69,14 @@ class User(Base, TimestampMixin):
 
     @property
     def department_name(self) -> str | None:
-        return self.dept.name if self.dept else self.department
+        if self.dept:
+            return self.dept.name
+        if self.department:
+            value = self.department.strip()
+            # Legacy rows may store a UUID in the text column — never expose as a display name.
+            try:
+                uuid.UUID(value)
+                return None
+            except ValueError:
+                return value
+        return None

@@ -18,12 +18,16 @@ import {
   STATUS_OPTIONS,
 } from '@/lib/admin-users/constants';
 import {
-  buildDepartmentOptions,
-  buildManagerOptions,
-  buildShiftOptions,
+  buildDepartmentSelectOptions,
+  buildManagerSelectOptions,
+  buildShiftSelectOptions,
   getDepartmentTabState,
   isDepartmentTabDirty,
 } from '@/lib/admin-users/department-form';
+import {
+  getUserDepartmentDisplay,
+  resolveOptionLabel,
+} from '@/lib/display-labels';
 import { getProfilePictureUrl } from '@/lib/profile-picture';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
@@ -158,19 +162,34 @@ export function AdminUserControlPanel({
     [users]
   );
 
-  const departmentOptions = useMemo(
-    () => buildDepartmentOptions(user, departments),
-    [user, departments]
+  const departmentSelectOptions = useMemo(
+    () => buildDepartmentSelectOptions(departments, user, departmentId),
+    [departments, user, departmentId]
   );
 
-  const shiftOptions = useMemo(
-    () => buildShiftOptions(user, shifts),
-    [user, shifts]
+  const shiftSelectOptions = useMemo(
+    () => buildShiftSelectOptions(shifts, user, shiftId),
+    [shifts, user, shiftId]
   );
 
-  const managerOptions = useMemo(
-    () => buildManagerOptions(user, managers.filter((m) => m.id !== user?.id)),
-    [user, managers]
+  const managerSelectOptions = useMemo(
+    () => buildManagerSelectOptions(managers, users, user, managerId),
+    [managers, users, user, managerId]
+  );
+
+  const selectedDepartmentLabel = useMemo(
+    () => resolveOptionLabel(departmentSelectOptions, departmentId, 'No department'),
+    [departmentSelectOptions, departmentId]
+  );
+
+  const selectedShiftLabel = useMemo(
+    () => resolveOptionLabel(shiftSelectOptions, shiftId, 'None'),
+    [shiftSelectOptions, shiftId]
+  );
+
+  const selectedManagerLabel = useMemo(
+    () => resolveOptionLabel(managerSelectOptions, managerId, 'None'),
+    [managerSelectOptions, managerId]
   );
 
   const departmentTabDirty = useMemo(() => {
@@ -522,7 +541,7 @@ export function AdminUserControlPanel({
                       <Badge variant="outline" className={ROLE_BADGE_COLORS[user.role]}>
                         {ROLE_LABELS[user.role] || user.role}
                       </Badge>
-                      <Badge variant="outline">{user.department_name || user.department || 'No department'}</Badge>
+                      <Badge variant="outline">{getUserDepartmentDisplay(user)}</Badge>
                       <Badge variant="outline" className="capitalize">{user.status}</Badge>
                     </div>
                     {user.designation && (
@@ -676,11 +695,19 @@ export function AdminUserControlPanel({
                   <div className="space-y-2">
                     <Label>Department</Label>
                     <Select value={departmentId} onValueChange={setDepartmentId}>
-                      <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+                      <SelectTrigger className="w-full">
+                        <span className="flex flex-1 truncate text-left">
+                          {departments.length === 0 && departmentId !== 'none'
+                            ? 'Loading departments...'
+                            : selectedDepartmentLabel}
+                        </span>
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {departmentOptions.map((d) => (
-                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        {departmentSelectOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -688,12 +715,18 @@ export function AdminUserControlPanel({
                   <div className="space-y-2">
                     <Label>Work Shift</Label>
                     <Select value={shiftId} onValueChange={setShiftId}>
-                      <SelectTrigger><SelectValue placeholder="Select shift" /></SelectTrigger>
+                      <SelectTrigger className="w-full">
+                        <span className="flex flex-1 truncate text-left">
+                          {shifts.length === 0 && shiftId !== 'none'
+                            ? 'Loading shifts...'
+                            : selectedShiftLabel}
+                        </span>
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {shiftOptions.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}{s.start_time && s.end_time ? ` — ${s.start_time} to ${s.end_time}` : ''}
+                        {shiftSelectOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -703,12 +736,18 @@ export function AdminUserControlPanel({
                   <div className="space-y-2 sm:col-span-2 pt-2 border-t border-[var(--border-subtle)]">
                     <Label>Reporting Manager</Label>
                     <Select value={managerId} onValueChange={setManagerId}>
-                      <SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger>
+                      <SelectTrigger className="w-full">
+                        <span className="flex flex-1 truncate text-left">
+                          {users.length === 0 && managerId !== 'none'
+                            ? 'Loading managers...'
+                            : selectedManagerLabel}
+                        </span>
+                      </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">None</SelectItem>
-                        {managerOptions.map((m) => (
-                          <SelectItem key={m.id} value={m.id}>
-                            {m.full_name}{m.designation ? ` — ${m.designation}` : ''}{m.email ? ` — ${m.email}` : ''}
+                        {managerSelectOptions.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
