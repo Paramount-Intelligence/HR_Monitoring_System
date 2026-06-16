@@ -10,7 +10,7 @@ import {
 } from '../utils/role';
 
 /** Bump when shipping a new mobile feature phase bundle. */
-export const FEATURE_SET_VERSION = 'mobile-phase-19';
+export const FEATURE_SET_VERSION = 'mobile-stitch-v2';
 
 /** Features that are implemented in source (not placeholders). */
 export const FEATURE_IMPLEMENTATION = {

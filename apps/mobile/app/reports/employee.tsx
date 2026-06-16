@@ -38,7 +38,6 @@ export default function EmployeeReportScreen() {
   return (
     <Screen scroll={false}>
       <ManageScreenHeader title="My Attendance Report" subtitle={range.label} showBack />
-      <ReportDateRangePicker selected={preset} onSelect={setPreset} />
       {reportQuery.isLoading ? <LoadingState message="Loading report…" /> : null}
       {reportQuery.isError ? (
         <ErrorState
@@ -50,12 +49,17 @@ export default function EmployeeReportScreen() {
           onRetry={() => void reportQuery.refetch()}
         />
       ) : null}
-      {report ? (
+      {!reportQuery.isLoading && !reportQuery.isError ? (
         <ScrollView
           refreshControl={
             <RefreshControl refreshing={reportQuery.isRefetching} onRefresh={() => void reportQuery.refetch()} />
           }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
+          <ReportDateRangePicker selected={preset} onSelect={setPreset} />
+          {report ? (
+            <>
           <ReportMetricGrid>
             <ReportSummaryCard title="Total Hours" value={`${report.total_hours.toFixed(1)}h`} accentColor={colors.primary} />
             <ReportSummaryCard title="Avg / Day" value={`${(report.total_hours / Math.max(workingDaysEstimate, 1)).toFixed(1)}h`} accentColor={colors.success} />
@@ -79,14 +83,20 @@ export default function EmployeeReportScreen() {
               {report.start_date} → {report.end_date}
             </Text>
           </View>
+            </>
+          ) : (
+            <ReportEmptyState />
+          )}
         </ScrollView>
       ) : null}
-      {!reportQuery.isLoading && !reportQuery.isError && !report ? <ReportEmptyState /> : null}
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxl,
+  },
   noteCard: {
     backgroundColor: colors.card,
     borderRadius: 16,

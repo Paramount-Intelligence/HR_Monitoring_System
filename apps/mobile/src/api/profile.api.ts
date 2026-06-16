@@ -23,9 +23,8 @@ export async function uploadProfilePicture(asset: ProfilePictureAsset): Promise<
   const { data } = await apiClient.patch<User>('/users/me/profile-picture', formData, {
     headers: {
       Accept: 'application/json',
-      'Content-Type': 'multipart/form-data',
     },
-    transformRequest: (body) => body,
+    timeout: 90000,
   });
 
   return data;

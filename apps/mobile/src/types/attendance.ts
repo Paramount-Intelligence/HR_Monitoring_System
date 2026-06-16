@@ -69,3 +69,9 @@ export interface CheckOutPayload {
 export type CheckoutModalType = 'early' | 'overtime' | null;
 
 export type AfterShiftCheckoutReason = 'overtime' | 'forgot_checkout';
+
+export interface CorrectionRequestPayload {
+  requested_check_in_at?: string;
+  requested_check_out_at?: string;
+  reason: string;
+}

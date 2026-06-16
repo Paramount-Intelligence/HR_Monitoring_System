@@ -4,6 +4,7 @@ import type {
   LeaveRequest,
   LeaveRequestCreatePayload,
   LeaveRequestResolvePayload,
+  ApprovalTimelineEntry,
 } from '../types/approvals';
 
 export async function getMyLeaveRequests(): Promise<LeaveRequest[]> {
@@ -13,6 +14,11 @@ export async function getMyLeaveRequests(): Promise<LeaveRequest[]> {
 
 export async function submitLeaveRequest(payload: LeaveRequestCreatePayload): Promise<LeaveRequest> {
   const { data } = await apiClient.post<LeaveRequest>('/leaves', payload);
+  return data;
+}
+
+export async function getLeaveTimeline(requestId: string): Promise<ApprovalTimelineEntry[]> {
+  const { data } = await apiClient.get<ApprovalTimelineEntry[]>(`/leaves/${requestId}/timeline`);
   return data;
 }
 

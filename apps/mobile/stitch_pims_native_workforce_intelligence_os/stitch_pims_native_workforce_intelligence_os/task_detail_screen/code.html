@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>PIMS Intelligence - Task Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+        .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+        
+        /* Subtle intelligence scanline effect */
+        .scanline-overlay::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(to bottom, transparent 50%, rgba(200,210,230,0.05) 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+            opacity: 0.5;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md min-h-screen pt-safe flex flex-col relative overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+<!-- Note: TopAppBar suppressed due to Task intent with Back action. BottomNavBar suppressed. -->
+<!-- Custom Task Header -->
+<header class="fixed top-0 left-0 w-full z-40 bg-surface/90 backdrop-blur-md shadow-sm h-14 flex items-center px-grid-margin pt-safe transition-transform duration-300" id="task-header">
+<button aria-label="Go Back" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high active:scale-95 transition-all text-on-surface">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">arrow_back</span>
+</button>
+<div class="flex-1 text-center truncate px-4">
+<h1 class="font-headline-md text-headline-md text-on-surface truncate">Task Details</h1>
+</div>
+<button aria-label="Task Actions" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high active:scale-95 transition-all text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">more_vert</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto px-grid-margin pt-20 pb-32 space-y-stack-md w-full max-w-3xl mx-auto scanline-overlay">
+<!-- Task Identity & Status Bento -->
+<section class="glass-card rounded-xl p-stack-md relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-info"></div>
+<div class="flex justify-between items-start mb-stack-sm">
+<div class="flex items-center gap-2">
+<span class="bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm px-2 py-1 rounded-md">PRJ-842</span>
+<span class="bg-blue-50 text-status-info font-label-sm text-label-sm px-2 py-1 rounded-md border border-blue-100 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">sync</span>
+                        In Progress
+                    </span>
+</div>
+<div class="flex items-center gap-1 bg-red-50 text-status-error font-label-sm text-label-sm px-2 py-1 rounded-md border border-red-100">
+<span class="material-symbols-outlined text-[14px] font-bold">priority_high</span>
+                    High
+                </div>
+</div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-2 leading-tight">Implement Real-time Sync Protocol for Sensor Grid</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-stack-md">Sector 7 Structural Monitoring Upgrade</p>
+<div class="grid grid-cols-2 gap-gutter bg-surface-container-low rounded-lg p-3">
+<div>
+<p class="font-label-sm text-label-sm text-secondary mb-1">DUE DATE</p>
+<p class="font-body-md text-body-md text-on-surface flex items-center gap-1 font-semibold">
+<span class="material-symbols-outlined text-[16px] text-status-warning">schedule</span>
+                        Oct 24, 17:00
+                    </p>
+</div>
+<div>
+<p class="font-label-sm text-label-sm text-secondary mb-1">LOGGED TIME</p>
+<p class="font-body-md text-body-md text-on-surface flex items-center gap-1 font-semibold">
+<span class="material-symbols-outlined text-[16px] text-primary">timer</span>
+                        4h 30m
+                    </p>
+</div>
+</div>
+</section>
+<!-- Description & Assignments -->
+<section class="glass-card rounded-xl p-stack-md">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">description</span>
+                Description
+            </h3>
+<p class="font-body-md text-body-md text-on-surface-variant mb-stack-md leading-relaxed">
+                Establish WebSocket connections for the new sensor grid deployed in Sector 7. Ensure failover mechanisms are in place if the primary relay drops. Telemetry data needs to be parsed and injected into the main datastore within 200ms latency.
+            </p>
+<hr class="border-outline-variant/30 my-stack-sm"/>
+<div class="flex items-center justify-between py-2">
+<div>
+<p class="font-label-sm text-label-sm text-secondary mb-1">ASSIGNEE</p>
+<div class="flex items-center gap-2">
+<img alt="Profile" class="w-8 h-8 rounded-full border border-outline-variant/50" data-alt="A professional headshot of a female engineer in her 30s with short dark hair, wearing a dark blue corporate polo shirt. The background is a clean, bright minimalist office environment with soft, diffused white lighting. The image conveys operational competence and reliability, fitting perfectly into a modern corporate intelligence dashboard. Colors are natural with high clarity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDIICpx3WLZTtivH_PdtUB_C_sNqbTY7kafWZIHlqTu20WqGZrcfqg7z1XesQWliTfgXpnlX_qTaqUxA5qklvAEQLi0h1uPUmYk_wA5eGPLa47YOUQjQQvTAqWXBu6dLy2vNUBPp09BxhdsLETWxvK2rH7dpxlaXjaJZjmXxndvrnh33VYdCP3a-D-uhFDvjVXvvRhRNBIrwQ2PPmtWn5je8hhkWLLYrRNHrSjd-T0jUI1LtQgV6JPV5fEm3fpdgSJ5GZyKtq4Po4c"/>
+<span class="font-body-md text-body-md text-on-surface font-semibold">Sarah Jenkins</span>
+</div>
+</div>
+<button aria-label="Message Sarah" class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary hover:bg-primary-container/20 transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">chat</span>
+</button>
+</div>
+<div class="flex items-center justify-between py-2 mt-2">
+<div>
+<p class="font-label-sm text-label-sm text-secondary mb-1">ASSIGNED BY</p>
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center text-on-surface-variant font-label-sm text-label-sm border border-outline-variant/50">
+                            MR
+                        </div>
+<span class="font-body-md text-body-md text-on-surface">Marcus Reed</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Subtasks Checklist -->
+<section class="glass-card rounded-xl p-stack-md">
+<div class="flex justify-between items-center mb-stack-sm">
+<h3 class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">checklist</span>
+                    Subtasks
+                </h3>
+<span class="font-label-sm text-label-sm bg-surface-container-high px-2 py-1 rounded-md text-on-surface-variant">2/4 Done</span>
+</div>
+<div class="space-y-1">
+<!-- Task 1 -->
+<label class="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="mt-0.5 relative flex items-center justify-center w-5 h-5">
+<input checked="" class="peer appearance-none w-5 h-5 border-2 border-primary rounded bg-primary checked:bg-primary transition-all" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-on-primary text-[16px] pointer-events-none opacity-0 peer-checked:opacity-100" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant line-through opacity-70 group-hover:opacity-100 transition-opacity">Configure wss:// endpoint on relay nodes</span>
+</label>
+<!-- Task 2 -->
+<label class="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="mt-0.5 relative flex items-center justify-center w-5 h-5">
+<input checked="" class="peer appearance-none w-5 h-5 border-2 border-primary rounded bg-primary checked:bg-primary transition-all" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-on-primary text-[16px] pointer-events-none opacity-0 peer-checked:opacity-100" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface-variant line-through opacity-70 group-hover:opacity-100 transition-opacity">Update auth token parser for new payload spec</span>
+</label>
+<!-- Task 3 -->
+<label class="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="mt-0.5 relative flex items-center justify-center w-5 h-5">
+<input class="peer appearance-none w-5 h-5 border-2 border-outline rounded bg-surface checked:bg-primary checked:border-primary transition-all" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-on-primary text-[16px] pointer-events-none opacity-0 peer-checked:opacity-100" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface">Implement reconnection backoff logic</span>
+</label>
+<!-- Task 4 -->
+<label class="flex items-start gap-3 p-2 rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer group">
+<div class="mt-0.5 relative flex items-center justify-center w-5 h-5">
+<input class="peer appearance-none w-5 h-5 border-2 border-outline rounded bg-surface checked:bg-primary checked:border-primary transition-all" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-on-primary text-[16px] pointer-events-none opacity-0 peer-checked:opacity-100" style="font-variation-settings: 'FILL' 1;">check</span>
+</div>
+<span class="font-body-md text-body-md text-on-surface">Unit test telemetry parsing under load</span>
+</label>
+</div>
+</section>
+<!-- Attachments -->
+<section class="glass-card rounded-xl p-stack-md">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">attachment</span>
+                Attachments
+            </h3>
+<div class="grid grid-cols-2 gap-3">
+<div class="border border-outline-variant/50 rounded-lg p-2 flex items-center gap-3 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-10 h-10 rounded bg-red-100 flex items-center justify-center text-status-error shrink-0">
+<span class="material-symbols-outlined">picture_as_pdf</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-sm text-label-sm text-on-surface truncate">Sensor_Specs_v2.pdf</p>
+<p class="font-caption text-caption text-secondary">2.4 MB</p>
+</div>
+</div>
+<div class="border border-outline-variant/50 rounded-lg p-2 flex items-center gap-3 hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="w-10 h-10 rounded bg-blue-100 flex items-center justify-center text-status-info shrink-0">
+<span class="material-symbols-outlined">image</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-sm text-label-sm text-on-surface truncate">arch_diagram.png</p>
+<p class="font-caption text-caption text-secondary">856 KB</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Activity Timeline -->
+<section class="glass-card rounded-xl p-stack-md">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-stack-sm flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">history</span>
+                Activity
+            </h3>
+<div class="relative border-l-2 border-surface-variant ml-3 space-y-6 mt-4">
+<!-- Activity Item -->
+<div class="relative pl-6">
+<div class="absolute w-4 h-4 bg-primary rounded-full -left-[9px] top-1 border-2 border-surface shadow-sm"></div>
+<div class="bg-surface-container-low rounded-lg p-3 border border-outline-variant/30">
+<div class="flex justify-between items-start mb-1">
+<span class="font-label-sm text-label-sm text-on-surface font-semibold">Sarah Jenkins</span>
+<span class="font-caption text-caption text-secondary">2 hours ago</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">Completed subtasks 1 &amp; 2. Node relay endpoints are responding correctly.</p>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="relative pl-6">
+<div class="absolute w-4 h-4 bg-status-info rounded-full -left-[9px] top-1 border-2 border-surface shadow-sm"></div>
+<div class="flex justify-between items-center">
+<p class="font-body-md text-body-md text-on-surface">Status changed to <span class="font-semibold">In Progress</span></p>
+<span class="font-caption text-caption text-secondary">Yesterday, 09:15</span>
+</div>
+</div>
+<!-- Activity Item -->
+<div class="relative pl-6">
+<div class="absolute w-4 h-4 bg-outline-variant rounded-full -left-[9px] top-1 border-2 border-surface shadow-sm"></div>
+<div class="flex justify-between items-center">
+<p class="font-body-md text-body-md text-on-surface">Task created by <span class="font-semibold">Marcus Reed</span></p>
+<span class="font-caption text-caption text-secondary">Oct 20, 14:30</span>
+</div>
+</div>
+</div>
+<!-- Comment Input -->
+<div class="mt-stack-md flex gap-2 items-center">
+<img alt="Your Profile" class="w-8 h-8 rounded-full border border-outline-variant/50" data-alt="Small circular avatar profile picture of a woman, matching the previous Sarah Jenkins persona. High quality, corporate lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuATKAE8bEFeC46av7IianGlCYORoMlYPNdnEM4Fbv8YU8HlGpwQNVUzVrLTJ6_KxrYO_F4frplyaYMbuIyXILm8Ib48P4HaC4_3iB5xPofn5zCe-rgvtR4dQKU6b4hBni0rmO7aKG71iAe-9TO9vTzUr7ozF3d99sqODeEHtCxRi_0R5rBS5G7khRTe_Jft2xgMmAHD_hgGrJCTnI2NBUSKy8NDtIegQsPc-OUo0H0wYfuUgJUQhThN5xOHVeJZLIp25vgsugvPPIw"/>
+<div class="flex-1 relative">
+<input class="w-full bg-surface-container-low border border-outline-variant/50 rounded-full py-2 pl-4 pr-10 font-body-md text-body-md text-on-surface placeholder:text-secondary focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Add a comment..." type="text"/>
+<button class="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-primary rounded-full hover:bg-primary-container/20">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1; font-size: 20px;">send</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Action Area (Status Update) -->
+<div class="fixed bottom-0 left-0 w-full bg-surface/95 backdrop-blur-lg border-t border-outline-variant/20 p-4 pb-safe z-50 shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
+<div class="max-w-3xl mx-auto flex gap-3">
+<button class="flex-1 bg-surface-container-high text-on-surface font-label-sm text-label-sm py-3 rounded-xl border border-outline-variant/50 hover:bg-surface-variant active:scale-95 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+                Pause
+            </button>
+<button class="flex-[2] bg-primary text-on-primary font-label-sm text-label-sm py-3 rounded-xl shadow-md hover:bg-on-primary-fixed-variant active:scale-95 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                Mark Completed
+            </button>
+</div>
+</div>
+<script>
+        // Simple header shrink on scroll effect
+        const header = document.getElementById('task-header');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 10) {
+                header.classList.add('shadow-md', 'bg-surface/95');
+                header.classList.remove('shadow-sm', 'bg-surface/90');
+            } else {
+                header.classList.remove('shadow-md', 'bg-surface/95');
+                header.classList.add('shadow-sm', 'bg-surface/90');
+            }
+        });
+    </script>
+</body></html>

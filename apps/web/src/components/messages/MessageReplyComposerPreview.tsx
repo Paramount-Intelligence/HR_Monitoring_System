@@ -2,6 +2,7 @@
 
 import { X } from 'lucide-react';
 import type { Message, ReplyPreview } from '@/lib/api/messages';
+import { getMessagePreviewText } from '@/components/messages/messages-utils';
 import { cn } from '@/lib/utils';
 
 interface MessageReplyComposerPreviewProps {
@@ -28,8 +29,7 @@ function getPreviewContent(target: Message | ReplyPreview): {
         unavailable: true,
       };
     }
-    const attachment = msg.attachments?.[0]?.original_file_name;
-    const preview = msg.body?.trim() || attachment || 'Attachment';
+    const preview = getMessagePreviewText(msg);
     return { senderName: msg.sender.full_name, preview, unavailable: false };
   }
 

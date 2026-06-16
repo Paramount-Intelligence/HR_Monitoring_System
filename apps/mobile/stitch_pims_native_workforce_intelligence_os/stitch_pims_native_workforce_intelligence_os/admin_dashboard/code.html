@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PIMS - Admin Dashboard</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Config -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: theme('colors.background-alt');
+            color: theme('colors.on-background');
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid theme('colors.outline-variant' / 0.3);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        }
+        
+        .intelligence-card {
+            background: theme('colors.surface-container-lowest');
+            border-radius: theme('borderRadius.lg');
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid theme('colors.outline-variant' / 0.2);
+        }
+        
+        .intelligence-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+        }
+        
+        .card-accent-primary::before { background-color: theme('colors.primary'); }
+        .card-accent-success::before { background-color: theme('colors.status-success'); }
+        .card-accent-warning::before { background-color: theme('colors.status-warning'); }
+        .card-accent-error::before { background-color: theme('colors.status-error'); }
+        
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-grid-margin h-14 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold overflow-hidden border border-primary/20">
+<img alt="Admin Avatar" class="w-full h-full object-cover" data-alt="A professional corporate headshot of a mature executive in a well-lit modern office. The lighting is soft and flattering, highlighting a confident, trustworthy expression. The background is slightly blurred to keep focus on the subject." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnvZOe34w4xf9NAyr0EoG0AQ3_SvvnCm4Kp8wg7F1DCGSXycOBHOss_tBvpSSFhbfWHXKtT9FyT53YMGse4cBSrH3YhyqwgDkdkpimiLwWXOwnG9W6xvWtH1h3EvkgU0-V3z0OZMzFc_kY6I5HjaBdO8um6rKw8aECCP8uRvs05599G54ZDamieQrsbLpWE5Re-8_AfdxGwh0aB45zASP0v5LbQNNEFB6xu6X69PMkK8RcVkuY-yg75PsQxz6Lg14_shHmcOuouWo"/>
+</div>
+<div>
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed leading-tight tracking-tight">PIMS Intelligence</h1>
+<p class="text-[10px] font-label-sm text-on-surface-variant uppercase tracking-widest leading-none mt-0.5">Admin Control Center</p>
+</div>
+</div>
+<button class="relative p-2 text-on-surface-variant hover:bg-surface-container-high transition-colors rounded-full active:scale-95 duration-100">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-4 h-4 bg-status-error text-white text-[9px] font-bold rounded-full flex items-center justify-center border-2 border-surface-container-lowest">3</span>
+</button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 px-grid-margin flex flex-col gap-stack-lg max-w-3xl mx-auto">
+<!-- Welcome Section -->
+<section class="flex flex-col gap-1">
+<h2 class="text-headline-lg-mobile font-headline-lg-mobile text-on-background">Good Morning, Admin</h2>
+<p class="text-body-md font-body-md text-secondary">System is operational. Showing today's workforce overview.</p>
+</section>
+<!-- KPI Grid - Bento Style -->
+<section class="grid grid-cols-2 gap-gutter">
+<!-- Total Employees -->
+<div class="intelligence-card card-accent-primary p-4 col-span-2 sm:col-span-1 flex flex-col justify-between min-h-[100px]">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-label-sm font-label-sm text-secondary uppercase">Total Workforce</h3>
+<span class="material-symbols-outlined text-primary/60 text-[20px]" data-icon="groups">groups</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-lg font-headline-lg text-on-background">1,248</span>
+<span class="text-caption font-caption text-status-success flex items-center bg-status-success/10 px-1.5 py-0.5 rounded">
+<span class="material-symbols-outlined text-[12px] mr-0.5" data-icon="trending_up">trending_up</span> +12
+                    </span>
+</div>
+</div>
+<!-- Active Now -->
+<div class="intelligence-card card-accent-success p-4 col-span-1 flex flex-col justify-between min-h-[100px]">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-label-sm font-label-sm text-secondary uppercase">Active Now</h3>
+<span class="material-symbols-outlined text-status-success/60 text-[20px]" data-icon="bolt">bolt</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-headline-md font-headline-md text-on-background">986</span>
+</div>
+<div class="w-full bg-surface-container-high h-1.5 rounded-full mt-2 overflow-hidden">
+<div class="bg-status-success h-full" style="width: 79%"></div>
+</div>
+</div>
+<!-- Absent/Late -->
+<div class="intelligence-card card-accent-error p-4 col-span-1 flex flex-col justify-between min-h-[100px]">
+<div class="flex justify-between items-start mb-2">
+<h3 class="text-label-sm font-label-sm text-secondary uppercase">Alerts</h3>
+<span class="material-symbols-outlined text-status-error/60 text-[20px]" data-icon="warning">warning</span>
+</div>
+<div class="flex flex-col gap-1 mt-1">
+<div class="flex justify-between items-center text-body-md font-body-md">
+<span class="text-secondary">Absent</span>
+<span class="font-semibold text-status-error">24</span>
+</div>
+<div class="flex justify-between items-center text-body-md font-body-md">
+<span class="text-secondary">Late</span>
+<span class="font-semibold text-status-warning">18</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Project & Task Health -->
+<section class="flex flex-col gap-stack-sm">
+<h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider pl-1">Operations Health</h3>
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-1 flex flex-col shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
+<!-- Projects Row -->
+<div class="p-3 flex items-center justify-between border-b border-outline-variant/20">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-primary-container/10 text-primary flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="architecture">architecture</span>
+</div>
+<div>
+<h4 class="text-body-lg font-body-lg text-on-background font-semibold leading-tight">Projects</h4>
+<p class="text-caption font-caption text-secondary">42 Active</p>
+</div>
+</div>
+<div class="flex gap-2">
+<div class="px-2 py-1 bg-status-success/15 text-status-success rounded-md text-caption font-caption font-semibold flex flex-col items-center min-w-[48px]">
+<span class="text-body-md leading-none mb-0.5">38</span>
+<span class="text-[9px] uppercase tracking-wider">On Track</span>
+</div>
+<div class="px-2 py-1 bg-status-warning/15 text-status-warning rounded-md text-caption font-caption font-semibold flex flex-col items-center min-w-[48px]">
+<span class="text-body-md leading-none mb-0.5">4</span>
+<span class="text-[9px] uppercase tracking-wider">Delayed</span>
+</div>
+</div>
+</div>
+<!-- Tasks Row -->
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="task_alt">task_alt</span>
+</div>
+<div>
+<h4 class="text-body-lg font-body-lg text-on-background font-semibold leading-tight">Tasks</h4>
+<p class="text-caption font-caption text-secondary">1,842 Pending</p>
+</div>
+</div>
+<div class="flex gap-2">
+<div class="px-2 py-1 bg-status-error/15 text-status-error rounded-md text-caption font-caption font-semibold flex flex-col items-center min-w-[48px]">
+<span class="text-body-md leading-none mb-0.5">15</span>
+<span class="text-[9px] uppercase tracking-wider">Overdue</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Quick Actions Grid -->
+<section class="flex flex-col gap-stack-sm">
+<h3 class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider pl-1">Command Modules</h3>
+<div class="grid grid-cols-3 gap-3">
+<!-- Action 1 -->
+<button class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low transition-colors active:scale-95 duration-100 h-24 shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined" data-icon="manage_accounts">manage_accounts</span>
+</div>
+<span class="text-caption font-caption text-on-surface font-semibold text-center leading-tight">Users</span>
+</button>
+<!-- Action 2 -->
+<button class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low transition-colors active:scale-95 duration-100 h-24 shadow-sm">
+<div class="w-10 h-10 rounded-full bg-status-info/10 text-status-info flex items-center justify-center mb-1">
+<span class="material-symbols-outlined" data-icon="how_to_reg">how_to_reg</span>
+</div>
+<span class="text-caption font-caption text-on-surface font-semibold text-center leading-tight">Attendance</span>
+</button>
+<!-- Action 3 -->
+<button class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low transition-colors active:scale-95 duration-100 h-24 shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined" data-icon="assignment">assignment</span>
+</div>
+<span class="text-caption font-caption text-on-surface font-semibold text-center leading-tight">Projects</span>
+</button>
+<!-- Action 4 -->
+<button class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low transition-colors active:scale-95 duration-100 h-24 shadow-sm">
+<div class="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-1">
+<span class="material-symbols-outlined" data-icon="checklist">checklist</span>
+</div>
+<span class="text-caption font-caption text-on-surface font-semibold text-center leading-tight">Tasks</span>
+</button>
+<!-- Action 5 -->
+<button class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low transition-colors active:scale-95 duration-100 h-24 shadow-sm">
+<div class="w-10 h-10 rounded-full bg-status-warning/10 text-status-warning flex items-center justify-center mb-1">
+<span class="material-symbols-outlined" data-icon="event_note">event_note</span>
+</div>
+<span class="text-caption font-caption text-on-surface font-semibold text-center leading-tight">Shifts</span>
+</button>
+<!-- Action 6 -->
+<button class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 flex flex-col items-center justify-center gap-2 hover:bg-surface-container-low transition-colors active:scale-95 duration-100 h-24 shadow-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center mb-1">
+<span class="material-symbols-outlined" data-icon="bar_chart">bar_chart</span>
+</div>
+<span class="text-caption font-caption text-on-surface font-semibold text-center leading-tight">Reports</span>
+</button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe h-16 bg-surface/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg border-t border-outline-variant/30 dark:border-outline/20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl md:hidden">
+<!-- Active Tab: Dashboard -->
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-semibold bg-primary-container/20 rounded-xl px-3 py-1 scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="dashboard" data-weight="fill" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-label-sm font-label-sm mt-1">Dashboard</span>
+</a>
+<!-- Inactive Tabs -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors rounded-xl px-3 py-1" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="calendar_today">calendar_today</span>
+<span class="text-[10px] font-label-sm mt-1">Attendance</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors rounded-xl px-3 py-1" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="assignment">assignment</span>
+<span class="text-[10px] font-label-sm mt-1">Projects</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors rounded-xl px-3 py-1" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="checklist">checklist</span>
+<span class="text-[10px] font-label-sm mt-1">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors rounded-xl px-3 py-1" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="person">person</span>
+<span class="text-[10px] font-label-sm mt-1">Profile</span>
+</a>
+</nav>
+<!-- Support structure for bottom safe area on modern mobile browsers -->
+<div class="h-[env(safe-area-inset-bottom)] fixed bottom-0 w-full bg-surface/90 backdrop-blur-lg z-40 md:hidden pointer-events-none"></div>
+</body></html>

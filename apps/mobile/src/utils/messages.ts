@@ -1,8 +1,67 @@
-import type { Conversation, Message } from '../types/messages';
-import { formatTime } from './format';
+import type { Message, MessageAttachment } from '../types/messages';
+import { formatDurationSeconds, formatTime12h } from './date-time';
+
+export { formatDurationSeconds };
+
+export const VOICE_NOTE_MAX_SECONDS = 60;
+export const VOICE_NOTE_MAX_BYTES = 2 * 1024 * 1024;
+export const VOICE_NOTE_FILENAME_PREFIX = 'voice-note-';
+
+const VOICE_NOTE_FILENAME_RE = /^voice-note-(\d+)\.(m4a|mp4|aac|mp3|wav|webm|ogg|caf|3gp)$/i;
+
+export function buildVoiceNoteFilename(durationSeconds: number): string {
+  const seconds = Math.max(1, Math.min(VOICE_NOTE_MAX_SECONDS, Math.round(durationSeconds)));
+  return `${VOICE_NOTE_FILENAME_PREFIX}${seconds}.m4a`;
+}
+
+export function parseVoiceNoteDurationSeconds(attachment: MessageAttachment): number | null {
+  const match = attachment.original_file_name.match(VOICE_NOTE_FILENAME_RE);
+  if (match?.[1]) {
+    const parsed = Number.parseInt(match[1], 10);
+    if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+  }
+  return null;
+}
+
+export function isAudioAttachment(attachment: MessageAttachment): boolean {
+  const mime = attachment.mime_type?.toLowerCase() ?? '';
+  if (mime.startsWith('audio/')) return true;
+  const ext = attachment.original_file_name.split('.').pop()?.toLowerCase() ?? '';
+  return ['m4a', 'mp4', 'aac', 'mp3', 'wav', 'webm', 'ogg', 'caf', '3gp'].includes(ext);
+}
+
+export function isVoiceNoteAttachment(attachment: MessageAttachment): boolean {
+  if (!isAudioAttachment(attachment)) return false;
+  if (attachment.original_file_name.toLowerCase().startsWith(VOICE_NOTE_FILENAME_PREFIX)) {
+    return true;
+  }
+  return isAudioAttachment(attachment);
+}
+
+export function isVoiceNoteMessage(message: Message): boolean {
+  if (message.is_deleted) return false;
+  const attachments = message.attachments ?? [];
+  return attachments.some((attachment) => isVoiceNoteAttachment(attachment));
+}
+
+export function getVoiceNoteAttachment(message: Message): MessageAttachment | null {
+  const attachments = message.attachments ?? [];
+  return attachments.find((attachment) => isVoiceNoteAttachment(attachment)) ?? null;
+}
+
+export function getVoiceNoteDuration(message: Message): number {
+  if (message.clientVoiceDuration) return message.clientVoiceDuration;
+  const attachment = getVoiceNoteAttachment(message);
+  if (!attachment) return 0;
+  return parseVoiceNoteDurationSeconds(attachment) ?? 0;
+}
+
+export function formatMessageTime(dateStr: string): string {
+  return formatTime12h(dateStr);
+}
 
 export function getConversationDisplayName(
-  conv: Conversation,
+  conv: import('../types/messages').Conversation,
   currentUserId?: string
 ): string {
   if (conv.title?.trim()) return conv.title.trim();
@@ -15,16 +74,26 @@ export function getConversationDisplayName(
   return 'Conversation';
 }
 
-export function getConversationPreview(conv: Conversation): string {
+export function getConversationPreview(conv: import('../types/messages').Conversation): string {
   const body = conv.last_message?.body?.trim();
-  if (!body) return 'No messages yet';
+  if (!conv.last_message) return 'No messages yet';
+  if (
+    !body ||
+    /sent an attachment/i.test(body) ||
+    /voice message/i.test(body)
+  ) {
+    return 'Voice message';
+  }
   if (conv.last_message?.sender_name) {
     return `${conv.last_message.sender_name}: ${body}`;
   }
   return body;
 }
 
-export function getDirectParticipant(conv: Conversation, currentUserId?: string) {
+export function getDirectParticipant(
+  conv: import('../types/messages').Conversation,
+  currentUserId?: string
+) {
   if (conv.type !== 'direct') return null;
   return conv.participants.find((p) => p.user_id !== currentUserId)?.user ?? null;
 }
@@ -38,12 +107,6 @@ export function getInitialsFromName(name?: string | null): string {
     .join('')
     .toUpperCase()
     .slice(0, 2);
-}
-
-export function formatMessageTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) return '—';
-  return formatTime(dateStr);
 }
 
 export function formatMessageDateDivider(dateStr: string): string {
@@ -93,4 +156,22 @@ export function dedupeMessages(messages: Message[]): Message[] {
     result.push(message);
   }
   return result;
+}
+
+export function matchesConversationSearch(
+  conv: import('../types/messages').Conversation,
+  query: string,
+  currentUserId?: string
+): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const name = getConversationDisplayName(conv, currentUserId).toLowerCase();
+  const preview = getConversationPreview(conv).toLowerCase();
+  return name.includes(q) || preview.includes(q);
+}
+
+export function isCallPreviewMessage(body?: string | null): boolean {
+  if (!body) return false;
+  const lower = body.toLowerCase();
+  return lower.includes('call') || lower.includes('video');
 }

@@ -65,6 +65,10 @@ import {
   collectCallEvents,
   formatMessageTime,
 } from '@/components/messages/messages-utils';
+import { VoiceMessageRecorder } from '@/components/messages/VoiceMessageRecorder';
+import { VoiceMessageBubble } from '@/components/messages/VoiceMessageBubble';
+import { isVoiceNoteAttachment, isVoiceNoteMessage } from '@/lib/messages/voice-messages';
+import { stopActiveVoicePlayback } from '@/lib/messages/voice-playback-controller';
 
 // ─── Permission helpers ───────────────────────────────────────────────────────
 
@@ -369,6 +373,7 @@ function MessagesContent() {
   const latestSelectedConvId = useRef<string | null>(null);
   useEffect(() => {
     latestSelectedConvId.current = selectedConversationId;
+    stopActiveVoicePlayback();
   }, [selectedConversationId]);
 
   const { isConnected } = useRealtimeStatus();
@@ -577,9 +582,38 @@ function MessagesContent() {
   };
 
   const handleSelectConversation = (convId: string) => {
+    stopActiveVoicePlayback();
     setSelectedConversationId(convId);
     setConversationPanelTab('messages');
     router.replace(`/messages?conversation_id=${convId}`);
+  };
+
+  const handleSendVoiceNote = async (file: File, _durationSeconds: number) => {
+    if (!selectedConversationId || isSending || !canISend) {
+      throw new Error('Unable to send voice message.');
+    }
+
+    try {
+      setIsSending(true);
+      setSendError(null);
+      const sentMsg = await messagesApi.sendVoiceNote(selectedConversationId, file, {
+        reply_to_message_id: replyingTo?.id,
+      });
+      setMessages((prev) => [...prev, sentMsg]);
+      setReplyingTo(null);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === selectedConversationId
+            ? { ...c, updated_at: new Date().toISOString() }
+            : c
+        )
+      );
+    } catch (err) {
+      setSendError(getErrorMessage(err) || 'Unable to send voice message.');
+      throw err;
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -1152,11 +1186,18 @@ function MessagesContent() {
                               </p>
                             ) : (
                               <>
-                                {msg.body && <MessageBody text={msg.body} isSelf={isSelf} />}
+                                {msg.body && !isVoiceNoteMessage(msg) && (
+                                  <MessageBody text={msg.body} isSelf={isSelf} />
+                                )}
 
                                 {msg.attachments && msg.attachments.length > 0 && (
                             <div className="space-y-2 mt-2 pt-1 border-t border-white/10">
-                              {/* Separate into images and docs for beautiful grid rendering */}
+                              {msg.attachments
+                                .filter((att) => isVoiceNoteAttachment(att))
+                                .map((att) => (
+                                  <VoiceMessageBubble key={att.id} attachment={att} isSelf={isSelf} />
+                                ))}
+
                               {msg.attachments.some(att => att.mime_type.startsWith('image/')) && (
                                 <div className="grid grid-cols-2 gap-2">
                                   {msg.attachments
@@ -1183,10 +1224,10 @@ function MessagesContent() {
                                 </div>
                               )}
 
-                              {msg.attachments.filter(att => !att.mime_type.startsWith('image/')).length > 0 && (
+                              {msg.attachments.filter(att => !att.mime_type.startsWith('image/') && !isVoiceNoteAttachment(att)).length > 0 && (
                                 <div className="space-y-1">
                                   {msg.attachments
-                                    .filter(att => !att.mime_type.startsWith('image/'))
+                                    .filter(att => !att.mime_type.startsWith('image/') && !isVoiceNoteAttachment(att))
                                     .map(att => (
                                       <div
                                         key={att.id}
@@ -1330,6 +1371,12 @@ function MessagesContent() {
                       <Paperclip className="h-3.5 w-3.5" />
                     </Button>
                     <ComposerEmojiPicker disabled={!canISend || isSending} onSelect={handleEmojiInsert} />
+                    <VoiceMessageRecorder
+                      disabled={!canISend}
+                      isSending={isSending}
+                      onSendVoice={handleSendVoiceNote}
+                      onError={(message) => setSendError(message)}
+                    />
                     {activeConv?.type !== 'direct' && (
                       <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md" title="Mention" onClick={() => setShowMentionPicker(true)}>
                         <AtSign className="h-3.5 w-3.5" />

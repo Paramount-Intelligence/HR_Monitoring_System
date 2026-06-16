@@ -12,6 +12,7 @@ import {
   requestPushPermission,
   type PushPermissionStatus,
 } from './notification-permissions';
+import { ensureNotificationChannels } from './notification-channels';
 import { secureLog } from '../utils/secure-log';
 
 export type PushSetupResult =
@@ -67,6 +68,8 @@ export async function setupPushNotifications(): Promise<PushSetupResult> {
       secureLog('PUSH_MOBILE', 'skipped push setup on simulator/emulator');
       return { supported: false, reason: 'simulator' };
     }
+
+    await ensureNotificationChannels();
 
     const permission = await requestPushPermission();
     permissionStatus = permission.status;

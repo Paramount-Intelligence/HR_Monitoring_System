@@ -14,14 +14,40 @@ export function consumePendingDeepLinkPath(): string | null {
   return next;
 }
 
+const APP_SCHEME = 'pims';
+
+/** Expo dev client / Metro launch URLs — not in-app navigation targets. */
+function shouldIgnoreDeepLinkUrl(url: string): boolean {
+  const lower = url.toLowerCase();
+  if (!lower.trim()) return true;
+  if (lower.startsWith('exp+')) return true;
+  if (lower.startsWith('exp://')) return true;
+  if (lower.includes('expo-development-client')) return true;
+  if (lower.includes('expo-go')) return true;
+  return false;
+}
+
+function isAppSchemeDeepLink(url: string): boolean {
+  try {
+    const parsed = Linking.parse(url);
+    const scheme = (parsed.scheme ?? '').toLowerCase();
+    return scheme === APP_SCHEME;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Parse pims:// URLs into expo-router paths.
  * Examples:
  *   pims://chat/abc → /chat/abc
- *   pims://alerts → /(tabs)/notifications
+ *   pims://alerts → /alerts
  *   pims://manage/approvals/xyz → /manage/approval/xyz
  */
 export function parseDeepLinkUrl(url: string): string | null {
+  if (shouldIgnoreDeepLinkUrl(url)) return null;
+  if (!isAppSchemeDeepLink(url)) return null;
+
   try {
     const parsed = Linking.parse(url);
     const host = parsed.hostname ?? '';
@@ -35,7 +61,7 @@ export function parseDeepLinkUrl(url: string): string | null {
       return '/(tabs)';
     }
     if (normalized === 'alerts' || normalized === 'notifications') {
-      return '/(tabs)/notifications';
+      return '/alerts';
     }
     if (normalized === 'attendance') {
       return '/(tabs)/attendance';

@@ -21,6 +21,8 @@ export const queryKeys = {
   unreadCount: ['messages', 'unread-count'] as const,
   notifications: ['notifications'] as const,
   notificationsUnread: ['notifications', 'unread-count'] as const,
+  alerts: (params?: Record<string, string | undefined>) => ['alerts', params ?? {}] as const,
+  alertsOpenCount: ['alerts', 'open-count'] as const,
   reportsEmployee: (params: Record<string, string>) => ['reports', 'employee', params] as const,
   reportsTeam: (params: Record<string, string>) => ['reports', 'team', params] as const,
   reportsWorkforce: (params: Record<string, string>, scope: string) =>
@@ -31,6 +33,16 @@ export const queryKeys = {
   reportsBestPerformers: ['reports', 'best-performers'] as const,
   reportsWorkload: ['reports', 'workload-balance'] as const,
   myLeaves: ['leaves', 'me'] as const,
+  projects: (params?: Record<string, string | undefined>) => ['projects', params ?? {}] as const,
+  projectDetail: (id: string) => ['projects', id] as const,
+  projectTasks: (id: string) => ['projects', id, 'tasks'] as const,
+  projectTaskEligible: ['projects', 'task-eligible'] as const,
+  tasks: (params?: Record<string, string | undefined>) => ['tasks', params ?? {}] as const,
+  taskDetail: (id: string) => ['tasks', id] as const,
+  taskComments: (id: string) => ['tasks', id, 'comments'] as const,
+  taskSubtasks: (id: string) => ['tasks', id, 'subtasks'] as const,
+  adminTaskOverview: (params?: Record<string, string | undefined>) =>
+    ['tasks', 'admin', 'overview', params ?? {}] as const,
   userReport: (userId: string, params: Record<string, string>) =>
     ['reports', 'user', userId, params] as const,
 };

@@ -3,6 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../auth/auth-store';
 import { useCallStore } from './call-store';
+import {
+  startIncomingCallRingtone,
+  stopIncomingCallRingtone,
+} from './incoming-call-ringtone';
 import { queryKeys } from '../constants/query-keys';
 import { ActiveVideoCallModal } from '../components/calls/ActiveVideoCallModal';
 import { ActiveVoiceCallModal } from '../components/calls/ActiveVoiceCallModal';
@@ -26,6 +30,7 @@ export function CallOverlayProvider({ children }: CallOverlayProviderProps) {
   const connectionStatus = useCallStore((s) => s.connectionStatus);
   const statusMessage = useCallStore((s) => s.statusMessage);
   const isMuted = useCallStore((s) => s.isMuted);
+  const isSpeakerOn = useCallStore((s) => s.isSpeakerOn);
   const isCameraOff = useCallStore((s) => s.isCameraOff);
   const durationSec = useCallStore((s) => s.durationSec);
   const connectedAt = useCallStore((s) => s.connectedAt);
@@ -43,6 +48,7 @@ export function CallOverlayProvider({ children }: CallOverlayProviderProps) {
   const endActiveCall = useCallStore((s) => s.endActiveCall);
   const toggleMute = useCallStore((s) => s.toggleMute);
   const toggleCamera = useCallStore((s) => s.toggleCamera);
+  const toggleSpeaker = useCallStore((s) => s.toggleSpeaker);
   const setDurationSec = useCallStore((s) => s.setDurationSec);
   const startIncomingPoll = useCallStore((s) => s.startIncomingPoll);
   const stopIncomingPoll = useCallStore((s) => s.stopIncomingPoll);
@@ -82,6 +88,18 @@ export function CallOverlayProvider({ children }: CallOverlayProviderProps) {
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
   }, [connectionStatus, connectedAt, setDurationSec]);
+
+  useEffect(() => {
+    if (phase === 'incoming' && session?.id) {
+      void startIncomingCallRingtone(session.id);
+    } else {
+      void stopIncomingCallRingtone();
+    }
+
+    return () => {
+      void stopIncomingCallRingtone();
+    };
+  }, [phase, session?.id]);
 
   const invalidateAfterCall = () => {
     if (!session?.conversation_id) return;
@@ -128,6 +146,7 @@ export function CallOverlayProvider({ children }: CallOverlayProviderProps) {
         connectionStatus={connectionStatus}
         durationSec={durationSec}
         isMuted={isMuted}
+        isSpeakerOn={isSpeakerOn}
         isBusy={isBusy}
         mediaWarning={mediaWarning}
         statusMessage={phase === 'ended' ? statusMessage : null}
@@ -135,6 +154,7 @@ export function CallOverlayProvider({ children }: CallOverlayProviderProps) {
         recordingSupported={recordingSupported}
         recordingUploadError={recordingUploadError}
         onToggleMute={toggleMute}
+        onToggleSpeaker={toggleSpeaker}
         onEndCall={handleEndCall}
       />
 

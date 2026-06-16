@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useAuthStore } from '../auth/auth-store';
 import { isExpoGo } from './notification-permissions';
+import { ensureNotificationChannels } from './notification-channels';
 import {
   consumePendingNotificationNavigation,
   handleNotificationResponseData,
@@ -26,6 +28,11 @@ export function PushNotificationProvider({ children }: PushNotificationProviderP
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isHydrated = useAuthStore((s) => s.isHydrated);
   const handledColdStart = useRef(false);
+
+  useEffect(() => {
+    if (isExpoGo || Platform.OS !== 'android') return;
+    void ensureNotificationChannels();
+  }, []);
 
   useEffect(() => {
     if (!isHydrated || !isAuthenticated || isExpoGo) return;

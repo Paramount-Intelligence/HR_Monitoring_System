@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PIMS - Paramount Intelligence Monitoring System</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    spacing: {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    fontFamily: {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    fontSize: {
+                        "body-md": ["14px", { lineHeight: "20px", fontWeight: "400" }],
+                        "headline-md": ["20px", { lineHeight: "26px", fontWeight: "600" }],
+                        "body-lg": ["16px", { lineHeight: "24px", fontWeight: "400" }],
+                        "label-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.05em", fontWeight: "600" }],
+                        "headline-lg": ["28px", { lineHeight: "34px", letterSpacing: "-0.02em", fontWeight: "700" }],
+                        "caption": ["11px", { lineHeight: "14px", fontWeight: "400" }],
+                        "headline-lg-mobile": ["24px", { lineHeight: "30px", letterSpacing: "-0.02em", fontWeight: "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .loader-ring {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(33, 81, 218, 0.1);
+            border-radius: 50%;
+            border-top-color: #2151da;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .fade-in-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .delay-1 { animation-delay: 0.2s; }
+        .delay-2 { animation-delay: 0.4s; }
+        .delay-3 { animation-delay: 0.6s; }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .bg-pattern {
+            background-image: radial-gradient(circle at 50% 50%, rgba(33, 81, 218, 0.03) 0%, transparent 100%),
+                              linear-gradient(to bottom, transparent, rgba(249, 249, 255, 1) 100%);
+            background-size: 100% 100%;
+        }
+    </style>
+</head>
+<body class="bg-background min-h-screen flex flex-col items-center justify-center relative overflow-hidden font-body-md antialiased text-on-surface">
+<!-- Subtle Background Elements -->
+<div class="absolute inset-0 bg-pattern pointer-events-none z-0"></div>
+<div class="absolute top-0 right-0 w-96 h-96 bg-primary-container opacity-[0.02] rounded-full blur-3xl transform translate-x-1/3 -translate-y-1/3 pointer-events-none z-0"></div>
+<div class="absolute bottom-0 left-0 w-96 h-96 bg-secondary-container opacity-[0.03] rounded-full blur-3xl transform -translate-x-1/3 translate-y-1/3 pointer-events-none z-0"></div>
+<!-- Main Content Canvas -->
+<main class="relative z-10 flex flex-col items-center justify-center w-full max-w-md px-grid-margin py-stack-lg text-center">
+<!-- Logo Section -->
+<div class="mb-stack-lg fade-in-up delay-1">
+<div class="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-surface-container-lowest shadow-[0_4px_24px_rgba(0,0,0,0.04)] flex items-center justify-center p-4 mx-auto border border-surface-variant/50 relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-tr from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<img alt="PIMS Logo" class="w-full h-full object-contain relative z-10" src="https://lh3.googleusercontent.com/aida/AP1WRLu58gLKO-P_LkNUayj-_J4BmYiEajVkjG0N8zAJhj7oE-Jvm2THvRyQfqQNf-gFJa5d3jwtn0AuxnDK4pg5fVtf9l37-8k5ZfYMMVeRyeqYkd_VWZRJE6uSu0W4WxN-NnfOB_5F-dLYaBK_ZKoRq1jzDMG3HnIb0lPLseBWSSE3nZLcR9LK2Ei8wR3foz_Ky8K7vPTWBW5Dn-bRS6KHUk1vN-m4CAbCn_gwCVQJSJ90vt9Z9tZfiTsWKQ"/>
+</div>
+</div>
+<!-- Typography Section -->
+<div class="space-y-stack-sm mb-stack-lg w-full fade-in-up delay-2">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface tracking-tight">
+                PIMS
+            </h1>
+<p class="font-label-sm text-label-sm text-primary uppercase tracking-[0.1em] mb-base">
+                Paramount Intelligence Monitoring System
+            </p>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-[280px] mx-auto">
+                Workforce Intelligence &amp; Execution OS
+            </p>
+</div>
+<!-- Loading Indicator -->
+<div class="mt-stack-lg flex flex-col items-center justify-center fade-in-up delay-3">
+<div class="loader-ring mb-stack-md"></div>
+<p class="font-caption text-caption text-secondary/80 animate-pulse">
+                Initializing System...
+            </p>
+</div>
+</main>
+<!-- Footer Security Badge -->
+<footer class="absolute bottom-safe left-0 w-full pb-stack-md px-grid-margin text-center z-10 fade-in-up delay-3">
+<p class="font-caption text-caption text-secondary/60 flex items-center justify-center gap-1.5">
+<span class="material-symbols-outlined text-[14px]">lock</span>
+            Secure Enterprise Connection
+        </p>
+</footer>
+<!-- Include Material Icons for the lock icon in footer -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+</body></html>

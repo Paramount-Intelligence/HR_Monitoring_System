@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Message } from '../../types/messages';
 import { formatMessageTime } from '../../utils/messages';
 import { isCallSystemMessage } from '../../calls/call-utils';
-import { colors, radii, spacing } from '../../constants/theme';
+import { colors, radius, spacing, typography } from '../../theme';
 
 interface CallSystemMessageProps {
   message: Message;
@@ -23,9 +23,9 @@ export function CallSystemMessage({ message }: CallSystemMessageProps) {
     <View style={styles.wrap}>
       <View style={styles.pill}>
         <Ionicons name={icon} size={14} color={colors.primary} />
-        <Text style={styles.body}>{message.body}</Text>
+        <Text style={[typography.caption, styles.body]}>{message.body}</Text>
       </View>
-      <Text style={styles.time}>{formatMessageTime(message.created_at)}</Text>
+      <Text style={[typography.caption, styles.time]}>{formatMessageTime(message.created_at)}</Text>
     </View>
   );
 }
@@ -44,23 +44,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.overlay,
-    borderRadius: radii.pill,
+    backgroundColor: colors.primaryTint,
+    borderRadius: radius.pill,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.outlineVariant,
     maxWidth: '90%',
   },
   body: {
-    fontSize: 13,
-    fontWeight: '600',
     color: colors.text,
     flexShrink: 1,
+    fontFamily: 'Inter_600SemiBold',
+    textTransform: 'none',
   },
   time: {
     marginTop: 4,
-    fontSize: 11,
-    color: colors.mutedText,
+    color: colors.muted,
   },
 });

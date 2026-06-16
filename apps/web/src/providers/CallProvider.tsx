@@ -65,19 +65,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [callManager, refreshConversations]
   );
 
-  if (!user) {
-    return <>{children}</>;
-  }
-
   return (
     <CallContext.Provider value={value}>
       {children}
-      <GlobalCallUI
-        call={callManager}
-        conversations={conversations}
-        userId={user.id}
-        userName={user.full_name}
-      />
+      {user ? (
+        <GlobalCallUI
+          call={callManager}
+          conversations={conversations}
+          userId={user.id}
+          userName={user.full_name}
+        />
+      ) : null}
     </CallContext.Provider>
   );
 }

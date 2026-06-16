@@ -21,6 +21,7 @@ import {
 import {
   captureLocalMedia,
   getStreamUrl,
+  getWebRtcUnavailableMessage,
   isWebRtcNativeAvailable,
 } from './media-stream-utils';
 import {
@@ -263,7 +264,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
 
   const prepareMedia = async (callType: CallType) => {
     if (!isWebRtcNativeAvailable()) {
-      throw new Error('Voice and video calls require the PIMS development build.');
+      throw new Error(getWebRtcUnavailableMessage());
     }
 
     const permission = await requestCallMediaPermissions(callType);

@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { AppBadge, type AppBadgeVariant } from '../ui/AppBadge';
 import type { ApprovalTimelineEntry } from '../../types/approvals';
+import { formatDateTime } from '../../utils/format';
 import { colors, radii, spacing } from '../../constants/theme';
 
 function actionVariant(action: string): AppBadgeVariant {
@@ -45,7 +46,7 @@ export function ApprovalTimeline({ entries }: ApprovalTimelineProps) {
               <AppBadge label={formatAction(entry.action)} variant={actionVariant(entry.action)} />
             </View>
             <Text style={styles.meta}>
-              {entry.actor_name ?? 'Approver'} · {new Date(entry.created_at).toLocaleString()}
+              {entry.actor_name ?? 'Approver'} · {formatDateTime(entry.created_at)}
             </Text>
             {entry.comment ? <Text style={styles.comment}>{entry.comment}</Text> : null}
           </View>

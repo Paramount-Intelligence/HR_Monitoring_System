@@ -1,5 +1,4 @@
 import {
-  ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -11,7 +10,9 @@ import { shouldShowDateDivider, formatMessageDateDivider } from '../../utils/mes
 import { ChatBubble } from './ChatBubble';
 import { CallSystemMessage, shouldRenderCallSystemMessage } from './CallSystemMessage';
 import { ErrorState } from '../ui/ErrorState';
-import { colors, radii, spacing } from '../../constants/theme';
+import { EmptyState } from '../ui/EmptyState';
+import { LoadingSkeletonList } from '../ui/LoadingSkeleton';
+import { colors, radius, spacing, typography } from '../../theme';
 
 interface MessageListProps {
   messages: Message[];
@@ -36,24 +37,26 @@ export function MessageList({
 }: MessageListProps) {
   if (error && !messages.length) {
     return (
-      <ErrorState message="Unable to load messages." onRetry={onRetry} />
+      <ErrorState
+        title="Messages unavailable"
+        message="Unable to load messages."
+        onRetry={onRetry}
+      />
     );
   }
 
   if (loading && !messages.length) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
+    return <LoadingSkeletonList count={6} />;
   }
 
   if (!messages.length) {
     return (
-      <View style={styles.empty}>
-        <Text style={styles.emptyTitle}>No messages yet.</Text>
-        <Text style={styles.emptyBody}>Start the conversation below.</Text>
-      </View>
+      <EmptyState
+        title="No messages yet"
+        description="Start the conversation below."
+        icon="chatbubble-outline"
+        style={styles.empty}
+      />
     );
   }
 
@@ -71,7 +74,9 @@ export function MessageList({
           <View>
             {showDivider ? (
               <View style={styles.dividerWrap}>
-                <Text style={styles.divider}>{formatMessageDateDivider(item.created_at)}</Text>
+                <Text style={[typography.labelSm, styles.divider]}>
+                  {formatMessageDateDivider(item.created_at)}
+                </Text>
               </View>
             ) : null}
             {shouldRenderCallSystemMessage(item) ? (
@@ -103,39 +108,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     flexGrow: 1,
   },
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   empty: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.lg,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: spacing.xs,
-  },
-  emptyBody: {
-    fontSize: 14,
-    color: colors.mutedText,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.xl,
   },
   dividerWrap: {
     alignItems: 'center',
     marginVertical: spacing.sm,
   },
   divider: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.mutedText,
+    color: colors.textSecondary,
     backgroundColor: colors.overlay,
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: radii.pill,
+    borderRadius: radius.pill,
     overflow: 'hidden',
+    textTransform: 'none',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

@@ -1,27 +1,29 @@
+/**
+ * Legacy theme entry point — preserves existing import paths.
+ * New Stitch-aligned components should import from `src/theme` directly.
+ */
+import {
+  colors as stitchColors,
+  spacing as stitchSpacing,
+  radius as stitchRadius,
+  typography as stitchTypography,
+  shadows as stitchShadows,
+  badgePalettes,
+  badgeToneForStatus,
+  layout,
+  type BadgeTone,
+} from '../theme';
+
+/** Stitch palette + legacy aliases used across existing screens. */
 export const colors = {
-  primary: '#0f3b82',
-  primaryDark: '#08204a',
-  primaryLight: '#2563eb',
-  background: '#f5f7fb',
-  surface: '#ffffff',
-  card: '#ffffff',
-  text: '#111827',
-  textSecondary: '#374151',
-  mutedText: '#6b7280',
-  border: '#e5e7eb',
-  borderLight: '#f3f4f6',
-  success: '#16a34a',
-  danger: '#dc2626',
-  warning: '#f59e0b',
-  warningText: '#b45309',
-  info: '#2563eb',
+  ...stitchColors,
+  primaryDark: stitchColors.onPrimaryFixed,
+  primaryLight: stitchColors.primaryContainer,
+  mutedText: stitchColors.muted,
+  borderLight: stitchColors.backgroundAlt,
+  warningText: '#92400e',
   purple: '#7c3aed',
-  white: '#ffffff',
-  overlay: 'rgba(8, 32, 74, 0.06)',
-  tabActive: '#0f3b82',
-  tabInactive: '#6b7280',
-  inputBackground: '#f8fafc',
-  errorSurface: '#fee2e2',
+  errorSurface: stitchColors.errorContainer,
   errorBorder: '#fecaca',
   call: {
     backdrop: '#0b1220',
@@ -34,97 +36,61 @@ export const colors = {
     statusConnected: '#6ee7b7',
     statusWarning: '#fcd34d',
     statusDanger: '#fca5a5',
-    avatar: '#1d4ed8',
+    avatar: stitchColors.primaryContainer,
     controlBar: '#0f172a',
   },
 } as const;
 
-export const badgePalettes = {
-  default: { bg: colors.overlay, text: colors.primary, border: colors.border },
-  success: { bg: '#dcfce7', text: colors.success, border: '#bbf7d0' },
-  warning: { bg: '#fef3c7', text: colors.warningText, border: '#fde68a' },
-  danger: { bg: '#fee2e2', text: colors.danger, border: '#fecaca' },
-  info: { bg: '#dbeafe', text: colors.info, border: '#bfdbfe' },
-  neutral: { bg: colors.borderLight, text: colors.mutedText, border: colors.border },
-  escalated: { bg: '#ede9fe', text: colors.purple, border: '#ddd6fe' },
-} as const;
-
+/**
+ * Legacy spacing scale (md=16, lg=24) — unchanged for existing screens.
+ * Stitch scale available via stitchSpacing export.
+ */
 export const spacing = {
-  xs: 4,
-  sm: 8,
+  xs: stitchSpacing.xs,
+  sm: stitchSpacing.sm,
   md: 16,
   lg: 24,
   xl: 32,
   xxl: 40,
+  gutter: stitchSpacing.gutter,
+  screenPadding: stitchSpacing.screenPadding,
 } as const;
 
+/** Legacy radii — unchanged for existing screens. */
 export const radii = {
   sm: 8,
   md: 12,
   lg: 16,
   xl: 24,
-  pill: 999,
+  pill: stitchRadius.pill,
 } as const;
 
+/** Legacy typography aliases. */
 export const typography = {
-  title: { fontSize: 24, fontWeight: '700' as const },
-  subtitle: { fontSize: 16, fontWeight: '600' as const },
+  title: { fontSize: stitchTypography.headlineLg.fontSize, fontWeight: '700' as const },
+  subtitle: { fontSize: stitchTypography.titleMd.fontSize, fontWeight: '600' as const },
   body: { fontSize: 15, fontWeight: '400' as const },
-  caption: { fontSize: 13, fontWeight: '400' as const },
-  label: { fontSize: 12, fontWeight: '600' as const, letterSpacing: 0.4 },
+  caption: { fontSize: stitchTypography.bodySm.fontSize, fontWeight: '400' as const },
+  label: {
+    fontSize: stitchTypography.labelSm.fontSize,
+    fontWeight: '600' as const,
+    letterSpacing: 0.4,
+  },
 };
 
-export const layout = {
-  touchTargetMin: 44,
-  buttonHeight: 52,
-  tabBarHeight: 56,
-  scrollBottomInset: 24,
-  headerSubtitleOpacity: 0.78,
-} as const;
+export { badgePalettes, badgeToneForStatus, layout, type BadgeTone };
 
 export const shadows = {
-  card: {
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  elevated: {
-    shadowColor: colors.primaryDark,
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
+  card: stitchShadows.card,
+  elevated: stitchShadows.elevated,
+  tabBar: stitchShadows.tabBar,
 } as const;
 
-export type BadgeTone = keyof typeof badgePalettes;
-
-export function badgeToneForStatus(status: string): BadgeTone {
-  const normalized = status.toLowerCase().replace(/_/g, ' ');
-  if (normalized.includes('approved') || normalized.includes('present') || normalized.includes('full day')) {
-    return 'success';
-  }
-  if (
-    normalized.includes('pending') ||
-    normalized.includes('half') ||
-    normalized.includes('late') ||
-    normalized.includes('clarification')
-  ) {
-    return 'warning';
-  }
-  if (
-    normalized.includes('reject') ||
-    normalized.includes('absent') ||
-    normalized.includes('leave') ||
-    normalized.includes('danger')
-  ) {
-    return 'danger';
-  }
-  if (normalized.includes('escalated')) return 'escalated';
-  if (normalized.includes('wfh') || normalized.includes('active') || normalized.includes('info')) {
-    return 'info';
-  }
-  return 'neutral';
-}
+/** Canonical Stitch tokens for new components. */
+export {
+  colors as stitchColors,
+  spacing as stitchSpacing,
+  radius as stitchRadius,
+  typography as stitchTypography,
+  shadows as stitchShadows,
+} from '../theme';

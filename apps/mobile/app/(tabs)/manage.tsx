@@ -3,16 +3,19 @@ import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Screen } from '../../src/components/ui/Screen';
-import { AppHeader } from '../../src/components/layout/AppHeader';
+import { BrandHeader } from '../../src/components/brand/BrandHeader';
+import { OfflineBanner } from '../../src/components/ui/OfflineBanner';
 import { ManageHubCard } from '../../src/components/manage/ManageHubCard';
 import { RoleAccessGuard } from '../../src/components/manage/RoleAccessGuard';
 import { StatCard, StatCardSkeleton } from '../../src/components/manage/StatCard';
 import { EmptyAccessState } from '../../src/components/manage/EmptyAccessState';
 import { ErrorState } from '../../src/components/ui/ErrorState';
+import { MetricBentoGrid, MetricBentoItem } from '../../src/components/ui/MetricBentoGrid';
 import { useAuthStore } from '../../src/auth/auth-store';
 import { getManageSummary } from '../../src/api/manage.api';
 import { getPendingCorrections, getPendingLeaveRequests } from '../../src/api/approvals.api';
 import { queryKeys } from '../../src/constants/query-keys';
+import { useTabScreenBottomInset } from '../../src/hooks/useTabScreenBottomInset';
 import {
   canAccessAllUsers,
   canAccessApprovals,
@@ -21,10 +24,11 @@ import {
   isTeamScopedRole,
   normalizeRole,
 } from '../../src/utils/role';
-import { spacing } from '../../src/constants/theme';
+import { colors, spacing, typography } from '../../src/theme';
 
 export default function ManageTabScreen() {
   const router = useRouter();
+  const tabBottomInset = useTabScreenBottomInset();
   const user = useAuthStore((s) => s.user);
   const role = normalizeRole(user?.role);
 
@@ -51,9 +55,10 @@ export default function ManageTabScreen() {
       key: string;
       title: string;
       subtitle: string;
-      icon: 'people-outline' | 'calendar-outline' | 'checkmark-done-outline' | 'document-text-outline' | 'bar-chart-outline';
+      icon: 'people-outline' | 'calendar-outline' | 'checkmark-done-outline' | 'document-text-outline' | 'bar-chart-outline' | 'create-outline';
       badge?: number;
       route: string;
+      accentColor?: string;
     }[] = [];
 
     if (canAccessAllUsers(role)) {
@@ -81,6 +86,7 @@ export default function ManageTabScreen() {
         subtitle: 'Today status, check-ins, and flags',
         icon: 'calendar-outline',
         route: '/manage/attendance',
+        accentColor: colors.info,
       });
     }
 
@@ -92,6 +98,7 @@ export default function ManageTabScreen() {
         icon: 'checkmark-done-outline',
         badge: pendingCount,
         route: '/manage/approvals',
+        accentColor: colors.warning,
       });
       items.push({
         key: 'leaves',
@@ -101,14 +108,23 @@ export default function ManageTabScreen() {
         badge: leavesQuery.data?.length,
         route: '/manage/leaves',
       });
+      items.push({
+        key: 'corrections',
+        title: 'Attendance Corrections',
+        subtitle: 'Review correction requests',
+        icon: 'create-outline',
+        badge: correctionsQuery.data?.length,
+        route: '/manage/corrections',
+      });
     }
 
     items.push({
       key: 'reports',
       title: 'Reports',
       subtitle: 'Attendance, leave, and workforce insights',
-      icon: 'bar-chart-outline' as const,
+      icon: 'bar-chart-outline',
       route: '/reports',
+      accentColor: colors.success,
     });
 
     return items;
@@ -119,13 +135,26 @@ export default function ManageTabScreen() {
 
   return (
     <RoleAccessGuard fallback={<EmptyAccessState />}>
-      <Screen scroll={false} withTabBarInset>
-        <AppHeader title={getManageHubTitle(role)} subtitle="Workforce management" />
+      <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']}>
+        <OfflineBanner />
+        <BrandHeader
+          title={getManageHubTitle(role)}
+          subtitle="Workforce management tools"
+          onBack={() => router.back()}
+          centerTitle
+        />
         {summaryQuery.isError ? (
-          <ErrorState message="Unable to load manage summary." onRetry={() => void summaryQuery.refetch()} />
+          <ErrorState
+            message="Unable to load manage summary."
+            onRetry={() => void summaryQuery.refetch()}
+          />
         ) : (
           <ScrollView
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.scrollContent,
+              { paddingBottom: tabBottomInset },
+            ]}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -137,33 +166,62 @@ export default function ManageTabScreen() {
               />
             }
           >
-            <Text style={styles.sectionTitle}>Summary</Text>
-            <View style={styles.statsGrid}>
+            <Text style={[typography.titleMd, styles.sectionTitle]}>Summary</Text>
+            <MetricBentoGrid>
               {summaryQuery.isLoading ? (
                 <>
-                  <StatCardSkeleton />
-                  <StatCardSkeleton />
+                  <MetricBentoItem>
+                    <StatCardSkeleton />
+                  </MetricBentoItem>
+                  <MetricBentoItem>
+                    <StatCardSkeleton />
+                  </MetricBentoItem>
                 </>
               ) : (
                 <>
                   {summaryQuery.data?.activeEmployees != null ? (
-                    <StatCard label="Active employees" value={summaryQuery.data.activeEmployees} />
+                    <MetricBentoItem>
+                      <StatCard
+                        label="Active employees"
+                        value={summaryQuery.data.activeEmployees}
+                      />
+                    </MetricBentoItem>
                   ) : null}
                   {summaryQuery.data?.teamMembers != null ? (
-                    <StatCard label="Team members" value={summaryQuery.data.teamMembers} />
+                    <MetricBentoItem>
+                      <StatCard label="Team members" value={summaryQuery.data.teamMembers} />
+                    </MetricBentoItem>
                   ) : null}
                   {summaryQuery.data?.presentToday != null ? (
-                    <StatCard label="Present today" value={summaryQuery.data.presentToday} />
+                    <MetricBentoItem>
+                      <StatCard
+                        label="Present today"
+                        value={summaryQuery.data.presentToday}
+                        accentColor={colors.success}
+                      />
+                    </MetricBentoItem>
                   ) : null}
                   {summaryQuery.data?.teamPresent != null ? (
-                    <StatCard label="Team present" value={summaryQuery.data.teamPresent} />
+                    <MetricBentoItem>
+                      <StatCard
+                        label="Team present"
+                        value={summaryQuery.data.teamPresent}
+                        accentColor={colors.success}
+                      />
+                    </MetricBentoItem>
                   ) : null}
-                  <StatCard label="Pending approvals" value={pendingCount} />
+                  <MetricBentoItem>
+                    <StatCard
+                      label="Pending approvals"
+                      value={pendingCount}
+                      accentColor={colors.warning}
+                    />
+                  </MetricBentoItem>
                 </>
               )}
-            </View>
+            </MetricBentoGrid>
 
-            <Text style={styles.sectionTitle}>Manage</Text>
+            <Text style={[typography.titleMd, styles.sectionTitle]}>Tools</Text>
             {cards.map((card, cardIndex) => (
               <ManageHubCard
                 key={card.key}
@@ -172,6 +230,7 @@ export default function ManageTabScreen() {
                 subtitle={card.subtitle}
                 icon={card.icon}
                 badge={card.badge}
+                accentColor={card.accentColor}
                 onPress={() => router.push(card.route as never)}
               />
             ))}
@@ -183,15 +242,14 @@ export default function ManageTabScreen() {
 }
 
 const styles = StyleSheet.create({
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: spacing.md,
+  scrollContent: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: spacing.md,
+    backgroundColor: colors.background,
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
+  sectionTitle: {
+    color: colors.text,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: spacing.md,
   },
 });

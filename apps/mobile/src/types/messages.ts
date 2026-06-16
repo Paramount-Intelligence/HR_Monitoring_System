@@ -92,6 +92,8 @@ export interface Message {
   /** Client-only fields for optimistic UI */
   clientStatus?: 'sending' | 'queued' | 'failed' | 'sent';
   clientId?: string;
+  clientVoiceLocalUri?: string;
+  clientVoiceDuration?: number;
 }
 
 export interface LastMessageRead {

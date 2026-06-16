@@ -7,7 +7,7 @@ import {
   getRoleFeatureAccess,
 } from '../../constants/features';
 import { formatRole } from '../../utils/format';
-import { colors, radii, spacing } from '../../constants/theme';
+import { colors, radius, shadows, spacing, typography } from '../../theme';
 
 interface BuildDiagnosticsCardProps {
   userRole?: string | null;
@@ -29,25 +29,29 @@ export function BuildDiagnosticsCard({ userRole }: BuildDiagnosticsCardProps) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Build diagnostics</Text>
-      <Text style={styles.hint}>Preview / development only — no secrets shown.</Text>
+      <View style={[styles.accent, { backgroundColor: colors.muted }]} />
+      <View style={styles.inner}>
+        <Text style={[typography.titleMd, styles.title]}>Build diagnostics</Text>
+        <Text style={[typography.caption, styles.hint]}>
+          Preview / development only — no secrets shown.
+        </Text>
 
-      <DiagnosticRow label="App version" value={`${appVersion} (${nativeVersion})`} />
-      <DiagnosticRow label="Feature set" value={FEATURE_SET_VERSION} />
-      <DiagnosticRow label="Build profile" value={buildProfile} />
-      <DiagnosticRow label="App env" value={APP_ENV} />
-      {buildTime ? <DiagnosticRow label="Build time" value={buildTime} /> : null}
-      {easBuildId ? <DiagnosticRow label="EAS build" value={easBuildId.slice(0, 8)} /> : null}
+        <DiagnosticRow label="App version" value={`${appVersion} (${nativeVersion})`} />
+        <DiagnosticRow label="Feature set" value={FEATURE_SET_VERSION} />
+        <DiagnosticRow label="Build profile" value={buildProfile} />
+        <DiagnosticRow label="App env" value={APP_ENV} />
+        {buildTime ? <DiagnosticRow label="Build time" value={buildTime} /> : null}
+        {easBuildId ? <DiagnosticRow label="EAS build" value={easBuildId.slice(0, 8)} /> : null}
 
-      <DiagnosticRow label="Signed-in role" value={formatRole(access.normalizedRole)} />
-      <DiagnosticRow label="Raw role" value={access.role} />
-      <DiagnosticRow label="Manage tab" value={access.manageTab ? 'Visible' : 'Hidden'} />
-      <DiagnosticRow label="Reports hub" value={access.reportsHub ? 'Enabled' : 'Hidden'} />
+        <DiagnosticRow label="Signed-in role" value={formatRole(access.normalizedRole)} />
+        <DiagnosticRow label="Manage hub" value={access.manageTab ? 'Accessible' : 'Hidden'} />
+        <DiagnosticRow label="Reports hub" value={access.reportsHub ? 'Enabled' : 'Hidden'} />
 
-      <Text style={styles.subtitle}>Enabled for this account</Text>
-      <Text style={styles.features}>
-        {enabledFeatures.length > 0 ? enabledFeatures.join(' · ') : 'Core employee features'}
-      </Text>
+        <Text style={[typography.labelSm, styles.subtitle]}>Enabled for this account</Text>
+        <Text style={[typography.bodySm, styles.features]}>
+          {enabledFeatures.length > 0 ? enabledFeatures.join(' · ') : 'Core employee features'}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -55,8 +59,10 @@ export function BuildDiagnosticsCard({ userRole }: BuildDiagnosticsCardProps) {
 function DiagnosticRow({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value}>{value}</Text>
+      <Text style={[typography.bodySm, styles.label]}>{label}</Text>
+      <Text style={[typography.bodySm, styles.value]} numberOfLines={2}>
+        {value}
+      </Text>
     </View>
   );
 }
@@ -64,33 +70,40 @@ function DiagnosticRow({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: radii.lg,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    flexDirection: 'row',
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+    borderColor: colors.outlineVariant,
     marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  accent: {
+    width: 4,
+  },
+  inner: {
+    flex: 1,
+    padding: spacing.md,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.xs,
+    fontFamily: 'Inter_600SemiBold',
   },
   hint: {
-    fontSize: 12,
-    color: colors.mutedText,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 13,
-    fontWeight: '700',
     color: colors.text,
+    fontFamily: 'Inter_600SemiBold',
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   features: {
-    fontSize: 13,
-    color: colors.mutedText,
+    color: colors.textSecondary,
     lineHeight: 18,
   },
   row: {
@@ -100,14 +113,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   label: {
-    color: colors.mutedText,
-    fontSize: 13,
+    color: colors.textSecondary,
     flex: 1,
   },
   value: {
     color: colors.text,
-    fontSize: 13,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     flex: 1.2,
     textAlign: 'right',
   },

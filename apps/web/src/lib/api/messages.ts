@@ -351,6 +351,31 @@ export const messagesApi = {
     return response.data;
   },
 
+  sendVoiceNote: async (
+    conversationId: string,
+    file: File,
+    options?: { reply_to_message_id?: string }
+  ): Promise<Message> => {
+    const formData = new FormData();
+    formData.append('files', file);
+    const uploadResponse = await apiClient.post<MessageAttachment[]>(
+      `/messages/conversations/${conversationId}/attachments`,
+      formData
+    );
+    const uploaded = uploadResponse.data;
+    if (!uploaded.length) {
+      throw new Error('Unable to upload voice note.');
+    }
+    const sendResponse = await apiClient.post<Message>(
+      `/messages/conversations/${conversationId}/messages`,
+      {
+        attachment_ids: uploaded.map((attachment) => attachment.id),
+        reply_to_message_id: options?.reply_to_message_id,
+      }
+    );
+    return sendResponse.data;
+  },
+
   downloadAttachment: async (attachmentId: string): Promise<void> => {
     const response = await apiClient.get(
       `/messages/attachments/${attachmentId}/download`,

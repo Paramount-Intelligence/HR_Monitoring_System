@@ -1,125 +1,167 @@
-import type { ReactNode } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Platform, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PimsLogo } from '../brand/PimsLogo';
-import { AppBadge } from '../ui/AppBadge';
-import { colors, spacing } from '../../constants/theme';
-import { formatRole, getGreeting, getInitials } from '../../utils/format';
-import { getProfilePictureUrl } from '../../utils/media-url';
+import { NotificationBell } from '../ui/NotificationBell';
+import { RoleBadge, type RoleBadgeRole } from '../ui/RoleBadge';
+import { colors, layout, shadows, spacing, typography } from '../../theme';
+import { getGreeting, getInitials } from '../../utils/format';
 import type { User } from '../../types/user';
-import { normalizeRole } from '../../utils/role';
+import type { DashboardRole } from '../../auth/role-utils';
+import { getDashboardRoleLabel } from '../../auth/role-utils';
 
 interface DashboardHeaderProps {
   user: User | null | undefined;
   imageUrl?: string;
+  unreadAlerts?: number;
+  dashboardRole: DashboardRole;
+  sectionTitle?: string;
+  sectionSubtitle?: string;
 }
 
-export function DashboardHeader({ user, imageUrl }: DashboardHeaderProps) {
+const ROLE_SUBTITLES: Partial<Record<DashboardRole, string>> = {
+  admin: 'Workforce governance & operations',
+  hr_operations: 'People operations overview',
+  manager: 'Team operations & health metrics',
+  team_lead: 'Assigned team delivery overview',
+  employee: 'Your workday at a glance',
+  intern: 'Guided view for your assignments',
+};
+
+export function DashboardHeader({
+  user,
+  imageUrl,
+  unreadAlerts = 0,
+  dashboardRole,
+  sectionTitle = 'Overview',
+  sectionSubtitle,
+}: DashboardHeaderProps) {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const role = normalizeRole(user?.role);
-  const resolvedImage = imageUrl ?? getProfilePictureUrl(user);
+  const resolvedImage = imageUrl;
+  const subtitle =
+    sectionSubtitle ??
+    ROLE_SUBTITLES[dashboardRole] ??
+    'Workforce intelligence dashboard';
+
+  const avatar = resolvedImage ? (
+    <Image source={{ uri: resolvedImage }} style={styles.avatarImage} accessibilityLabel="Profile photo" />
+  ) : (
+    <View style={styles.avatarFallback}>
+      <Text style={styles.avatarText}>{getInitials(user?.full_name)}</Text>
+    </View>
+  );
 
   return (
-    <View style={[styles.container, { paddingTop: Math.max(insets.top, spacing.sm) + spacing.sm }]}>
-      <View style={styles.topRow}>
-        <PimsLogo size={36} showWordmark variant="light" />
-        {resolvedImage ? (
-          <Image source={{ uri: resolvedImage }} style={styles.avatarImage} />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{getInitials(user?.full_name)}</Text>
-          </View>
-        )}
+    <View style={[styles.wrapper, { paddingTop: insets.top }]}>
+      <View style={styles.topBar}>
+        <View style={styles.avatarSlot}>{avatar}</View>
+        <Text style={[typography.headlineMd, styles.brandTitle]} numberOfLines={1}>
+          PIMS Intelligence
+        </Text>
+        <NotificationBell
+          count={unreadAlerts}
+          onPress={() => router.push('/alerts')}
+          accessibilityLabel="Open alerts"
+        />
       </View>
 
-      <Text style={styles.greeting} numberOfLines={2}>
-        {getGreeting(user?.full_name)}
-      </Text>
-      <View style={styles.metaRow}>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {formatRole(role)}
+      <View style={styles.hero}>
+        <View style={styles.heroRow}>
+          <Text style={[typography.headlineLg, styles.greeting]} numberOfLines={2}>
+            {getGreeting(user?.full_name)}
+          </Text>
+          <RoleBadge role={dashboardRole as RoleBadgeRole} />
+        </View>
+        <Text style={[typography.headlineMd, styles.sectionTitle]}>{sectionTitle}</Text>
+        <Text style={[typography.bodyMd, styles.subtitle]} numberOfLines={2}>
+          {subtitle}
           {user?.department_name || user?.department
             ? ` · ${user.department_name ?? user.department}`
             : ''}
         </Text>
-        <AppBadge label={formatRole(role)} variant="info" />
+        <Text style={[typography.caption, styles.roleLine]}>
+          {getDashboardRoleLabel(dashboardRole)}
+          {user?.full_name ? ` · ${user.full_name}` : ''}
+        </Text>
       </View>
-    </View>
-  );
-}
-
-export function DashboardSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.primaryDark,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
-    marginHorizontal: -spacing.md,
-    marginBottom: spacing.md,
+  wrapper: {
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.92)' : colors.surfaceElevated,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    marginHorizontal: -spacing.screenPadding,
+    marginBottom: spacing.lg,
+    ...shadows.tabBar,
   },
-  topRow: {
+  topBar: {
+    minHeight: layout.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.md,
-  },
-  greeting: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: '800',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingHorizontal: spacing.screenPadding,
     gap: spacing.sm,
-    marginTop: spacing.xs,
   },
-  subtitle: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 14,
-    flex: 1,
+  avatarSlot: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.16)',
+  avatarImage: {
+    width: 36,
+    height: 36,
+  },
+  avatarFallback: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.secondaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
   avatarText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '800',
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
-  section: {
-    marginBottom: spacing.lg,
+  brandTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: colors.primary,
+    fontFamily: 'Inter_700Bold',
+  },
+  hero: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingBottom: spacing.lg,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  greeting: {
+    flex: 1,
+    color: colors.text,
+    fontFamily: 'Inter_700Bold',
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.md,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: spacing.xs,
+  },
+  subtitle: {
+    color: colors.textSecondary,
+  },
+  roleLine: {
+    color: colors.muted,
+    marginTop: spacing.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
 });

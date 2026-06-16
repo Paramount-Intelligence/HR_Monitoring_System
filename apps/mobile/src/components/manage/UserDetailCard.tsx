@@ -1,7 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { AppBadge } from '../ui/AppBadge';
-import { colors, radii, spacing } from '../../constants/theme';
-import { formatRole, formatTime, safeText } from '../../utils/format';
+import { RoleBadge } from '../ui/RoleBadge';
+import { StatusBadge } from '../ui/StatusBadge';
+import { colors, radius, shadows, spacing, typography } from '../../theme';
+import { formatDateTime, getInitials, safeText } from '../../utils/format';
 import type { User } from '../../types/user';
 
 interface UserDetailCardProps {
@@ -12,42 +13,52 @@ export function UserDetailCard({ user }: UserDetailCardProps) {
   const statusVariant =
     user.status === 'active' ? 'success' : user.status === 'suspended' ? 'danger' : 'neutral';
 
+  const rows = [
+    { label: 'Department', value: safeText(user.department_name ?? user.department, '—') },
+    { label: 'Designation', value: safeText(user.designation, '—') },
+    { label: 'Manager', value: safeText(user.manager_name, '—') },
+    {
+      label: 'Shift',
+      value: user.shift_name
+        ? `${user.shift_name}${user.shift_timing ? ` · ${user.shift_timing}` : ''}`
+        : '—',
+    },
+    { label: 'Phone', value: safeText(user.phone, '—') },
+    ...(user.created_at
+      ? [{ label: 'Joined', value: formatDateTime(user.created_at) }]
+      : []),
+  ];
+
   return (
     <View style={styles.card}>
-      <Text style={styles.name}>{user.full_name}</Text>
-      <Text style={styles.email}>{user.email}</Text>
-      <View style={styles.badges}>
-        <AppBadge label={formatRole(user.role)} variant="info" />
-        <AppBadge label={safeText(user.status, 'unknown')} variant={statusVariant} />
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>Department</Text>
-        <Text style={styles.value}>{safeText(user.department_name ?? user.department, '—')}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>Designation</Text>
-        <Text style={styles.value}>{safeText(user.designation, '—')}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>Manager</Text>
-        <Text style={styles.value}>{safeText(user.manager_name, '—')}</Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>Shift</Text>
-        <Text style={styles.value}>
-          {user.shift_name ? `${user.shift_name}${user.shift_timing ? ` · ${user.shift_timing}` : ''}` : '—'}
-        </Text>
-      </View>
-      <View style={styles.row}>
-        <Text style={styles.label}>Phone</Text>
-        <Text style={styles.value}>{safeText(user.phone, '—')}</Text>
-      </View>
-      {user.created_at ? (
-        <View style={styles.row}>
-          <Text style={styles.label}>Joined</Text>
-          <Text style={styles.value}>{formatTime(user.created_at)}</Text>
+      <View style={styles.accent} />
+      <View style={styles.inner}>
+        <View style={styles.hero}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{getInitials(user.full_name)}</Text>
+          </View>
+          <View style={styles.heroCopy}>
+            <Text style={[typography.headlineMd, styles.name]}>{user.full_name}</Text>
+            <Text style={[typography.bodyMd, styles.email]}>{user.email}</Text>
+            <View style={styles.badges}>
+              <RoleBadge role={user.role} />
+              <StatusBadge label={safeText(user.status, 'unknown')} variant={statusVariant} />
+            </View>
+          </View>
         </View>
-      ) : null}
+
+        {rows.map((row, index) => (
+          <View
+            key={row.label}
+            style={[styles.row, index === rows.length - 1 && styles.rowLast]}
+          >
+            <Text style={[typography.bodySm, styles.label]}>{row.label}</Text>
+            <Text style={[typography.bodyMd, styles.value]} numberOfLines={2}>
+              {row.value}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -55,44 +66,74 @@ export function UserDetailCard({ user }: UserDetailCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: radii.lg,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    flexDirection: 'row',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.outlineVariant,
+    marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  accent: {
+    width: 4,
+    backgroundColor: colors.primary,
+  },
+  inner: {
+    flex: 1,
     padding: spacing.md,
+  },
+  hero: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
     marginBottom: spacing.md,
   },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.secondaryContainer,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: colors.primary,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 18,
+  },
+  heroCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
   name: {
-    fontSize: 20,
-    fontWeight: '800',
     color: colors.text,
+    fontFamily: 'Inter_700Bold',
   },
   email: {
-    marginTop: 4,
-    fontSize: 14,
-    color: colors.mutedText,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
   badges: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   row: {
     paddingVertical: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.outlineVariant,
   },
+  rowLast: {},
   label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.mutedText,
+    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    fontFamily: 'Inter_600SemiBold',
   },
   value: {
     marginTop: 4,
-    fontSize: 15,
     color: colors.text,
+    fontFamily: 'Inter_600SemiBold',
   },
 });

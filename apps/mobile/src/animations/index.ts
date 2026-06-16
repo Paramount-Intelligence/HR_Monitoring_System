@@ -7,3 +7,4 @@ export { AnimatedPressable } from './AnimatedPressable';
 export { AnimatedCard } from './AnimatedCard';
 export { AnimatedBadge } from './AnimatedBadge';
 export { FadeSlideIn } from './FadeSlideIn';
+export { usePulseRing } from './usePulseRing';

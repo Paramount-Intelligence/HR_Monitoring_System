@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Message } from '../../types/messages';
-import { formatMessageTime } from '../../utils/messages';
-import { colors, radii, spacing } from '../../constants/theme';
+import { formatMessageTime, isVoiceNoteMessage } from '../../utils/messages';
+import { VoiceNoteBubble } from './VoiceNoteBubble';
+import { colors, radius, spacing, typography } from '../../theme';
 
 interface ChatBubbleProps {
   message: Message;
@@ -10,6 +11,10 @@ interface ChatBubbleProps {
 }
 
 export function ChatBubble({ message, isOwn, onRetry }: ChatBubbleProps) {
+  if (isVoiceNoteMessage(message)) {
+    return <VoiceNoteBubble message={message} isOwn={isOwn} onRetry={onRetry} />;
+  }
+
   const isSending = message.clientStatus === 'sending';
   const isQueued = message.clientStatus === 'queued';
   const isFailed = message.clientStatus === 'failed';
@@ -29,44 +34,44 @@ export function ChatBubble({ message, isOwn, onRetry }: ChatBubbleProps) {
       <Pressable
         disabled={!isFailed || !onRetry}
         onPress={() => isFailed && onRetry?.(message)}
-        style={[styles.bubblePressable]}
+        style={styles.bubblePressable}
       >
-      <View
-        style={[
-          styles.bubble,
-          isOwn ? styles.bubbleOwn : styles.bubbleOther,
-          isFailed && styles.bubbleFailed,
-          (isSending || isQueued) && styles.bubbleSending,
-        ]}
-      >
-        {!isOwn ? (
-          <Text style={styles.sender}>{message.sender.full_name}</Text>
-        ) : null}
-
-        <Text style={[styles.body, isOwn ? styles.bodyOwn : styles.bodyOther]}>
-          {isDeleted ? 'Message deleted' : message.body || ' '}
-        </Text>
-
-        {message.attachments?.length ? (
-          <View style={styles.attachment}>
-            <Text style={[styles.attachmentText, isOwn && styles.bodyOwn]}>
-              📎 {message.attachments[0].original_file_name || 'Attachment'}
-            </Text>
-          </View>
-        ) : null}
-
-        <View style={styles.metaRow}>
-          <Text style={[styles.time, isOwn ? styles.timeOwn : styles.timeOther]}>
-            {formatMessageTime(message.created_at)}
-            {isSending ? ' · Sending…' : ''}
-            {isQueued ? ' · Queued' : ''}
-            {isFailed ? ' · Failed — tap to retry' : ''}
-          </Text>
-          {deliveryLabel ? (
-            <Text style={styles.delivery}>{deliveryLabel}</Text>
+        <View
+          style={[
+            styles.bubble,
+            isOwn ? styles.bubbleOwn : styles.bubbleOther,
+            isFailed && styles.bubbleFailed,
+            (isSending || isQueued) && styles.bubbleSending,
+          ]}
+        >
+          {!isOwn ? (
+            <Text style={[typography.labelSm, styles.sender]}>{message.sender.full_name}</Text>
           ) : null}
+
+          <Text style={[typography.bodyMd, styles.body, isOwn ? styles.bodyOwn : styles.bodyOther]}>
+            {isDeleted ? 'Message deleted' : message.body || ' '}
+          </Text>
+
+          {message.attachments?.length ? (
+            <View style={styles.attachment}>
+              <Text style={[typography.caption, isOwn ? styles.bodyOwn : styles.bodyOther]}>
+                Attachment: {message.attachments[0].original_file_name || 'File'}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.metaRow}>
+            <Text style={[typography.caption, styles.time, isOwn ? styles.timeOwn : styles.timeOther]}>
+              {formatMessageTime(message.created_at)}
+              {isSending ? ' · Sending…' : ''}
+              {isQueued ? ' · Queued' : ''}
+              {isFailed ? ' · Failed — tap to retry' : ''}
+            </Text>
+            {deliveryLabel ? (
+              <Text style={[typography.caption, styles.delivery]}>{deliveryLabel}</Text>
+            ) : null}
+          </View>
         </View>
-      </View>
       </Pressable>
     </View>
   );
@@ -88,19 +93,19 @@ const styles = StyleSheet.create({
   },
   bubble: {
     maxWidth: '100%',
-    borderRadius: radii.lg,
+    borderRadius: radius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
   bubbleOwn: {
     backgroundColor: colors.primary,
-    borderBottomRightRadius: radii.sm,
+    borderBottomRightRadius: radius.sm,
   },
   bubbleOther: {
     backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderBottomLeftRadius: radii.sm,
+    borderColor: colors.outlineVariant,
+    borderBottomLeftRadius: radius.sm,
   },
   bubbleFailed: {
     borderWidth: 1,
@@ -110,13 +115,12 @@ const styles = StyleSheet.create({
     opacity: 0.75,
   },
   sender: {
-    fontSize: 12,
-    fontWeight: '700',
     color: colors.primary,
     marginBottom: 4,
+    textTransform: 'none',
+    fontFamily: 'Inter_600SemiBold',
   },
   body: {
-    fontSize: 15,
     lineHeight: 21,
   },
   bodyOwn: {
@@ -128,12 +132,8 @@ const styles = StyleSheet.create({
   attachment: {
     marginTop: spacing.xs,
     padding: spacing.sm,
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(0,0,0,0.06)',
-  },
-  attachmentText: {
-    fontSize: 13,
-    color: colors.text,
+    borderRadius: radius.sm,
+    backgroundColor: colors.overlay,
   },
   metaRow: {
     flexDirection: 'row',
@@ -141,18 +141,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: 4,
   },
-  time: {
-    fontSize: 11,
-  },
+  time: {},
   timeOwn: {
     color: 'rgba(255,255,255,0.78)',
   },
   timeOther: {
-    color: colors.mutedText,
+    color: colors.muted,
   },
   delivery: {
-    fontSize: 11,
     color: 'rgba(255,255,255,0.78)',
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
   },
 });

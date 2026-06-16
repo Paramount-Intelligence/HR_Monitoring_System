@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>PIMS Intelligence - Manager Approvals</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { -webkit-tap-highlight-color: transparent; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-alt text-on-background font-body-md min-h-screen pb-24 pt-16 md:pt-20">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-grid-margin h-14 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center gap-3">
+<img alt="User Avatar" class="w-8 h-8 rounded-full border border-outline-variant/30" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5rMFjBvIQjls33aA2SVjhMMYj0P2caJoVEvkR6Yd_98yEk1HfTpduvqzfGGLexuFmlS1OSD_ELfJhfJDf38EDs3Fyg2ugWRFAQEtC8oTpihnxzWD_thi2CejjCObxsN83hbj3pPEaAB2bpku55quuiKE3D3_CvA3ehqUl_kb5qHJJhqqu5fPyKzKYHJrdpVw4rLB19JjsGkopAZq2KPHHR7usXHM4tg7ovjz9MGKtBkqGoamAm_vT5Rp8QWAQTCBeF5K9NCkVmKg"/>
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed">PIMS Intelligence</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-primary dark:text-primary-fixed-dim hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors active:scale-95 duration-100">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">notifications</span>
+</button>
+</header>
+<main class="px-grid-margin md:max-w-3xl md:mx-auto">
+<!-- Page Header & Overview -->
+<div class="mb-stack-lg mt-stack-sm">
+<h2 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg-mobile md:font-headline-lg text-on-background mb-1">Approvals</h2>
+<p class="text-body-md font-body-md text-on-surface-variant">Review pending requests for your team.</p>
+</div>
+<!-- Metric Cards -->
+<div class="grid grid-cols-2 gap-gutter mb-stack-lg">
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-outline-variant/20 flex flex-col items-center justify-center">
+<span class="text-headline-lg-mobile font-headline-lg-mobile text-status-warning">12</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider mt-1">Pending</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-outline-variant/20 flex flex-col items-center justify-center">
+<span class="text-headline-lg-mobile font-headline-lg-mobile text-status-success">34</span>
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider mt-1">Approved</span>
+</div>
+</div>
+<!-- Custom Tabs -->
+<div class="flex space-x-2 overflow-x-auto hide-scrollbar mb-stack-lg p-1 bg-surface-container-low rounded-lg">
+<button class="flex-1 py-2 px-4 rounded-md bg-surface-container-lowest shadow-sm text-primary font-label-sm text-label-sm whitespace-nowrap active:scale-95 transition-transform">
+                Leave &amp; WFH
+            </button>
+<button class="flex-1 py-2 px-4 rounded-md text-on-surface-variant font-label-sm text-label-sm whitespace-nowrap active:scale-95 transition-transform">
+                Attendance
+            </button>
+</div>
+<!-- Approvals List -->
+<div class="space-y-stack-md">
+<!-- Card 1: Leave Request -->
+<article class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden border border-outline-variant/20 relative pl-1">
+<!-- Status Accent Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-warning"></div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<img alt="Employee Avatar" class="w-10 h-10 rounded-full border border-surface-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCpVrAf7mfUV4S4gGk18XWrkdJFarXUH0sG0Blocg5HPctfF_erKSGKYsgidgrhMoora7bpXJkO68OVedunSashOOlbP_BQula6JIRsSAgKUHc4M8IZGbpDmkph_B9BDbWWOqdb92Rrj4N639q-y5xLDi4pqqkAvA5aP9DABuknIZxL5c_Mri4MV9kxk7JPrmGHkw_VkNgDduiWj1Rrs6iYzNWZ4WYSZ_18yYiRMRU0RSh8BZLIsps8bu-8J_-N78UixWl4AOu5Czk"/>
+<div>
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">Sarah Jenkins</h3>
+<p class="text-caption font-caption text-secondary">Senior Field Engineer</p>
+</div>
+</div>
+<div class="bg-status-warning/15 text-status-warning px-2 py-1 rounded text-label-sm font-label-sm">
+                            Pending
+                        </div>
+</div>
+<div class="mb-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-secondary text-[18px]">flight_takeoff</span>
+<span class="text-body-md font-body-md font-semibold text-on-surface">Annual Leave</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">Oct 12 - Oct 15, 2023 (4 Days)</p>
+<p class="text-body-md font-body-md text-on-surface-variant mt-2 italic border-l-2 border-surface-variant pl-2">"Family vacation planned months in advance. Coverage arranged with Mike T."</p>
+</div>
+<div class="flex gap-3 mt-4 pt-4 border-t border-outline-variant/20">
+<button class="flex-1 py-2.5 rounded-lg border border-status-error text-status-error font-label-sm text-label-sm active:scale-95 transition-transform hover:bg-status-error/5 flex justify-center items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">close</span> Reject
+                        </button>
+<button class="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm active:scale-95 transition-transform hover:bg-primary-container flex justify-center items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">check</span> Approve
+                        </button>
+</div>
+</div>
+</article>
+<!-- Card 2: WFH Request -->
+<article class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden border border-outline-variant/20 relative pl-1">
+<!-- Status Accent Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-warning"></div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<img alt="Employee Avatar" class="w-10 h-10 rounded-full border border-surface-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD0cfMFJz_Bjo-2t8buI5LMkQ3Sd2FXS42caMJVnsJcr3nMpfio6KB1bl6G3iLDpg9DlkNQNI_QhmdU7b9vBAGqyBugw9aiAasiL8vt6b2tPIqVoa1RJSMpktkVX-tpc9bJUf0mKZDYjKf9h_4PHLp0F7wnPPg6jFdr9-ao5oSXovQh6ShEhik9ZHoEgdoX3ychEDrSPoj9kusYLE7C3qxzd85LE-Ut7wQWzFW0q9y_7pZIk5Z0R1XzHaW6j28B65PuOxQUlJ5vmj0"/>
+<div>
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">David Chen</h3>
+<p class="text-caption font-caption text-secondary">Data Analyst</p>
+</div>
+</div>
+<div class="bg-status-warning/15 text-status-warning px-2 py-1 rounded text-label-sm font-label-sm">
+                            Pending
+                        </div>
+</div>
+<div class="mb-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-secondary text-[18px]">home_work</span>
+<span class="text-body-md font-body-md font-semibold text-on-surface">Work From Home</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">Oct 10, 2023 (1 Day)</p>
+<p class="text-body-md font-body-md text-on-surface-variant mt-2 italic border-l-2 border-surface-variant pl-2">"Waiting for internet installation at new apartment. Will be fully reachable."</p>
+</div>
+<div class="flex gap-3 mt-4 pt-4 border-t border-outline-variant/20">
+<button class="flex-1 py-2.5 rounded-lg border border-status-error text-status-error font-label-sm text-label-sm active:scale-95 transition-transform hover:bg-status-error/5 flex justify-center items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">close</span> Reject
+                        </button>
+<button class="flex-1 py-2.5 rounded-lg bg-primary text-on-primary font-label-sm text-label-sm active:scale-95 transition-transform hover:bg-primary-container flex justify-center items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">check</span> Approve
+                        </button>
+</div>
+</div>
+</article>
+<!-- Card 3: Sick Leave -->
+<article class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden border border-outline-variant/20 relative pl-1 opacity-75">
+<!-- Status Accent Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-success"></div>
+<div class="p-4">
+<div class="flex justify-between items-start mb-3">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center text-primary font-bold">
+                                MJ
+                            </div>
+<div>
+<h3 class="text-body-lg font-body-lg font-semibold text-on-surface">Marcus Johnson</h3>
+<p class="text-caption font-caption text-secondary">Site Supervisor</p>
+</div>
+</div>
+<div class="bg-status-success/15 text-status-success px-2 py-1 rounded text-label-sm font-label-sm">
+                            Approved
+                        </div>
+</div>
+<div class="mb-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-secondary text-[18px]">medical_services</span>
+<span class="text-body-md font-body-md font-semibold text-on-surface">Sick Leave</span>
+</div>
+<p class="text-body-md font-body-md text-on-surface-variant">Oct 08 - Oct 09, 2023 (2 Days)</p>
+<p class="text-body-md font-body-md text-on-surface-variant mt-2 italic border-l-2 border-surface-variant pl-2">"Fever and flu symptoms. Medical certificate attached."</p>
+</div>
+<div class="flex mt-2">
+<button class="text-primary text-label-sm font-label-sm flex items-center gap-1 active:opacity-70">
+                            View Details <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe h-16 bg-surface/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg border-t border-outline-variant/30 dark:border-outline/20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl">
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container w-16 h-14 rounded-xl transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+<span class="text-caption font-caption mt-1">Dashboard</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container w-16 h-14 rounded-xl transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">calendar_today</span>
+<span class="text-caption font-caption mt-1">Attendance</span>
+</button>
+<!-- Assume Tasks maps to Approvals in semantic intent for this example, highlighting it -->
+<button class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-semibold bg-primary-container/20 px-3 py-1 w-16 h-14 rounded-xl active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">checklist</span>
+<span class="text-caption font-caption mt-1">Tasks</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container w-16 h-14 rounded-xl transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">assignment</span>
+<span class="text-caption font-caption mt-1">Projects</span>
+</button>
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container w-16 h-14 rounded-xl transition-colors">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">person</span>
+<span class="text-caption font-caption mt-1">Profile</span>
+</button>
+</nav>
+</body></html>

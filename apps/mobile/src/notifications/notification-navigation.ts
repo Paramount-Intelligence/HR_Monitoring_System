@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { getAlertRouteTarget } from '../utils/alert-adapters';
 
 export interface NotificationNavigationPayload {
   type?: string;
@@ -49,12 +50,22 @@ export function navigateFromNotificationPayload(
   }
 
   if (type === 'notification' || payload.notification_id) {
-    router.push('/(tabs)/notifications');
+    router.push('/alerts');
     return;
   }
 
   if (payload.screen === 'attendance' || payload.entity_type === 'attendance_session') {
     router.push('/(tabs)/attendance');
+    return;
+  }
+
+  const entityRoute = getAlertRouteTarget(
+    payload.entity_type,
+    payload.entity_id,
+    payload.type
+  );
+  if (entityRoute) {
+    router.push(entityRoute as never);
     return;
   }
 

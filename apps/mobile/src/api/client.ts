@@ -160,6 +160,12 @@ apiClient.interceptors.request.use(async (config) => {
 
   }
 
+  if (config.data instanceof FormData) {
+    config.headers.Accept = 'application/json';
+    delete config.headers['Content-Type'];
+    config.transformRequest = [(data) => data];
+  }
+
   return config;
 
 });

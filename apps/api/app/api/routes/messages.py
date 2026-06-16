@@ -1433,10 +1433,14 @@ def upload_attachments(
         # Images
         "png", "jpg", "jpeg", "webp", "gif",
         # Documents
-        "pdf", "doc", "docx", "xls", "xlsx", "csv", "txt", "ppt", "pptx"
+        "pdf", "doc", "docx", "xls", "xlsx", "csv", "txt", "ppt", "pptx",
+        # Audio / voice notes
+        "m4a", "mp4", "aac", "mp3", "wav", "webm", "ogg", "caf", "3gp",
     }
 
     MAX_SIZE = 10 * 1024 * 1024  # 10 MB per file
+    MAX_VOICE_NOTE_SIZE = 2 * 1024 * 1024  # 2 MB for audio attachments
+    AUDIO_EXTENSIONS = {"m4a", "mp4", "aac", "mp3", "wav", "webm", "ogg", "caf", "3gp"}
 
     attachments = []
     # Make sure target storage directory exists
@@ -1461,10 +1465,12 @@ def upload_attachments(
             size = file.file.tell()
             file.file.seek(0)
 
-        if size > MAX_SIZE:
+        max_allowed = MAX_VOICE_NOTE_SIZE if ext in AUDIO_EXTENSIONS else MAX_SIZE
+        if size > max_allowed:
+            limit_label = "2 MB for audio" if ext in AUDIO_EXTENSIONS else "10 MB"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File is too large. Maximum size is 10 MB. Got {size / (1024*1024):.2f} MB."
+                detail=f"File is too large. Maximum size is {limit_label}. Got {size / (1024*1024):.2f} MB."
             )
 
         # Secure file saving to prevent path traversal

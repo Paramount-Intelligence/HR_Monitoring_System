@@ -59,7 +59,6 @@ export default function LeaveReportScreen() {
   return (
     <Screen scroll={false}>
       <ManageScreenHeader title="My Leave Summary" subtitle={range.label} showBack />
-      <ReportDateRangePicker selected={preset} onSelect={setPreset} />
       {(reportQuery.isLoading || leavesQuery.isLoading) ? (
         <LoadingState message="Loading leave summary…" />
       ) : null}
@@ -87,7 +86,10 @@ export default function LeaveReportScreen() {
               }}
             />
           }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
+          <ReportDateRangePicker selected={preset} onSelect={setPreset} />
           <ReportMetricGrid>
             <ReportSummaryCard title="WFH Days" value={reportQuery.data?.wfh_days ?? 0} accentColor={colors.info} />
             <ReportSummaryCard title="Absences" value={reportQuery.data?.absences ?? 0} accentColor={colors.danger} />
@@ -132,6 +134,11 @@ function statusVariant(status: string): 'success' | 'warning' | 'danger' | 'neut
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',

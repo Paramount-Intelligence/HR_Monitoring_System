@@ -3,7 +3,6 @@ const PERSISTABLE_ROOTS = new Set([
   'user',
   'dashboard',
   'attendance',
-  'conversations',
   'conversation',
   'messages',
   'notifications',

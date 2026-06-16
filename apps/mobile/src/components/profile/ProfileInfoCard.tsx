@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { User } from '../../types/user';
 import { formatDate, formatStatusLabel, safeText } from '../../utils/format';
-import { colors, radii, spacing } from '../../constants/theme';
+import { colors, radius, shadows, spacing, typography } from '../../theme';
 
 interface ProfileInfoCardProps {
   user: User | null;
@@ -9,7 +9,7 @@ interface ProfileInfoCardProps {
 
 export function ProfileInfoCard({ user }: ProfileInfoCardProps) {
   const rows = [
-    { label: 'Work Email', value: safeText(user?.email) },
+    { label: 'Work email', value: safeText(user?.email) },
     { label: 'Department', value: safeText(user?.department_name ?? user?.department) },
     { label: 'Designation', value: safeText(user?.designation) },
     { label: 'Phone', value: safeText(user?.phone) },
@@ -21,16 +21,21 @@ export function ProfileInfoCard({ user }: ProfileInfoCardProps) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Account Details</Text>
-      {rows.map((row, index) => (
-        <View
-          key={row.label}
-          style={[styles.row, index === rows.length - 1 && styles.rowLast]}
-        >
-          <Text style={styles.label}>{row.label}</Text>
-          <Text style={styles.value}>{row.value}</Text>
-        </View>
-      ))}
+      <View style={styles.accent} />
+      <View style={styles.inner}>
+        <Text style={[typography.titleMd, styles.title]}>Account details</Text>
+        {rows.map((row, index) => (
+          <View
+            key={row.label}
+            style={[styles.row, index === rows.length - 1 && styles.rowLast]}
+          >
+            <Text style={[typography.bodySm, styles.label]}>{row.label}</Text>
+            <Text style={[typography.bodyMd, styles.value]} numberOfLines={2}>
+              {row.value}
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }
@@ -38,38 +43,45 @@ export function ProfileInfoCard({ user }: ProfileInfoCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: radii.lg,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    flexDirection: 'row',
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
+    borderColor: colors.outlineVariant,
     marginBottom: spacing.md,
+    ...shadows.card,
+  },
+  accent: {
+    width: 4,
+    backgroundColor: colors.info,
+  },
+  inner: {
+    flex: 1,
+    padding: spacing.md,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
     color: colors.text,
+    fontFamily: 'Inter_600SemiBold',
     marginBottom: spacing.sm,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.outlineVariant,
     gap: spacing.md,
   },
   rowLast: {
     borderBottomWidth: 0,
   },
   label: {
-    color: colors.mutedText,
-    fontSize: 14,
+    color: colors.textSecondary,
     flex: 1,
   },
   value: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'Inter_600SemiBold',
     flex: 1.2,
     textAlign: 'right',
   },

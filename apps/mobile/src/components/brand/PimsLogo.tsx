@@ -1,35 +1,64 @@
-import { Image, StyleSheet, Text, View, type ImageStyle, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, spacing } from '../../constants/theme';
+import {
+  Image,
+  StyleSheet,
+  Text,
+  View,
+  type ImageStyle,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import { spacing, typography, colors, radius } from '../../theme';
 
 const LOGO_SOURCE = require('../../../assets/logo.png');
 
 interface PimsLogoProps {
   size?: number;
+  width?: number;
+  height?: number;
   showWordmark?: boolean;
-  variant?: 'light' | 'dark';
+  variant?: 'light' | 'dark' | 'default';
   style?: StyleProp<ViewStyle>;
   imageStyle?: StyleProp<ImageStyle>;
+  accessibilityLabel?: string;
 }
 
 export function PimsLogo({
   size = 40,
+  width,
+  height,
   showWordmark = false,
-  variant = 'light',
+  variant = 'default',
   style,
   imageStyle,
+  accessibilityLabel = 'PIMS',
 }: PimsLogoProps) {
-  const wordColor = variant === 'light' ? colors.white : colors.primaryDark;
+  const logoWidth = width ?? size;
+  const logoHeight = height ?? size;
+
+  const wordColor =
+    variant === 'light'
+      ? colors.white
+      : variant === 'dark'
+        ? colors.onPrimaryFixed
+        : colors.primary;
 
   return (
-    <View style={[styles.row, style]} accessibilityRole="image" accessibilityLabel="PIMS">
+    <View
+      style={[styles.row, style]}
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel}
+    >
       <Image
         source={LOGO_SOURCE}
-        style={[{ width: size, height: size }, styles.logo, imageStyle]}
+        style={[{ width: logoWidth, height: logoHeight }, styles.logo, imageStyle]}
         resizeMode="contain"
         accessible={false}
       />
       {showWordmark ? (
-        <Text style={[styles.wordmark, { color: wordColor }]} accessibilityElementsHidden>
+        <Text
+          style={[styles.wordmark, typography.titleLg, { color: wordColor }]}
+          accessibilityElementsHidden
+        >
           PIMS
         </Text>
       ) : null}
@@ -44,11 +73,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   logo: {
-    borderRadius: 8,
+    borderRadius: radius.md,
   },
   wordmark: {
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
   },
 });

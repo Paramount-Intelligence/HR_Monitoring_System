@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>PIMS - Leave &amp; WFH Request</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        
+        /* Form Inputs */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            opacity: 0.5;
+            cursor: pointer;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c4c5d7;
+            border-radius: 4px;
+        }
+        
+        /* Glassmorphism utility */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-alt text-on-background font-body-md min-h-screen pt-14 pb-16 selection:bg-primary/20 selection:text-primary overflow-x-hidden antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-grid-margin h-14 bg-surface/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center gap-stack-sm">
+<button aria-label="Go Back" class="p-2 -ml-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" onclick="window.history.back()">
+<span class="material-symbols-outlined text-24px">arrow_back</span>
+</button>
+<h1 class="text-headline-md font-headline-md font-bold text-primary">Request Leave</h1>
+</div>
+<div class="flex items-center gap-stack-sm">
+<button aria-label="Notifications" class="p-2 text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors relative">
+<span class="material-symbols-outlined text-24px">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-surface"></span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant/30 flex-shrink-0">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate employee in a light blue background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGSP1Hg0G7ULjf02rdlJ7JdISwgBFtzMrFDZ0t5JCagZhSOLE08b8m2ejXi0arfAP8yuqnq5rSQ9i-bwAZeNLj17e2GzEBvRCGnf8QVn4r03KRslCOdu5TTOrvTv9QKzZlPHfoeIbF99oB4M6m3XeH5lwoWqWv2oMYiRzc4IBJy9ckE-18bBvJVn81y7yOrumMHsEexZtCa47ANsfVCypEV1EOYHwVKwmHnxI8KGsgApIqo4RNcjI68YuZrPFR_Boyyohj_tvR1oM"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="w-full max-w-lg mx-auto px-grid-margin py-stack-lg space-y-stack-lg relative z-0">
+<!-- Balance Cards (Horizontal Scroll) -->
+<section aria-labelledby="balance-heading">
+<h2 class="sr-only" id="balance-heading">Leave Balances</h2>
+<div class="flex overflow-x-auto gap-stack-sm pb-2 -mx-grid-margin px-grid-margin snap-x hide-scrollbar">
+<div class="snap-start flex-none w-32 bg-surface-container-lowest rounded-xl p-3 border border-outline-variant/20 shadow-[0_2px_8px_rgba(0,0,0,0.04)] relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-xl"></div>
+<p class="text-caption font-caption text-secondary mb-1">Annual Leave</p>
+<div class="flex items-end gap-1">
+<span class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface">14</span>
+<span class="text-caption font-caption text-secondary pb-1">days</span>
+</div>
+</div>
+<div class="snap-start flex-none w-32 bg-surface-container-lowest rounded-xl p-3 border border-outline-variant/20 shadow-[0_2px_8px_rgba(0,0,0,0.04)] relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-status-warning rounded-l-xl"></div>
+<p class="text-caption font-caption text-secondary mb-1">Sick Leave</p>
+<div class="flex items-end gap-1">
+<span class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface">05</span>
+<span class="text-caption font-caption text-secondary pb-1">days</span>
+</div>
+</div>
+<div class="snap-start flex-none w-32 bg-surface-container-lowest rounded-xl p-3 border border-outline-variant/20 shadow-[0_2px_8px_rgba(0,0,0,0.04)] relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-status-info rounded-l-xl"></div>
+<p class="text-caption font-caption text-secondary mb-1">WFH Allowance</p>
+<div class="flex items-end gap-1">
+<span class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface">08</span>
+<span class="text-caption font-caption text-secondary pb-1">days left</span>
+</div>
+</div>
+</div>
+</section>
+<!-- New Request Form -->
+<section class="bg-surface-container-lowest rounded-xl p-stack-md border border-outline-variant/20 shadow-[0_2px_8px_rgba(0,0,0,0.04)]">
+<h2 class="text-body-lg font-body-lg font-semibold text-on-surface mb-stack-md">Submit Request</h2>
+<form action="#" class="space-y-stack-md" method="POST">
+<!-- Request Type -->
+<div class="space-y-stack-sm">
+<label class="block text-label-sm font-label-sm text-on-surface-variant" for="request_type">Request Type</label>
+<div class="relative">
+<select class="block w-full rounded-lg border-outline-variant/50 bg-surface text-on-surface text-body-md font-body-md py-3 pl-3 pr-10 focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-colors appearance-none min-h-[44px]" id="request_type" name="request_type">
+<option disabled="" selected="" value="">Select Type</option>
+<option value="annual">Annual Leave</option>
+<option value="sick">Sick Leave</option>
+<option value="casual">Casual Leave</option>
+<option value="wfh">Work From Home (WFH)</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-secondary">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Date Range Grid -->
+<div class="grid grid-cols-2 gap-stack-sm">
+<div class="space-y-stack-sm">
+<label class="block text-label-sm font-label-sm text-on-surface-variant" for="start_date">Start Date</label>
+<div class="relative">
+<input class="block w-full rounded-lg border-outline-variant/50 bg-surface text-on-surface text-body-md font-body-md py-3 px-3 focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-colors min-h-[44px]" id="start_date" name="start_date" type="date"/>
+</div>
+</div>
+<div class="space-y-stack-sm">
+<label class="block text-label-sm font-label-sm text-on-surface-variant" for="end_date">End Date</label>
+<div class="relative">
+<input class="block w-full rounded-lg border-outline-variant/50 bg-surface text-on-surface text-body-md font-body-md py-3 px-3 focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-colors min-h-[44px]" id="end_date" name="end_date" type="date"/>
+</div>
+</div>
+</div>
+<!-- Duration Calculator (Auto-updates via JS ideally) -->
+<div class="flex items-center justify-between bg-surface-container px-3 py-2 rounded-lg border border-surface-variant">
+<span class="text-caption font-caption text-on-surface-variant">Total Duration</span>
+<span class="text-body-md font-body-md font-semibold text-primary">-- Days</span>
+</div>
+<!-- Reason -->
+<div class="space-y-stack-sm">
+<label class="block text-label-sm font-label-sm text-on-surface-variant" for="reason">Reason / Comments</label>
+<textarea class="block w-full rounded-lg border-outline-variant/50 bg-surface text-on-surface text-body-md font-body-md py-3 px-3 focus:border-primary focus:ring-1 focus:ring-primary focus:bg-surface-container-lowest transition-colors resize-none" id="reason" name="reason" placeholder="Provide details for your request..." rows="3"></textarea>
+</div>
+<!-- Attachment Upload Placeholder -->
+<div class="space-y-stack-sm">
+<label class="block text-label-sm font-label-sm text-on-surface-variant">Attachment (Optional, req. for Sick Leave)</label>
+<button class="w-full flex items-center justify-center gap-2 py-3 px-4 border-2 border-dashed border-outline-variant/50 rounded-lg bg-surface text-secondary hover:bg-surface-container-low hover:border-primary/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 min-h-[44px]" type="button">
+<span class="material-symbols-outlined text-20px">upload_file</span>
+<span class="text-body-md font-body-md">Tap to upload document</span>
+</button>
+<p class="text-caption font-caption text-secondary mt-1 ml-1">JPG, PNG, PDF up to 5MB</p>
+</div>
+<!-- Action Buttons -->
+<div class="pt-2 flex gap-stack-sm">
+<button class="flex-1 py-3 px-4 rounded-full border border-outline-variant text-on-surface-variant text-label-sm font-label-sm hover:bg-surface-container-low transition-colors min-h-[44px]" type="button">Cancel</button>
+<button class="flex-[2] py-3 px-4 rounded-full bg-primary text-on-primary text-label-sm font-label-sm hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm min-h-[44px] flex items-center justify-center gap-2" type="submit">
+<span>Submit Request</span>
+<span class="material-symbols-outlined text-18px">send</span>
+</button>
+</div>
+</form>
+</section>
+<!-- Recent Requests List -->
+<section class="space-y-stack-md">
+<div class="flex items-center justify-between">
+<h2 class="text-body-lg font-body-lg font-semibold text-on-surface">Recent Requests</h2>
+<button class="text-label-sm font-label-sm text-primary hover:underline">View All</button>
+</div>
+<div class="space-y-stack-sm">
+<!-- Request Item 1 (Pending) -->
+<div class="glass-card rounded-xl p-3 flex flex-col gap-3 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-status-warning"></div>
+<div class="flex justify-between items-start pl-1">
+<div>
+<h3 class="text-body-md font-body-md font-semibold text-on-surface">Work From Home</h3>
+<p class="text-caption font-caption text-secondary">Oct 24 - Oct 25 (2 days)</p>
+</div>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-status-warning/15 text-status-warning text-caption font-label-sm font-semibold border border-status-warning/20">Pending</span>
+</div>
+<div class="pl-1 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2 text-caption font-caption text-secondary">
+<span class="material-symbols-outlined text-16px">account_circle</span>
+<span>Awaiting Manager Approval</span>
+</div>
+</div>
+</div>
+<!-- Request Item 2 (Approved) -->
+<div class="glass-card rounded-xl p-3 flex flex-col gap-3 relative overflow-hidden bg-surface-container-lowest">
+<div class="absolute top-0 left-0 w-1 h-full bg-status-success"></div>
+<div class="flex justify-between items-start pl-1">
+<div>
+<h3 class="text-body-md font-body-md font-semibold text-on-surface">Sick Leave</h3>
+<p class="text-caption font-caption text-secondary">Sep 12 - Sep 13 (2 days)</p>
+</div>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-status-success/15 text-status-success text-caption font-label-sm font-semibold border border-status-success/20">Approved</span>
+</div>
+<div class="pl-1 pt-2 border-t border-outline-variant/20 flex items-center justify-between">
+<div class="flex items-center gap-2 text-caption font-caption text-secondary">
+<span class="material-symbols-outlined text-16px text-status-success">check_circle</span>
+<span>Approved by Sarah Jenkins</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Suppressed based on rules: Transactional/Task-focused page with back button) -->
+<!-- Navigation shell is excluded as per "Automatic Suppression" rule for Linear/Task-Focused intents -->
+<script>
+        // Simple script to auto-calculate days if dates are selected
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
+        const durationDisplay = document.querySelector('.bg-surface-container span.text-primary');
+
+        function calculateDays() {
+            if (startDateInput.value && endDateInput.value) {
+                const start = new Date(startDateInput.value);
+                const end = new Date(endDateInput.value);
+                
+                // Reset time to midnight for accurate day calculation
+                start.setHours(0, 0, 0, 0);
+                end.setHours(0, 0, 0, 0);
+
+                if (end >= start) {
+                    const diffTime = Math.abs(end - start);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end
+                    durationDisplay.textContent = `${diffDays} Day${diffDays > 1 ? 's' : ''}`;
+                } else {
+                    durationDisplay.textContent = 'Invalid Range';
+                }
+            } else {
+                durationDisplay.textContent = '-- Days';
+            }
+        }
+
+        startDateInput.addEventListener('change', calculateDays);
+        endDateInput.addEventListener('change', calculateDays);
+    </script>
+</body></html>

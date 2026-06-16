@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, radii, spacing } from '../../constants/theme';
+import { colors, radius, shadows, spacing, typography } from '../../theme';
 
 interface StatCardProps {
   label: string;
@@ -10,17 +10,23 @@ interface StatCardProps {
 export function StatCard({ label, value, accentColor = colors.primary }: StatCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={[styles.value, { color: accentColor }]}>{value}</Text>
-      <Text style={styles.label}>{label}</Text>
+      <View style={[styles.accent, { backgroundColor: accentColor }]} />
+      <View style={styles.inner}>
+        <Text style={[typography.headlineMd, styles.value, { color: accentColor }]}>{value}</Text>
+        <Text style={[typography.bodySm, styles.label]}>{label}</Text>
+      </View>
     </View>
   );
 }
 
 export function StatCardSkeleton() {
   return (
-    <View style={[styles.card, styles.skeleton]}>
-      <View style={styles.skeletonLineLarge} />
-      <View style={styles.skeletonLineSmall} />
+    <View style={styles.card}>
+      <View style={[styles.accent, { backgroundColor: colors.border }]} />
+      <View style={[styles.inner, styles.skeleton]}>
+        <View style={styles.skeletonLineLarge} />
+        <View style={styles.skeletonLineSmall} />
+      </View>
     </View>
   );
 }
@@ -30,20 +36,27 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '46%',
     backgroundColor: colors.card,
-    borderRadius: radii.lg,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    flexDirection: 'row',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.outlineVariant,
+    ...shadows.card,
+  },
+  accent: {
+    width: 4,
+  },
+  inner: {
+    flex: 1,
     padding: spacing.md,
   },
   value: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontFamily: 'Inter_700Bold',
   },
   label: {
     marginTop: spacing.xs,
-    fontSize: 13,
-    color: colors.mutedText,
-    fontWeight: '600',
+    color: colors.textSecondary,
+    fontFamily: 'Inter_600SemiBold',
   },
   skeleton: {
     gap: spacing.sm,
@@ -51,13 +64,13 @@ const styles = StyleSheet.create({
   skeletonLineLarge: {
     width: '50%',
     height: 24,
-    borderRadius: radii.sm,
+    borderRadius: radius.sm,
     backgroundColor: colors.border,
   },
   skeletonLineSmall: {
     width: '70%',
     height: 14,
-    borderRadius: radii.sm,
+    borderRadius: radius.sm,
     backgroundColor: colors.border,
   },
 });

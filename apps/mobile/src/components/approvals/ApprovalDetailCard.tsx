@@ -3,7 +3,7 @@ import { AppBadge } from '../ui/AppBadge';
 import { ApprovalStatusBadge } from './ApprovalStatusBadge';
 import { colors, radii, spacing } from '../../constants/theme';
 import { formatLeaveType } from '../../utils/manage';
-import { formatTime } from '../../utils/format';
+import { formatDateTime, formatTime } from '../../utils/format';
 import type { LeaveRequest } from '../../types/approvals';
 import type { AttendanceSession } from '../../types/attendance';
 
@@ -24,7 +24,7 @@ export function ApprovalDetailCard({ kind, leave, correction }: ApprovalDetailCa
         <DetailRow label="Requester" value={leave.user_full_name ?? 'Employee'} />
         <DetailRow label="Dates" value={`${leave.start_date} → ${leave.end_date}`} />
         <DetailRow label="Reason" value={leave.reason} />
-        <DetailRow label="Submitted" value={new Date(leave.created_at).toLocaleString()} />
+        <DetailRow label="Submitted" value={formatDateTime(leave.created_at)} />
         {leave.manager_comment ? (
           <DetailRow label="Previous comment" value={leave.manager_comment} />
         ) : null}
@@ -46,7 +46,7 @@ export function ApprovalDetailCard({ kind, leave, correction }: ApprovalDetailCa
         <DetailRow label="Current check in" value={formatTime(correction.check_in_at)} />
         <DetailRow label="Current check out" value={formatTime(correction.check_out_at)} />
         <DetailRow label="Reason" value={correction.correction_reason ?? '—'} />
-        <DetailRow label="Submitted" value={new Date(correction.updated_at).toLocaleString()} />
+        <DetailRow label="Submitted" value={formatDateTime(correction.updated_at)} />
       </View>
     );
   }

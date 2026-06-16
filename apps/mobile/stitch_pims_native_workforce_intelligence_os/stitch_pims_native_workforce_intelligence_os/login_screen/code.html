@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>PIMS - Login</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .input-glow:focus-within {
+            box-shadow: 0 0 0 2px rgba(33, 81, 218, 0.2);
+            border-color: #2151da;
+        }
+    </style>
+</head>
+<body class="bg-background-alt text-on-surface font-body-md min-h-screen flex items-center justify-center p-4 antialiased">
+<!-- Login Container -->
+<main class="w-full max-w-md bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-outline-variant/30 p-8 flex flex-col gap-8">
+<!-- Header -->
+<header class="flex flex-col items-center text-center gap-4">
+<img alt="PIMS Logo" class="w-16 h-16 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLu58gLKO-P_LkNUayj-_J4BmYiEajVkjG0N8zAJhj7oE-Jvm2THvRyQfqQNf-gFJa5d3jwtn0AuxnDK4pg5fVtf9l37-8k5ZfYMMVeRyeqYkd_VWZRJE6uSu0W4WxN-NnfOB_5F-dLYaBK_ZKoRq1jzDMG3HnIb0lPLseBWSSE3nZLcR9LK2Ei8wR3foz_Ky8K7vPTWBW5Dn-bRS6KHUk1vN-m4CAbCn_gwCVQJSJ90vt9Z9tZfiTsWKQ"/>
+<div>
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface mb-1">Welcome to PIMS</h1>
+<p class="text-label-sm font-label-sm text-surface-tint uppercase tracking-wider mb-2">Paramount Intelligence Monitoring System</p>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-xs mx-auto">Secure access to your workforce monitoring and operations platform.</p>
+</div>
+</header>
+<!-- Login Form -->
+<form class="flex flex-col gap-6" onsubmit="event.preventDefault(); handleLogin();">
+<!-- Email Input -->
+<div class="flex flex-col gap-2">
+<label class="text-label-sm font-label-sm text-on-surface" for="email">Email</label>
+<div class="relative flex items-center bg-surface border border-outline-variant rounded-lg input-glow transition-all duration-200 h-[44px]">
+<span class="material-symbols-outlined text-outline absolute left-3 text-[20px]" data-icon="mail">mail</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-md font-body-md text-on-surface pl-10 pr-4 py-2" id="email" placeholder="name@company.com" required="" type="email"/>
+</div>
+</div>
+<!-- Password Input -->
+<div class="flex flex-col gap-2">
+<label class="text-label-sm font-label-sm text-on-surface" for="password">Password</label>
+<div class="relative flex items-center bg-surface border border-outline-variant rounded-lg input-glow transition-all duration-200 h-[44px]">
+<span class="material-symbols-outlined text-outline absolute left-3 text-[20px]" data-icon="lock">lock</span>
+<input class="w-full bg-transparent border-none focus:ring-0 text-body-md font-body-md text-on-surface pl-10 pr-10 py-2" id="password" placeholder="••••••••" required="" type="password"/>
+<button class="absolute right-3 text-outline hover:text-on-surface transition-colors focus:outline-none" onclick="togglePassword()" type="button">
+<span class="material-symbols-outlined text-[20px]" data-icon="visibility" id="visibility-icon">visibility</span>
+</button>
+</div>
+<!-- Error State Placeholder (Hidden by default) -->
+<div class="hidden text-caption font-caption text-error flex items-center gap-1 mt-1" id="error-message">
+<span class="material-symbols-outlined text-[14px]" data-icon="error">error</span>
+                    Incorrect email or password.
+                </div>
+</div>
+<!-- Actions (Remember Me & Forgot Password) -->
+<div class="flex justify-between items-center mt-[-8px]">
+<label class="flex items-center gap-2 cursor-pointer group">
+<input class="rounded border-outline-variant text-surface-tint focus:ring-surface-tint w-4 h-4 transition-colors" type="checkbox"/>
+<span class="text-caption font-caption text-on-surface-variant group-hover:text-on-surface transition-colors">Keep me logged in</span>
+</label>
+<a class="text-caption font-caption text-surface-tint hover:text-primary transition-colors font-semibold" href="#">Forgot password?</a>
+</div>
+<!-- Submit Button -->
+<button class="w-full h-[44px] bg-primary text-on-primary rounded-lg text-body-md font-body-md font-semibold hover:bg-surface-tint transition-colors focus:outline-none focus:ring-2 focus:ring-surface-tint focus:ring-offset-2 flex items-center justify-center gap-2 mt-2" id="login-btn" type="submit">
+<span id="btn-text">Sign In</span>
+<!-- Loading Spinner (Hidden by default) -->
+<span class="hidden material-symbols-outlined animate-spin text-[20px]" data-icon="progress_activity" id="btn-spinner">progress_activity</span>
+</button>
+</form>
+<!-- Footer -->
+<footer class="mt-4 pt-6 border-t border-outline-variant/30 text-center">
+<p class="text-caption font-caption text-outline uppercase tracking-wider">© Paramount Intelligence</p>
+</footer>
+</main>
+<script>
+        function togglePassword() {
+            const pwdInput = document.getElementById('password');
+            const icon = document.getElementById('visibility-icon');
+            if (pwdInput.type === 'password') {
+                pwdInput.type = 'text';
+                icon.textContent = 'visibility_off';
+                icon.setAttribute('data-icon', 'visibility_off');
+            } else {
+                pwdInput.type = 'password';
+                icon.textContent = 'visibility';
+                icon.setAttribute('data-icon', 'visibility');
+            }
+        }
+
+        function handleLogin() {
+            const btn = document.getElementById('login-btn');
+            const btnText = document.getElementById('btn-text');
+            const btnSpinner = document.getElementById('btn-spinner');
+            const errorMsg = document.getElementById('error-message');
+            const pwdInput = document.getElementById('password').parentElement;
+
+            // Reset error state
+            errorMsg.classList.add('hidden');
+            pwdInput.classList.remove('border-error');
+
+            // Simulate Loading State
+            btn.disabled = true;
+            btn.classList.add('opacity-90', 'cursor-not-allowed');
+            btnText.classList.add('hidden');
+            btnSpinner.classList.remove('hidden');
+
+            setTimeout(() => {
+                // Simulate Error State for demonstration
+                btn.disabled = false;
+                btn.classList.remove('opacity-90', 'cursor-not-allowed');
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
+                
+                errorMsg.classList.remove('hidden');
+                pwdInput.classList.add('border-error');
+            }, 1500);
+        }
+    </script>
+</body></html>

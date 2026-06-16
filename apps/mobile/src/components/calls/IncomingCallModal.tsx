@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import type { CallType } from '../../types/calls';
 import { getIncomingCallLabel } from '../../calls/call-utils';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme';
 import { CallModalCard, CallModalOverlay } from './CallModalOverlay';
 import { CallParticipantAvatar } from './CallParticipantAvatar';
 
@@ -30,7 +30,7 @@ export function IncomingCallModal({
           <CallParticipantAvatar
             name={callerName}
             size="md"
-            ringColor="rgba(52, 211, 153, 0.45)"
+            ringColor="rgba(16, 185, 129, 0.45)"
             pulse
           />
         </View>
@@ -84,20 +84,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2,
     textTransform: 'uppercase',
-    color: colors.call.statusConnected,
+    color: colors.success,
     marginBottom: 8,
   },
   name: {
     textAlign: 'center',
     fontSize: 28,
     fontWeight: '800',
-    color: colors.call.textOnDark,
+    color: colors.white,
     marginBottom: 4,
   },
   subtitle: {
     textAlign: 'center',
     fontSize: 14,
-    color: 'rgba(148, 163, 184, 0.95)',
+    color: 'rgba(255,255,255,0.72)',
     marginBottom: 28,
   },
   actions: {
@@ -114,16 +114,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   decline: {
-    backgroundColor: colors.call.accentRed,
+    backgroundColor: colors.danger,
   },
   accept: {
-    backgroundColor: colors.call.accentGreen,
+    backgroundColor: colors.success,
   },
   pressed: {
     opacity: 0.9,
   },
   actionLabel: {
-    color: colors.call.textOnDark,
+    color: colors.white,
     fontSize: 14,
     fontWeight: '800',
     textTransform: 'uppercase',

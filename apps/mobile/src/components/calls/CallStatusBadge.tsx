@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { CallStatus } from '../../types/calls';
 import { getCallStatusLabel } from '../../calls/call-utils';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme';
 
 interface CallStatusBadgeProps {
   status: CallStatus;
@@ -10,10 +10,10 @@ interface CallStatusBadgeProps {
 }
 
 const toneColors: Record<string, { bg: string; text: string }> = {
-  connected: { bg: 'rgba(16, 185, 129, 0.18)', text: colors.call.statusConnected },
-  warning: { bg: 'rgba(245, 158, 11, 0.18)', text: colors.call.statusWarning },
-  danger: { bg: 'rgba(239, 68, 68, 0.18)', text: colors.call.statusDanger },
-  neutral: { bg: 'rgba(148, 163, 184, 0.18)', text: 'rgba(203, 213, 225, 1)' },
+  connected: { bg: 'rgba(16, 185, 129, 0.18)', text: colors.success },
+  warning: { bg: 'rgba(245, 158, 11, 0.18)', text: colors.warning },
+  danger: { bg: 'rgba(239, 68, 68, 0.18)', text: colors.danger },
+  neutral: { bg: 'rgba(255, 255, 255, 0.12)', text: 'rgba(255,255,255,0.85)' },
 };
 
 function getTone(status: CallStatus): keyof typeof toneColors {

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>PIMS - Attendance</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#ffc9b7",
+                        "error": "#ba1a1a",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "surface-tint": "#2151da",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#7f2500",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#a73400",
+                        "surface-container-low": "#f0f3ff",
+                        "surface": "#f9f9ff",
+                        "status-success": "#10B981",
+                        "surface-container": "#e7eefe",
+                        "on-secondary-fixed-variant": "#404758",
+                        "surface-dim": "#d3daea",
+                        "on-primary-fixed": "#001551",
+                        "primary-container": "#1d4ed8",
+                        "status-info": "#3B82F6",
+                        "critical-accent": "#7F1D1D",
+                        "background": "#f9f9ff",
+                        "surface-container-high": "#e2e8f8",
+                        "inverse-primary": "#b7c4ff",
+                        "secondary-container": "#d9dff5",
+                        "inverse-surface": "#2a313d",
+                        "on-primary-container": "#cad3ff",
+                        "on-secondary-container": "#5c6274",
+                        "on-secondary-fixed": "#141b2b",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-error": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "status-error": "#EF4444",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "on-background": "#151c27",
+                        "background-alt": "#F8F9FA",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "surface-variant": "#dce2f3",
+                        "on-secondary": "#ffffff",
+                        "primary": "#0037b0",
+                        "on-surface-variant": "#434655",
+                        "inverse-on-surface": "#ebf1ff",
+                        "surface-container-highest": "#dce2f3",
+                        "status-warning": "#F59E0B",
+                        "secondary-fixed": "#dce2f7",
+                        "on-tertiary-fixed": "#390c00",
+                        "outline": "#747686",
+                        "surface-bright": "#f9f9ff",
+                        "outline-variant": "#c4c5d7",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "on-tertiary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#151c27",
+                        "secondary-fixed-dim": "#c0c6db",
+                        "secondary": "#575e70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "4px",
+                        "stack-sm": "8px",
+                        "gutter": "12px",
+                        "grid-margin": "16px",
+                        "stack-lg": "24px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "caption": ["Inter"],
+                        "headline-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "600" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["11px", { "lineHeight": "14px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "30px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .pt-safe { padding-top: env(safe-area-inset-top, 20px); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-background font-body-md antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col pt-14 pb-16">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-grid-margin h-14 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm pt-safe">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container-high overflow-hidden shrink-0">
+<img alt="User Profile Avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a corporate employee. The portrait is brightly lit with a clean, light-mode background. The aesthetic is modern and polished, suitable for an enterprise system profile picture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAus4us8vj-z8CY_wh2npoRqpzlZ1OPjGmQKTA4Bu7qJMki8T8ytAbnJBYHdtVMTLdAi8LqttUCJ5S-ENdiZ3ch-C62CWPpyjVz8yg2JrHiMGLbMTUs-mEqrVZDNuzSMEvtl583qBRF-xgQIpyggs8qTIKzLtkJLnSWVdzTIhfO90usYeOt6p_b7teruteFOSnZEoGFf_WFw3fLRBuWO7BsQBB6z0ZM_VieKlth6u06SpfaDS7Gwtje6tIzUmG076ES1eiPeW9BRko"/>
+</div>
+<h1 class="text-headline-md font-headline-md font-bold text-primary dark:text-primary-fixed">PIMS Intelligence</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors active:scale-95 duration-100 text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+</header>
+<!-- Main Canvas -->
+<main class="flex-grow px-grid-margin py-stack-md flex flex-col gap-stack-md overflow-y-auto hide-scrollbar">
+<!-- Header / Date -->
+<div class="flex justify-between items-end">
+<div>
+<p class="text-label-sm font-label-sm text-secondary uppercase tracking-wider mb-1">Today</p>
+<h2 class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface">Wed, Oct 25</h2>
+</div>
+<div class="bg-status-success/15 text-status-success px-3 py-1 rounded-full text-label-sm font-label-sm border border-status-success/20">
+                Shift: 09:00 - 18:00
+            </div>
+</div>
+<!-- Current Status Card (Bento Style) -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden relative border border-outline-variant/30 flex flex-col">
+<!-- Accent Stripe -->
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-info"></div>
+<div class="p-4 flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-caption font-caption text-secondary">Session Timer</p>
+<div class="text-headline-lg-mobile font-headline-lg-mobile text-primary mt-1 font-mono">03:45:22</div>
+</div>
+<div class="flex gap-2">
+<span class="bg-status-warning/15 text-status-warning px-2 py-1 rounded text-caption font-caption flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">warning</span> Late 15m
+                        </span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-2 border-t border-outline-variant/20">
+<div>
+<p class="text-caption font-caption text-secondary">Check In</p>
+<p class="text-body-md font-body-md text-on-surface font-semibold">09:15 AM</p>
+</div>
+<div>
+<p class="text-caption font-caption text-secondary">Check Out</p>
+<p class="text-body-md font-body-md text-secondary">--:--</p>
+</div>
+</div>
+</div>
+<!-- Action Area -->
+<div class="bg-surface-container-low p-4 mt-auto">
+<button class="w-full bg-primary text-on-primary h-11 rounded-lg flex items-center justify-center gap-2 text-body-md font-body-md font-semibold active:scale-[0.98] transition-transform">
+<span class="material-symbols-outlined" data-weight="fill">logout</span>
+                    Check Out
+                </button>
+</div>
+</div>
+<!-- Work Duration & Shortcuts Grid (Bento) -->
+<div class="grid grid-cols-2 gap-stack-sm">
+<!-- Duration -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-4 border border-outline-variant/30 flex flex-col justify-center items-center">
+<div class="w-12 h-12 rounded-full bg-primary-container/10 flex items-center justify-center mb-2 text-primary">
+<span class="material-symbols-outlined" data-icon="schedule">schedule</span>
+</div>
+<p class="text-caption font-caption text-secondary">Total Duration</p>
+<p class="text-headline-md font-headline-md text-on-surface">3h 45m</p>
+</div>
+<!-- Shortcuts Stack -->
+<div class="flex flex-col gap-stack-sm">
+<button class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-3 border border-outline-variant/30 flex items-center gap-3 active:bg-surface-container-low transition-colors">
+<div class="w-8 h-8 rounded-full bg-status-info/10 text-status-info flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">edit_calendar</span>
+</div>
+<div class="text-left">
+<p class="text-label-sm font-label-sm text-on-surface">Correction</p>
+</div>
+</button>
+<button class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-3 border border-outline-variant/30 flex items-center gap-3 active:bg-surface-container-low transition-colors">
+<div class="w-8 h-8 rounded-full bg-tertiary-container/10 text-tertiary flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-[18px]">home_work</span>
+</div>
+<div class="text-left">
+<p class="text-label-sm font-label-sm text-on-surface">Leave / WFH</p>
+</div>
+</button>
+</div>
+</div>
+<!-- History List -->
+<div class="mt-2">
+<h3 class="text-headline-md font-headline-md text-on-surface mb-3">Recent History</h3>
+<div class="bg-surface-container-lowest rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-outline-variant/30 overflow-hidden">
+<!-- Item 1 -->
+<div class="p-3 border-b border-outline-variant/20 flex justify-between items-center relative pl-4">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-success"></div>
+<div>
+<p class="text-body-md font-body-md text-on-surface font-semibold">Tue, Oct 24</p>
+<p class="text-caption font-caption text-secondary">08:55 AM - 06:05 PM</p>
+</div>
+<div class="text-right">
+<span class="text-status-success text-label-sm font-label-sm">Present</span>
+<p class="text-caption font-caption text-secondary">9h 10m</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="p-3 border-b border-outline-variant/20 flex justify-between items-center relative pl-4">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-status-error"></div>
+<div>
+<p class="text-body-md font-body-md text-on-surface font-semibold">Mon, Oct 23</p>
+<p class="text-caption font-caption text-secondary">Absent</p>
+</div>
+<div class="text-right">
+<span class="text-status-error text-label-sm font-label-sm bg-status-error/10 px-2 py-0.5 rounded">Absent</span>
+<p class="text-caption font-caption text-secondary">0h 0m</p>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="p-3 flex justify-between items-center relative pl-4 bg-surface-container-low/50">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-tertiary"></div>
+<div>
+<p class="text-body-md font-body-md text-on-surface font-semibold">Fri, Oct 20</p>
+<p class="text-caption font-caption text-secondary">Approved Leave</p>
+</div>
+<div class="text-right">
+<span class="text-tertiary text-label-sm font-label-sm">Sick Leave</span>
+</div>
+</div>
+</div>
+<button class="w-full text-center py-3 text-primary text-body-md font-body-md font-semibold mt-2">
+                View Full History
+            </button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe h-16 bg-surface/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg border-t border-outline-variant/30 dark:border-outline/20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl hidden md:hidden md:flex">
+<!-- Dashboard -->
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors w-16 h-12 rounded-lg">
+<span class="material-symbols-outlined text-[24px]" data-icon="dashboard">dashboard</span>
+<span class="text-label-sm font-label-sm mt-1">Dashboard</span>
+</button>
+<!-- Attendance (Active) -->
+<button class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-semibold bg-primary-container/20 rounded-xl px-3 py-1 scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined text-[24px]" data-icon="calendar_today" data-weight="fill">calendar_today</span>
+<span class="text-label-sm font-label-sm mt-1">Attendance</span>
+</button>
+<!-- Projects -->
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors w-16 h-12 rounded-lg">
+<span class="material-symbols-outlined text-[24px]" data-icon="assignment">assignment</span>
+<span class="text-label-sm font-label-sm mt-1">Projects</span>
+</button>
+<!-- Tasks -->
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors w-16 h-12 rounded-lg">
+<span class="material-symbols-outlined text-[24px]" data-icon="checklist">checklist</span>
+<span class="text-label-sm font-label-sm mt-1">Tasks</span>
+</button>
+<!-- Profile -->
+<button class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 hover:bg-surface-container-low dark:hover:bg-surface-container transition-colors w-16 h-12 rounded-lg">
+<span class="material-symbols-outlined text-[24px]" data-icon="person">person</span>
+<span class="text-label-sm font-label-sm mt-1">Profile</span>
+</button>
+</nav>
+<!-- Mobile BottomNav Override (Ensuring it shows on small screens as requested, ignoring the strict md:hidden rule to meet the JSON 5-tab spec requirement for mobile view) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 pb-safe h-16 bg-surface/90 dark:bg-surface-container-lowest/90 backdrop-blur-lg border-t border-outline-variant/30 dark:border-outline/20 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] rounded-t-xl md:hidden">
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 w-16 h-12" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-label-sm mt-0.5">Dashboard</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary dark:text-primary-fixed-dim font-semibold bg-primary-container/20 rounded-xl px-2 py-1 scale-95" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="calendar_today" data-weight="fill">calendar_today</span>
+<span class="text-[10px] font-label-sm mt-0.5">Attendance</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 w-16 h-12" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="assignment">assignment</span>
+<span class="text-[10px] font-label-sm mt-0.5">Projects</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 w-16 h-12" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="checklist">checklist</span>
+<span class="text-[10px] font-label-sm mt-0.5">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-secondary dark:text-on-secondary-container opacity-70 w-16 h-12" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="person">person</span>
+<span class="text-[10px] font-label-sm mt-0.5">Profile</span>
+</a>
+</nav>
+<script>
+        // Simple timer logic for demonstration
+        function updateTimer() {
+            const timerEl = document.querySelector('.font-mono');
+            if(timerEl) {
+                let parts = timerEl.innerText.split(':');
+                let h = parseInt(parts[0]);
+                let m = parseInt(parts[1]);
+                let s = parseInt(parts[2]);
+
+                s++;
+                if(s >= 60) { s = 0; m++; }
+                if(m >= 60) { m = 0; h++; }
+
+                timerEl.innerText = 
+                    String(h).padStart(2, '0') + ':' + 
+                    String(m).padStart(2, '0') + ':' + 
+                    String(s).padStart(2, '0');
+            }
+        }
+        setInterval(updateTimer, 1000);
+    </script>
+</body></html>

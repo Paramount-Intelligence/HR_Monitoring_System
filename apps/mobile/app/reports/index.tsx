@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Screen } from '../../src/components/ui/Screen';
 import { ManageScreenHeader } from '../../src/components/manage/ManageScreenHeader';
 import { ManageHubCard } from '../../src/components/manage/ManageHubCard';
+import { OfflineBanner } from '../../src/components/ui/OfflineBanner';
+import { EmptyState } from '../../src/components/ui/EmptyState';
 import { useAuthStore } from '../../src/auth/auth-store';
 import { getEmployeeReport } from '../../src/api/reports.api';
 import { getPendingCorrections, getPendingLeaveRequests } from '../../src/api/approvals.api';
@@ -18,8 +20,7 @@ import {
   canAccessWorkforceReports,
   normalizeRole,
 } from '../../src/utils/role';
-import { AppEmptyState } from '../../src/components/ui/AppEmptyState';
-import { colors, spacing } from '../../src/constants/theme';
+import { colors, spacing, typography } from '../../src/theme';
 
 export default function ReportsHubScreen() {
   const router = useRouter();
@@ -57,10 +58,11 @@ export default function ReportsHubScreen() {
       key: string;
       title: string;
       subtitle: string;
-      icon: 'person-outline' | 'people-outline' | 'business-outline' | 'calendar-outline' | 'document-text-outline' | 'alert-circle-outline' | 'checkmark-done-outline';
+      icon: 'person-outline' | 'people-outline' | 'business-outline' | 'calendar-outline' | 'document-text-outline' | 'checkmark-done-outline';
       badge?: number;
       metric?: string;
       route: string;
+      accentColor?: string;
     }[] = [];
 
     if (canAccessEmployeeReports(role)) {
@@ -90,6 +92,7 @@ export default function ReportsHubScreen() {
         subtitle: 'Attendance and performance by member',
         icon: 'people-outline',
         route: '/reports/team',
+        accentColor: colors.info,
       });
       items.push({
         key: 'team-attendance',
@@ -107,6 +110,7 @@ export default function ReportsHubScreen() {
         subtitle: 'Org-wide attendance and exceptions',
         icon: 'business-outline',
         route: '/reports/workforce',
+        accentColor: colors.success,
       });
     }
 
@@ -118,6 +122,7 @@ export default function ReportsHubScreen() {
         icon: 'checkmark-done-outline',
         badge: pendingCount,
         route: '/manage/approvals',
+        accentColor: colors.warning,
       });
     }
 
@@ -126,24 +131,29 @@ export default function ReportsHubScreen() {
 
   return (
     <Screen scroll={false}>
-      <ManageScreenHeader title="Reports" subtitle="Role-based insights and summaries" showBack />
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Available reports</Text>
-        {cards.map((card) => (
+      <OfflineBanner />
+      <ManageScreenHeader title="Reports" subtitle="Role-based insights and summaries" />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <Text style={[typography.titleMd, styles.sectionTitle]}>Available reports</Text>
+        {cards.map((card, index) => (
           <ManageHubCard
             key={card.key}
+            index={index}
             title={card.title}
             subtitle={card.metric ?? card.subtitle}
             icon={card.icon}
             badge={card.badge}
+            accentColor={card.accentColor}
             onPress={() => router.push(card.route as never)}
           />
         ))}
         {cards.length === 0 ? (
-          <AppEmptyState
-            title="No reports available for this period."
+          <EmptyState
+            title="No reports available"
             description="You do not have access to any reports for your current role."
-            icon="bar-chart-outline"
           />
         ) : null}
       </ScrollView>
@@ -152,10 +162,15 @@ export default function ReportsHubScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xl,
+    backgroundColor: colors.background,
+  },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: spacing.md,
     color: colors.text,
+    fontFamily: 'Inter_600SemiBold',
+    marginBottom: spacing.md,
   },
 });

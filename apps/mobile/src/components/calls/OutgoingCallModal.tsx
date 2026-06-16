@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import type { CallStatus, CallType } from '../../types/calls';
 import { getCallStatusLabel, getOutgoingCallTypeLabel } from '../../calls/call-utils';
-import { colors } from '../../constants/theme';
+import { colors } from '../../theme';
 import { CallModalCard, CallModalOverlay } from './CallModalOverlay';
 import { CallParticipantAvatar } from './CallParticipantAvatar';
 
@@ -35,7 +35,7 @@ export function OutgoingCallModal({
           <CallParticipantAvatar
             name={participantName}
             size="md"
-            ringColor="rgba(96, 165, 250, 0.45)"
+            ringColor="rgba(0, 55, 176, 0.55)"
             pulse={connectionStatus === 'calling' || connectionStatus === 'ringing'}
           />
         </View>
@@ -82,26 +82,26 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 2,
     textTransform: 'uppercase',
-    color: colors.call.textMuted,
+    color: 'rgba(255,255,255,0.72)',
     marginBottom: 8,
   },
   name: {
     textAlign: 'center',
     fontSize: 28,
     fontWeight: '800',
-    color: colors.call.textOnDark,
+    color: colors.white,
     marginBottom: 4,
   },
   subtitle: {
     textAlign: 'center',
     fontSize: 14,
-    color: 'rgba(148, 163, 184, 0.95)',
+    color: 'rgba(255,255,255,0.72)',
     marginBottom: 28,
   },
   cancel: {
     minHeight: 56,
     borderRadius: 16,
-    backgroundColor: colors.call.accentRed,
+    backgroundColor: colors.danger,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   cancelLabel: {
-    color: colors.call.textOnDark,
+    color: colors.white,
     fontSize: 14,
     fontWeight: '800',
     textTransform: 'uppercase',

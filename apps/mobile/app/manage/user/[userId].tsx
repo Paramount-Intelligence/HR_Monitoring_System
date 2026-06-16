@@ -1,31 +1,34 @@
-import { useMemo, useState } from 'react';
-import { Alert, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Screen } from '../../../src/components/ui/Screen';
 import { ManageScreenHeader } from '../../../src/components/manage/ManageScreenHeader';
+import { OfflineBanner } from '../../../src/components/ui/OfflineBanner';
 import { RoleAccessGuard } from '../../../src/components/manage/RoleAccessGuard';
+import { AdminUserManagementPanel } from '../../../src/components/manage/AdminUserManagementPanel';
 import { UserDetailCard } from '../../../src/components/manage/UserDetailCard';
-import { ReportMetricGrid } from '../../../src/components/reports/ReportMetricGrid';
-import { ReportSummaryCard } from '../../../src/components/reports/ReportSummaryCard';
 import { TeamMemberPerformanceCard } from '../../../src/components/team/TeamMemberPerformanceCard';
 import { AppButton } from '../../../src/components/ui/AppButton';
 import { ErrorState } from '../../../src/components/ui/ErrorState';
 import { LoadingState } from '../../../src/components/ui/LoadingState';
 import { getOrCreateContextThread } from '../../../src/api/conversations.api';
-import { getPendingLeaveRequests } from '../../../src/api/approvals.api';
 import { getTeamMemberReport } from '../../../src/api/team.api';
 import { getUser } from '../../../src/api/users.api';
 import { getErrorMessage, isForbiddenError } from '../../../src/api/client';
 import { queryKeys } from '../../../src/constants/query-keys';
 import { getReportDateRange } from '../../../src/utils/report-dates';
-import { colors, spacing } from '../../../src/constants/theme';
+import { canAccessAllUsers } from '../../../src/utils/role';
+import { useAuthStore } from '../../../src/auth/auth-store';
+import { spacing } from '../../../src/constants/theme';
 
 export default function ManageUserDetailScreen() {
   const router = useRouter();
+  const currentUser = useAuthStore((s) => s.user);
   const { userId } = useLocalSearchParams<{ userId: string }>();
   const [messaging, setMessaging] = useState(false);
   const range = getReportDateRange('month');
+  const isAdminView = canAccessAllUsers(currentUser?.role);
 
   const userQuery = useQuery({
     queryKey: queryKeys.userDetail(userId ?? ''),
@@ -43,18 +46,8 @@ export default function ManageUserDetailScreen() {
         start_date: range.start_date,
         end_date: range.end_date,
       }),
-    enabled: Boolean(userId),
+    enabled: Boolean(userId) && !isAdminView,
   });
-
-  const pendingLeavesQuery = useQuery({
-    queryKey: queryKeys.pendingLeaves,
-    queryFn: getPendingLeaveRequests,
-  });
-
-  const memberPendingLeaves = useMemo(
-    () => (pendingLeavesQuery.data ?? []).filter((item) => item.user_id === userId),
-    [pendingLeavesQuery.data, userId]
-  );
 
   const messageMutation = useMutation({
     mutationFn: () => getOrCreateContextThread(userId!),
@@ -72,8 +65,12 @@ export default function ManageUserDetailScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll>
-        <ManageScreenHeader title="Team Member" subtitle="Profile, reports, and actions" />
+      <Screen scroll={false}>
+        <OfflineBanner />
+        <ManageScreenHeader
+          title={isAdminView ? 'User management' : 'Team member'}
+          subtitle={isAdminView ? 'Profile, access, permissions, and security' : 'Profile and reports'}
+        />
         {userQuery.isLoading ? <LoadingState message="Loading profile…" /> : null}
         {userQuery.isError ? (
           <ErrorState
@@ -86,65 +83,29 @@ export default function ManageUserDetailScreen() {
           />
         ) : null}
         {userQuery.data ? (
-          <>
-            <UserDetailCard user={userQuery.data} />
-            {memberReportQuery.data ? (
+          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+            {isAdminView ? (
+              <AdminUserManagementPanel user={userQuery.data} />
+            ) : (
               <>
-                <ReportMetricGrid>
-                  <ReportSummaryCard
-                    title="Hours"
-                    value={`${memberReportQuery.data.total_hours.toFixed(1)}h`}
-                    accentColor={colors.primary}
+                <UserDetailCard user={userQuery.data} />
+                {memberReportQuery.data ? (
+                  <TeamMemberPerformanceCard member={memberReportQuery.data} />
+                ) : null}
+                <View style={styles.actions}>
+                  <AppButton
+                    title="Message user"
+                    variant="secondary"
+                    loading={messaging || messageMutation.isPending}
+                    onPress={() => {
+                      setMessaging(true);
+                      messageMutation.mutate();
+                    }}
                   />
-                  <ReportSummaryCard
-                    title="Late"
-                    value={memberReportQuery.data.late_logins}
-                    accentColor={colors.warning}
-                  />
-                  <ReportSummaryCard
-                    title="WFH"
-                    value={memberReportQuery.data.wfh_days}
-                    accentColor={colors.info}
-                  />
-                  <ReportSummaryCard
-                    title="Absences"
-                    value={memberReportQuery.data.absences}
-                    accentColor={colors.danger}
-                  />
-                </ReportMetricGrid>
-                <TeamMemberPerformanceCard member={memberReportQuery.data} />
+                </View>
               </>
-            ) : null}
-            {memberPendingLeaves.length > 0 ? (
-              <ReportSummaryCard
-                title="Pending Requests"
-                value={memberPendingLeaves.length}
-                subtitle="Leave/WFH awaiting approval"
-                accentColor={colors.warning}
-              />
-            ) : null}
-            <View style={styles.actions}>
-              <AppButton
-                title="Message User"
-                variant="secondary"
-                loading={messaging || messageMutation.isPending}
-                onPress={() => {
-                  setMessaging(true);
-                  messageMutation.mutate();
-                }}
-              />
-              <AppButton
-                title="View Attendance Overview"
-                variant="secondary"
-                onPress={() => router.push('/manage/attendance')}
-              />
-              <AppButton
-                title="View Team Reports"
-                variant="secondary"
-                onPress={() => router.push('/reports/team')}
-              />
-            </View>
-          </>
+            )}
+          </ScrollView>
         ) : null}
       </Screen>
     </RoleAccessGuard>
@@ -152,6 +113,11 @@ export default function ManageUserDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: spacing.screenPadding,
+    paddingBottom: spacing.xxl,
+    gap: spacing.sm,
+  },
   actions: {
     gap: spacing.sm,
     marginTop: spacing.md,

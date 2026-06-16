@@ -1,10 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getConversation, markConversationRead } from '../../src/api/conversations.api';
-import { getMessages, sendMessage } from '../../src/api/messages.api';
+import { getMessages, sendMessage, sendVoiceNote, getVoiceNoteSendErrorMessage } from '../../src/api/messages.api';
 import { getFriendlyErrorMessage } from '../../src/api/client';
 import { ChatComposer } from '../../src/components/messages/ChatComposer';
 import { ChatHeader } from '../../src/components/messages/ChatHeader';
@@ -26,8 +26,8 @@ import {
 import { useRealtimeStore } from '../../src/realtime/realtime-store';
 import type { Conversation, Message } from '../../src/types/messages';
 import type { CallType } from '../../src/types/calls';
-import { dedupeMessages, getConversationDisplayName, sortMessagesChronologically } from '../../src/utils/messages';
-import { colors } from '../../src/constants/theme';
+import { dedupeMessages, buildVoiceNoteFilename, getConversationDisplayName, getDirectParticipant, sortMessagesChronologically } from '../../src/utils/messages';
+import { colors } from '../../src/theme';
 
 export default function ChatScreen() {
   const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
@@ -68,6 +68,58 @@ export default function ChatScreen() {
       );
     });
   }, [conversationId, queryClient, isOffline]);
+
+  const [voiceUploading, setVoiceUploading] = useState(false);
+
+  const addOptimisticVoiceMessage = (
+    clientId: string,
+    localUri: string,
+    durationSeconds: number,
+    clientStatus: Message['clientStatus']
+  ) => {
+    if (!conversationId || !user) return;
+    queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) => {
+      const previous = prev ?? [];
+      const optimistic: Message = {
+        id: clientId,
+        clientId,
+        clientStatus,
+        clientVoiceLocalUri: localUri,
+        clientVoiceDuration: durationSeconds,
+        conversation_id: conversationId,
+        sender_id: user.id,
+        sender: {
+          id: user.id,
+          full_name: user.full_name,
+          email: user.email,
+          role: user.role,
+          avatar_url: user.avatar_url ?? user.profile_picture_url,
+        },
+        body: '',
+        message_type: 'text',
+        parent_message_id: null,
+        is_edited: false,
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        deleted_at: null,
+        mentions: [],
+        reactions: [],
+        attachments: [
+          {
+            id: clientId,
+            file_name: buildVoiceNoteFilename(durationSeconds),
+            original_file_name: buildVoiceNoteFilename(durationSeconds),
+            mime_type: 'audio/mp4',
+            file_size: 0,
+            download_url: localUri,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+      return dedupeMessages([...previous, optimistic]);
+    });
+  };
 
   const addOptimisticMessage = (body: string, clientId: string, clientStatus: Message['clientStatus']) => {
     if (!conversationId || !user) return;
@@ -172,8 +224,58 @@ export default function ChatScreen() {
     });
   };
 
+  const handleSendVoiceNote = async (localUri: string, durationSeconds: number) => {
+    if (!conversationId) return;
+    if (isOffline) {
+      Alert.alert('Offline', 'Voice notes require an internet connection.');
+      throw new Error('offline');
+    }
+
+    const clientId = createClientMessageId();
+    setVoiceUploading(true);
+    addOptimisticVoiceMessage(clientId, localUri, durationSeconds, 'sending');
+
+    try {
+      const saved = await sendVoiceNote(conversationId, localUri, durationSeconds);
+      queryClient.setQueryData<Message[]>(
+        queryKeys.messages(conversationId),
+        (prev) =>
+          dedupeMessages(
+            (prev ?? [])
+              .filter((m) => m.clientId !== clientId)
+              .concat({ ...saved, clientStatus: 'sent' })
+          )
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations });
+    } catch (error) {
+      queryClient.setQueryData<Message[]>(
+        queryKeys.messages(conversationId),
+        (prev) =>
+          (prev ?? []).map((message) =>
+            message.clientId === clientId
+              ? { ...message, clientStatus: 'failed' as const }
+              : message
+          )
+      );
+      Alert.alert('Voice note failed', getVoiceNoteSendErrorMessage(error));
+      throw new Error('voice_send_failed');
+    } finally {
+      setVoiceUploading(false);
+    }
+  };
+
   const handleRetryMessage = async (message: Message) => {
-    if (!conversationId || !message.body || !message.clientId) return;
+    if (!conversationId) return;
+
+    if (message.clientVoiceLocalUri && message.clientVoiceDuration) {
+      queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) =>
+        (prev ?? []).filter((m) => m.clientId !== message.clientId)
+      );
+      await handleSendVoiceNote(message.clientVoiceLocalUri, message.clientVoiceDuration);
+      return;
+    }
+
+    if (!message.body || !message.clientId) return;
 
     queryClient.setQueryData<Message[]>(queryKeys.messages(conversationId), (prev) =>
       (prev ?? []).map((m) =>
@@ -227,6 +329,7 @@ export default function ChatScreen() {
 
   const canCall = canStartCallInConversation(conversation, user?.id);
   const directParticipant = getDirectChatParticipant(conversation, user?.id);
+  const participantUser = conversation ? getDirectParticipant(conversation, user?.id) : null;
   const callsEnabled =
     !isOffline && connectionStatus === 'connected' && callPhase === 'idle';
 
@@ -272,6 +375,7 @@ export default function ChatScreen() {
                 ? 'Reconnecting…'
                 : undefined
         }
+        role={participantUser?.role}
         canCall={canCall}
         callsEnabled={callsEnabled}
         onStartVoiceCall={() => void handleStartCall('voice')}
@@ -282,7 +386,7 @@ export default function ChatScreen() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 4 : 24}
       >
         <View style={styles.flex}>
           <MessageList
@@ -300,8 +404,11 @@ export default function ChatScreen() {
         <ChatComposer
           conversationName={title}
           sending={sendMutation.isPending}
+          voiceUploading={voiceUploading}
           disabled={false}
+          offline={isOffline}
           onSend={handleSend}
+          onSendVoiceNote={handleSendVoiceNote}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -21,3 +21,12 @@ export interface RefreshResponse {
   token_type: string;
   refresh_token?: string;
 }
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+  debug_token?: string | null;
+}

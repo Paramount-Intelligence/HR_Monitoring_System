@@ -17,22 +17,33 @@ type WebRtcModule = {
 };
 
 let webrtcModule: WebRtcModule | null = null;
+let webrtcUnavailable = false;
 
 export function isWebRtcNativeAvailable(): boolean {
+  if (webrtcUnavailable) return false;
   if (webrtcModule) return true;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('react-native-webrtc');
+    if (!mod?.mediaDevices?.getUserMedia) {
+      webrtcUnavailable = true;
+      return false;
+    }
     webrtcModule = mod;
-    return Boolean(mod?.mediaDevices?.getUserMedia);
+    return true;
   } catch {
+    webrtcUnavailable = true;
     return false;
   }
 }
 
+export function getWebRtcUnavailableMessage(): string {
+  return 'Calling is not available in this build. Install the latest development or preview build.';
+}
+
 function getWebRtcModule(): WebRtcModule {
   if (!isWebRtcNativeAvailable()) {
-    throw new Error('Voice and video calls require the PIMS development build.');
+    throw new Error(getWebRtcUnavailableMessage());
   }
   return webrtcModule!;
 }

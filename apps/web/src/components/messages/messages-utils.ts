@@ -1,4 +1,5 @@
 import type { Conversation, ConversationType, Message, MessageAttachment } from '@/lib/api/messages';
+import { isVoiceNoteMessage } from '@/lib/messages/voice-messages';
 import { format, isValid, parseISO } from 'date-fns';
 
 export type SidebarFilter = 'home' | 'threads' | 'mentions' | 'drafts' | 'files' | 'calls';
@@ -18,11 +19,27 @@ export function getConversationDisplayName(
 
 export function getConversationPreview(conv: Conversation): string {
   const body = conv.last_message?.body?.trim();
-  if (!body) return 'No messages yet';
+  if (!conv.last_message) return 'No messages yet';
+  if (
+    !body ||
+    /sent an attachment/i.test(body) ||
+    /voice message/i.test(body)
+  ) {
+    return 'Voice message';
+  }
   if (conv.last_message?.sender_name) {
     return `${conv.last_message.sender_name}: ${body}`;
   }
   return body;
+}
+
+export function getMessagePreviewText(message: Message): string {
+  if (message.is_deleted) return 'This message was deleted.';
+  if (isVoiceNoteMessage(message)) return 'Voice message';
+  const body = message.body?.trim();
+  if (body) return body;
+  if (message.attachments?.length) return 'Attachment';
+  return 'Message';
 }
 
 export function getDirectParticipant(conv: Conversation, currentUserId?: string) {

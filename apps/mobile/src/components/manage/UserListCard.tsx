@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { AppBadge } from '../ui/AppBadge';
-import { colors, radii, spacing } from '../../constants/theme';
-import { formatRole, getInitials } from '../../utils/format';
+import { RoleBadge } from '../ui/RoleBadge';
+import { StatusBadge } from '../ui/StatusBadge';
+import { colors, radius, shadows, spacing, typography } from '../../theme';
+import { getInitials } from '../../utils/format';
 import type { User } from '../../types/user';
 
 interface UserListCardProps {
@@ -19,22 +20,43 @@ export function UserListCard({
   statusVariant = 'neutral',
   onPress,
 }: UserListCardProps) {
+  const department = user.department_name ?? user.department;
+
   const content = (
     <>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{getInitials(user.full_name)}</Text>
+      <View style={styles.accent} />
+      <View style={styles.inner}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{getInitials(user.full_name)}</Text>
+        </View>
+        <View style={styles.content}>
+          <Text style={[typography.titleMd, styles.name]} numberOfLines={1}>
+            {user.full_name}
+          </Text>
+          <View style={styles.badges}>
+            <RoleBadge role={user.role} />
+            {statusLabel ? <StatusBadge label={statusLabel} variant={statusVariant} /> : null}
+          </View>
+          {department ? (
+            <Text style={[typography.bodySm, styles.meta]} numberOfLines={1}>
+              {department}
+              {user.designation ? ` · ${user.designation}` : ''}
+            </Text>
+          ) : user.designation ? (
+            <Text style={[typography.bodySm, styles.meta]} numberOfLines={1}>
+              {user.designation}
+            </Text>
+          ) : null}
+          {subtitle ? (
+            <Text style={[typography.caption, styles.subtitle]} numberOfLines={1}>
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
+        {onPress ? (
+          <Text style={styles.chevron}>›</Text>
+        ) : null}
       </View>
-      <View style={styles.content}>
-        <Text style={styles.name}>{user.full_name}</Text>
-        <Text style={styles.meta}>
-          {formatRole(user.role)}
-          {user.department_name || user.department
-            ? ` · ${user.department_name ?? user.department}`
-            : ''}
-        </Text>
-        {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-      </View>
-      {statusLabel ? <AppBadge label={statusLabel} variant={statusVariant} /> : null}
     </>
   );
 
@@ -49,7 +71,6 @@ export function UserListCard({
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
       {content}
-      <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
 }
@@ -57,47 +78,61 @@ export function UserListCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.outlineVariant,
+    marginBottom: spacing.sm,
+    ...shadows.card,
   },
   pressed: {
     opacity: 0.92,
+  },
+  accent: {
+    width: 4,
+    backgroundColor: colors.primary,
+  },
+  inner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    gap: spacing.md,
   },
   avatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.overlay,
+    backgroundColor: colors.secondaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     color: colors.primary,
-    fontWeight: '800',
+    fontFamily: 'Inter_700Bold',
     fontSize: 14,
   },
   content: {
     flex: 1,
+    minWidth: 0,
   },
   name: {
-    fontSize: 16,
-    fontWeight: '700',
     color: colors.text,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  badges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
   },
   meta: {
-    fontSize: 13,
-    color: colors.mutedText,
-    marginTop: 2,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
   },
   subtitle: {
-    fontSize: 12,
-    color: colors.text,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   chevron: {

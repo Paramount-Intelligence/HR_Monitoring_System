@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, View, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { TAB_SCREEN_BOTTOM_INSET } from '../../constants/layout';
+import { useTabScreenBottomInset } from '../../hooks/useTabScreenBottomInset';
 import { colors, spacing } from '../../constants/theme';
 
 interface ScreenProps {
@@ -10,7 +10,7 @@ interface ScreenProps {
   style?: ViewStyle;
   contentStyle?: ViewStyle;
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
-  /** Add extra bottom padding for tab screens so content clears the tab bar. */
+  /** Tab screens: omit bottom safe-area inset; use hook on inner ScrollView padding instead. */
   withTabBarInset?: boolean;
 }
 
@@ -22,7 +22,16 @@ export function Screen({
   edges = ['top', 'bottom'],
   withTabBarInset = false,
 }: ScreenProps) {
-  const bottomPadding = withTabBarInset ? TAB_SCREEN_BOTTOM_INSET : spacing.lg;
+  const tabInset = useTabScreenBottomInset();
+  const safeEdges = withTabBarInset
+    ? (edges.filter((edge) => edge !== 'bottom') as ScreenProps['edges'])
+    : edges;
+
+  const bottomPadding = scroll
+    ? withTabBarInset
+      ? tabInset
+      : spacing.lg
+    : 0;
 
   const content = scroll ? (
     <ScrollView
@@ -33,11 +42,11 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, { paddingBottom: bottomPadding }, contentStyle]}>{children}</View>
+    <View style={[styles.content, contentStyle]}>{children}</View>
   );
 
   return (
-    <SafeAreaView style={[styles.safe, style]} edges={edges}>
+    <SafeAreaView style={[styles.safe, style]} edges={safeEdges}>
       {content}
     </SafeAreaView>
   );
@@ -50,7 +59,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.md,
   },
   scrollContent: {
     flexGrow: 1,

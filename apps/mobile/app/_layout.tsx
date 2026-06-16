@@ -3,7 +3,6 @@ import { Stack } from 'expo-router';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { StatusBar } from 'expo-status-bar';
 import { useAuthStore, setAppQueryClient } from '../src/auth/auth-store';
-import { LoadingState } from '../src/components/ui/LoadingState';
 import { RealtimeProvider } from '../src/realtime/RealtimeProvider';
 import { PushNotificationProvider } from '../src/notifications/PushNotificationProvider';
 import { CallOverlayProvider } from '../src/calls/CallOverlayProvider';
@@ -13,6 +12,8 @@ import {
   createAppQueryClient,
   persistOptions,
 } from '../src/query/query-client';
+import { useAppFonts } from '../src/theme/useAppFonts';
+import { AuthBootstrapSplash } from '../src/components/auth/AuthBootstrapSplash';
 
 const queryClient = createAppQueryClient();
 setAppQueryClient(queryClient);
@@ -20,13 +21,14 @@ setAppQueryClient(queryClient);
 function AuthBootstrap({ children }: { children: ReactNode }) {
   const bootstrapAuth = useAuthStore((s) => s.bootstrapAuth);
   const isHydrated = useAuthStore((s) => s.isHydrated);
+  const { fontsLoaded, fontError } = useAppFonts();
 
   useEffect(() => {
     void bootstrapAuth();
   }, [bootstrapAuth]);
 
-  if (!isHydrated) {
-    return <LoadingState message="Starting PIMS…" fullScreen />;
+  if (!isHydrated || (!fontsLoaded && !fontError)) {
+    return <AuthBootstrapSplash message="Initializing system…" />;
   }
 
   return <>{children}</>;
@@ -41,7 +43,7 @@ export default function RootLayout() {
           <RealtimeProvider>
             <PushNotificationProvider>
               <CallOverlayProvider>
-                <StatusBar style="light" />
+                <StatusBar style="dark" />
                 <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
                   <Stack.Screen name="index" />
                   <Stack.Screen name="(auth)" />
@@ -49,6 +51,12 @@ export default function RootLayout() {
                   <Stack.Screen name="manage" />
                   <Stack.Screen name="reports" />
                   <Stack.Screen name="chat" />
+                  <Stack.Screen name="alerts" />
+                  <Stack.Screen name="leave-request" />
+                  <Stack.Screen name="attendance" />
+                  <Stack.Screen name="projects" />
+                  <Stack.Screen name="tasks" />
+                  <Stack.Screen name="team-tasks" />
                 </Stack>
               </CallOverlayProvider>
             </PushNotificationProvider>

@@ -92,7 +92,6 @@ export default function WorkforceReportScreen() {
         subtitle={range.label}
         showBack
       />
-      <ReportDateRangePicker selected={preset} onSelect={setPreset} />
       {workforceQuery.isLoading ? <LoadingState message="Loading workforce report…" /> : null}
       {workforceQuery.isError ? (
         <ErrorState
@@ -115,7 +114,10 @@ export default function WorkforceReportScreen() {
               }}
             />
           }
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
+          <ReportDateRangePicker selected={preset} onSelect={setPreset} />
           <ReportMetricGrid>
             <ReportSummaryCard title="Employees" value={totals.employees} accentColor={colors.primary} />
             <ReportSummaryCard title="Total Hours" value={`${totals.hours.toFixed(0)}h`} accentColor={colors.success} />
@@ -154,6 +156,9 @@ export default function WorkforceReportScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxl,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',

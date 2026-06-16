@@ -83,7 +83,6 @@ export default function TeamReportScreen() {
     <RoleAccessGuard>
       <Screen scroll={false}>
         <ManageScreenHeader title="Team Reports" subtitle={range.label} showBack />
-        <ReportDateRangePicker selected={preset} onSelect={setPreset} />
         {teamReportQuery.isLoading ? <LoadingState message="Loading team report…" /> : null}
         {teamReportQuery.isError ? (
           <ErrorState
@@ -108,7 +107,10 @@ export default function TeamReportScreen() {
                 }}
               />
             }
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
+            <ReportDateRangePicker selected={preset} onSelect={setPreset} />
             {teamAnalyticsQuery.data ? (
               <TeamSummaryCard
                 totalMembers={teamAnalyticsQuery.data.summary.total_members}
@@ -153,6 +155,9 @@ export default function TeamReportScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    paddingBottom: spacing.xxl,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',

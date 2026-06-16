@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radii, spacing } from '../../constants/theme';
+import { colors, radius, spacing, typography } from '../../theme';
 
 interface EmptyAccessStateProps {
   title?: string;
@@ -16,8 +16,8 @@ export function EmptyAccessState({
       <View style={styles.iconWrap}>
         <Ionicons name="lock-closed-outline" size={28} color={colors.primary} />
       </View>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={[typography.headlineMd, styles.title]}>{title}</Text>
+      <Text style={[typography.bodyMd, styles.message]}>{message}</Text>
     </View>
   );
 }
@@ -33,23 +33,21 @@ const styles = StyleSheet.create({
   iconWrap: {
     width: 64,
     height: 64,
-    borderRadius: radii.pill,
-    backgroundColor: colors.overlay,
+    borderRadius: radius.pill,
+    backgroundColor: colors.secondaryContainer,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '800',
     color: colors.text,
+    fontFamily: 'Inter_700Bold',
     textAlign: 'center',
   },
   message: {
     marginTop: spacing.sm,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.mutedText,
+    color: colors.textSecondary,
     textAlign: 'center',
+    lineHeight: 22,
   },
 });

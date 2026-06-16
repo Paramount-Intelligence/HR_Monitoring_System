@@ -92,7 +92,6 @@ export async function uploadCallRecording(
     `/calls/${callId}/recordings`,
     formData,
     {
-      headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120000,
     }
   );
