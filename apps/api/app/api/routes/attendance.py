@@ -5,11 +5,10 @@ import uuid
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query, Body
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.models.attendance_session import AttendanceSession, AttendanceSessionStatus
 from app.schemas.attendance import (
     AttendanceSessionRead,
     CheckInRequest,
@@ -36,11 +35,7 @@ def check_out(payload: CheckOutRequest | None = Body(default=None), db: Session 
 
 @router.get("/active", response_model=AttendanceSessionRead | None, summary="Get current active session")
 def get_active(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> AttendanceSessionRead | None:
-    session = db.query(AttendanceSession).options(joinedload(AttendanceSession.breaks)).filter(
-        AttendanceSession.user_id == actor.id,
-        AttendanceSession.session_status == AttendanceSessionStatus.ACTIVE,
-    ).first()
-    return session
+    return AttendanceService(db).get_active(actor)
 
 
 @router.get("/me", response_model=list[AttendanceSessionRead], summary="My attendance history")
@@ -50,11 +45,7 @@ def get_my_sessions(
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> list[AttendanceSessionRead]:
-    # We use joinedload for breaks to ensure they are available for the schema
-    sessions = db.query(AttendanceSession).options(joinedload(AttendanceSession.breaks)).filter(
-        AttendanceSession.user_id == actor.id
-    ).order_by(AttendanceSession.check_in_at.desc()).limit(30).all()
-    return sessions
+    return AttendanceService(db).get_my_sessions(actor, date_from=date_from, date_to=date_to)
 
 
 @router.get("/team", response_model=list[AttendanceSessionRead], summary="Team attendance (manager/admin)")

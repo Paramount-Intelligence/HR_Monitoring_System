@@ -11,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from pathlib import Path
 
 from app.core.config import settings, resolve_cors_origins, validate_production_settings
+from app.core.validation_errors import sanitize_validation_errors
 from app.api.router import api_router
 from app.db.session import SessionLocal, engine
 from app.db.encoding import assert_utf8_database
@@ -38,13 +39,6 @@ async def lifespan(app: FastAPI):
     validate_production_settings(settings)
     db = SessionLocal()
     try:
-        from sqlalchemy import text
-        try:
-            db.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(50) DEFAULT NULL;"))
-            db.commit()
-            logger.info("Database evolved successfully: added users.phone column.")
-        except Exception:
-            db.rollback()
         seed_permissions(db)
         bootstrap_admin(db)
     finally:
@@ -96,7 +90,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Workforce Intelligence API",
     version="0.1.0",
-    openapi_url=f"{settings.api_v1_prefix}/openapi.json",
+    docs_url=None if settings.is_production() else "/docs",
+    redoc_url=None if settings.is_production() else "/redoc",
+    openapi_url=None if settings.is_production() else f"{settings.api_v1_prefix}/openapi.json",
     lifespan=lifespan,
 )
 
@@ -108,8 +104,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content=jsonable_encoder({
             "error": {
                 "code": "VALIDATION_ERROR",
-                "message": "Validation failed for the request data.",
-                "details": exc.errors()
+                "message": "Request validation failed.",
+                "details": sanitize_validation_errors(exc.errors()),
             }
         }),
     )

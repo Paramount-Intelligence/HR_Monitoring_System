@@ -6,10 +6,11 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
-from app.models.enums import UserRole, ApprovalEntityType
+from app.models.enums import UserRole, ApprovalEntityType, ApprovalAction
 from app.schemas.leave import LeaveRequestRead, LeaveRequestCreate, LeaveRequestResolve, ApprovalTimelineRead
 from app.services.leave_service import LeaveService
 from app.services.approval_service import ApprovalService
+from app.services.privileged_audit_service import PrivilegedAuditService
 
 router = APIRouter()
 
@@ -37,9 +38,40 @@ def resolve_request(
     req = db.get(LeaveRequest, request_id)
     if not req:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found")
-        
+
+    audit = PrivilegedAuditService(db)
+
+    if req.user_id == actor.id and actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+        audit.log_denied(
+            actor=actor,
+            action="leave.self_approval_denied",
+            resource_type="leave_request",
+            resource_id=req.id,
+            reason="Cannot approve or reject your own leave request",
+        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot approve or reject your own leave request")
+
+    if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
+        requester = db.get(User, req.user_id)
+        if not requester or requester.manager_id != actor.id:
+            audit.log_denied(
+                actor=actor,
+                action="leave.cross_team_resolution_denied",
+                resource_type="leave_request",
+                resource_id=req.id,
+                reason="Not authorized to resolve leave for this user",
+            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to resolve leave for this user")
+
     # Permission check: Only current approver OR admin/HR can resolve
     if actor.id != req.current_approver_id and actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+        audit.log_denied(
+            actor=actor,
+            action="leave.unauthorized_resolution_denied",
+            resource_type="leave_request",
+            resource_id=req.id,
+            reason="Only the current approver can resolve this request",
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the current approver can resolve this request")
         
     return ApprovalService(db).resolve_leave_request(request_id, actor, payload.action, payload.manager_comment)

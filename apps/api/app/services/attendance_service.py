@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.time_utils import ensure_pk_datetime, PK_TZ
 from app.core.attendance_policy import classification_from_session
+from app.core.config import settings
 from app.models.attendance_session import AttendanceSession
 from app.models.attendance_correction import AttendanceCorrection
 from app.models.attendance_break import AttendanceBreak
@@ -19,6 +20,7 @@ from app.models.enums import AttendanceClassification, AttendanceSessionStatus, 
 from app.models.user import User
 from app.schemas.attendance import CheckInRequest, CheckOutRequest, CorrectionRequest, CorrectionResolveRequest
 from app.services.shift_service import ShiftService
+from app.services.privileged_audit_service import PrivilegedAuditService
 
 
 class AttendanceService:
@@ -26,11 +28,20 @@ class AttendanceService:
         self.db = db
 
     def check_in(self, payload: CheckInRequest, actor: User) -> AttendanceSession:
-        active = self._get_active_session(actor.id)
-        if active:
+        self._check_and_auto_close_stale_sessions(actor.id)
+
+        active_count = (
+            self.db.query(AttendanceSession)
+            .filter(
+                AttendanceSession.user_id == actor.id,
+                AttendanceSession.session_status == AttendanceSessionStatus.ACTIVE,
+            )
+            .count()
+        )
+        if active_count > 0:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="You already have an active attendance session. Check out first.",
+                detail="You already have an active attendance session.",
             )
 
         now = datetime.now(timezone.utc)
@@ -76,7 +87,18 @@ class AttendanceService:
             expected_shift_end_at=expected_end.astimezone(timezone.utc) if expected_end else None
         )
         self.db.add(session)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except Exception as exc:
+            self.db.rollback()
+            from sqlalchemy.exc import IntegrityError
+
+            if isinstance(exc, IntegrityError):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="You already have an active attendance session.",
+                ) from exc
+            raise
         self.db.refresh(session)
         
         # Auto-resume task timer if applicable
@@ -251,6 +273,12 @@ class AttendanceService:
         date_to: date | None = None,
     ) -> list[AttendanceSession]:
         if actor.role not in (UserRole.MANAGER, UserRole.ADMIN, UserRole.TEAM_LEAD, UserRole.HR_OPERATIONS):
+            PrivilegedAuditService(self.db).log_denied(
+                actor=actor,
+                action="attendance.team_view_denied",
+                resource_type="attendance_session",
+                reason="Employee cannot access team attendance",
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
@@ -280,7 +308,14 @@ class AttendanceService:
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
 
-        if actor.role == UserRole.EMPLOYEE and session.user_id != actor.id:
+        if session.user_id != actor.id and actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+            PrivilegedAuditService(self.db).log_denied(
+                actor=actor,
+                action="attendance.correction_idor_denied",
+                resource_type="attendance_session",
+                resource_id=session.id,
+                reason="Cannot request correction for another user's session",
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         if session.correction_requested:
@@ -314,6 +349,12 @@ class AttendanceService:
 
     def get_pending_corrections(self, actor: User) -> list[AttendanceSession]:
         if actor.role not in (UserRole.MANAGER, UserRole.ADMIN, UserRole.TEAM_LEAD, UserRole.HR_OPERATIONS):
+            PrivilegedAuditService(self.db).log_denied(
+                actor=actor,
+                action="attendance.pending_corrections_denied",
+                resource_type="attendance_correction",
+                reason="Employee cannot access pending corrections queue",
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
@@ -339,11 +380,28 @@ class AttendanceService:
         actor: User,
     ) -> AttendanceSession:
         if actor.role not in (UserRole.MANAGER, UserRole.ADMIN, UserRole.TEAM_LEAD, UserRole.HR_OPERATIONS):
+            PrivilegedAuditService(self.db).log_denied(
+                actor=actor,
+                action="attendance.correction_resolve_denied",
+                resource_type="attendance_session",
+                resource_id=session_id,
+                reason="Not authorized to resolve attendance corrections",
+            )
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         session = self.db.get(AttendanceSession, session_id)
         if not session:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+
+        if session.user_id == actor.id and actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+            PrivilegedAuditService(self.db).log_denied(
+                actor=actor,
+                action="attendance.self_correction_approval_denied",
+                resource_type="attendance_session",
+                resource_id=session.id,
+                reason="Cannot approve your own attendance correction",
+            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot approve your own correction")
 
         if not session.correction_requested:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No correction requested for this session")
@@ -351,6 +409,13 @@ class AttendanceService:
         if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
             user = self.db.get(User, session.user_id)
             if not user or user.manager_id != actor.id:
+                PrivilegedAuditService(self.db).log_denied(
+                    actor=actor,
+                    action="attendance.cross_team_correction_denied",
+                    resource_type="attendance_session",
+                    resource_id=session.id,
+                    reason="Not authorized to resolve corrections for this user",
+                )
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to resolve corrections for this user")
 
         correction = self.db.query(AttendanceCorrection).filter(
@@ -409,6 +474,9 @@ class AttendanceService:
 
     def _check_and_auto_close_stale_sessions(self, user_id: uuid.UUID) -> None:
         """Automatically close stale active sessions."""
+        max_active_hours = settings.attendance_max_active_hours
+        grace_minutes = settings.attendance_auto_close_grace_minutes
+
         active_sessions = (
             self.db.query(AttendanceSession)
             .filter(
@@ -421,73 +489,68 @@ class AttendanceService:
         now = datetime.now(timezone.utc)
         
         for session in active_sessions:
-            is_stale = False
-            # Determine threshold
-            if session.expected_shift_end_at:
-                # expected shift end + 4 hours grace period
-                threshold = session.expected_shift_end_at
-                if threshold.tzinfo is None:
-                    threshold = threshold.replace(tzinfo=timezone.utc)
-                threshold = threshold + timedelta(hours=4)
-                if now > threshold:
-                    is_stale = True
-            else:
-                # 24 hours fallback
-                threshold = session.check_in_at
-                if threshold.tzinfo is None:
-                    threshold = threshold.replace(tzinfo=timezone.utc)
-                threshold = threshold + timedelta(hours=24)
-                if now > threshold:
-                    is_stale = True
-                    
-            if is_stale:
-                # Auto checkout
-                if session.expected_shift_end_at:
-                    co_time = session.expected_shift_end_at + timedelta(minutes=15)
-                else:
-                    co_time = session.check_in_at + timedelta(hours=8)
-                
-                # Cap checkout time at current time to avoid future checkouts
-                if co_time > now:
-                    co_time = now
-                    
-                session.check_out_at = co_time
-                session.session_status = AttendanceSessionStatus.COMPLETED
-                
-                # Calculate duration based on auto checkout time
-                delta = co_time - session.check_in_at
-                total_seconds = max(0, int(delta.total_seconds()))
-                session.worked_minutes = total_seconds // 60
-                session.total_hours = total_seconds / 3600.0
-                session.attendance_classification = classification_from_session(
-                    worked_minutes=session.worked_minutes,
-                    total_hours=session.total_hours,
-                    is_active=False,
-                )
-                
-                # Mark as auto-closed
-                session.checkout_after_shift_reason = "auto_checkout"
-                session.checkout_after_shift_note = "This session was automatically closed because it exceeded the maximum allowed duration."
-                
-                self.db.commit()
-                
-                # Create a system notification for the user
-                from app.models.notifications import Notification
-                from app.models.enums import NotificationType
-                notif = Notification(
-                    user_id=user_id,
-                    title="Attendance Auto-Checkout",
-                    message="Your attendance session started on {} was automatically closed because you forgot to check out.".format(session.check_in_at.strftime('%Y-%m-%d')),
-                    notification_type=NotificationType.SYSTEM,
-                    related_entity_type="attendance_session",
-                    related_entity_id=session.id
-                )
-                self.db.add(notif)
-                self.db.commit()
-                self.db.refresh(notif)
-                from app.services.realtime_service import RealtimeService
+            check_in = session.check_in_at
+            if check_in.tzinfo is None:
+                check_in = check_in.replace(tzinfo=timezone.utc)
 
-                RealtimeService.emit_notification_created(notif)
+            max_duration_deadline = check_in + timedelta(hours=max_active_hours)
+            shift_deadline = None
+            if session.expected_shift_end_at:
+                shift_end = session.expected_shift_end_at
+                if shift_end.tzinfo is None:
+                    shift_end = shift_end.replace(tzinfo=timezone.utc)
+                shift_deadline = shift_end + timedelta(minutes=grace_minutes)
+
+            stale_reason = None
+            if now > max_duration_deadline:
+                stale_reason = "Exceeded maximum active duration"
+                auto_checkout_at = max_duration_deadline
+            elif shift_deadline and now > shift_deadline:
+                stale_reason = "Shift ended"
+                auto_checkout_at = shift_deadline
+            else:
+                continue
+
+            if auto_checkout_at > now:
+                auto_checkout_at = now
+
+            session.check_out_at = auto_checkout_at
+            session.session_status = AttendanceSessionStatus.COMPLETED
+            
+            delta = auto_checkout_at - check_in
+            total_seconds = max(0, int(delta.total_seconds()))
+            session.worked_minutes = total_seconds // 60
+            session.total_hours = total_seconds / 3600.0
+            session.attendance_classification = classification_from_session(
+                worked_minutes=session.worked_minutes,
+                total_hours=session.total_hours,
+                is_active=False,
+            )
+            
+            session.checkout_after_shift_reason = "auto_checkout"
+            session.checkout_after_shift_note = stale_reason
+                
+            self.db.commit()
+                
+            from app.models.notifications import Notification
+            from app.models.enums import NotificationType
+            notif = Notification(
+                user_id=user_id,
+                title="Attendance Auto-Checkout",
+                message=(
+                    f"Your attendance session started on {check_in.strftime('%Y-%m-%d')} "
+                    f"was automatically closed: {stale_reason}."
+                ),
+                notification_type=NotificationType.SYSTEM,
+                related_entity_type="attendance_session",
+                related_entity_id=session.id
+            )
+            self.db.add(notif)
+            self.db.commit()
+            self.db.refresh(notif)
+            from app.services.realtime_service import RealtimeService
+
+            RealtimeService.emit_notification_created(notif)
 
     def _get_active_session(self, user_id: uuid.UUID) -> AttendanceSession | None:
         self._check_and_auto_close_stale_sessions(user_id)

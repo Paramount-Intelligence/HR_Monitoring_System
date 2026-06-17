@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.models.enums import LeaveType, LeaveStatus, HalfDayPeriod, ApprovalAction
 
@@ -18,6 +18,17 @@ class LeaveRequestCreate(BaseModel):
 class LeaveRequestResolve(BaseModel):
     action: ApprovalAction
     manager_comment: str | None = None
+
+    @model_validator(mode="after")
+    def require_comment_for_rejection_or_escalation(self) -> "LeaveRequestResolve":
+        if self.action in (ApprovalAction.REJECTED, ApprovalAction.ESCALATED):
+            comment = (self.manager_comment or "").strip()
+            if not comment:
+                raise ValueError("Rejection reason is required.")
+            self.manager_comment = comment
+        elif self.manager_comment is not None:
+            self.manager_comment = self.manager_comment.strip() or None
+        return self
 
 class LeaveRequestRead(BaseModel):
     model_config = {"from_attributes": True}

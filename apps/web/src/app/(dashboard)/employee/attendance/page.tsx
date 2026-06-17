@@ -64,8 +64,7 @@ const LiveTimer = ({ checkInAt }: { checkInAt: string }) => {
   return (
     <div className="flex flex-col">
       <span className="text-[10px] font-black text-[var(--accent-primary)] uppercase tracking-[0.2em] mb-1">Session Duration</span>
-  return (
-    <span className="text-lg font-bold text-[var(--accent-primary)] font-mono tracking-tight">{elapsed}</span>
+      <span className="text-lg font-bold text-[var(--accent-primary)] font-mono tracking-tight">{elapsed}</span>
     </div>
   );
 };

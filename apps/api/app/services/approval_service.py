@@ -73,17 +73,29 @@ class ApprovalService:
             req.status = LeaveStatus.APPROVED
         elif action == ApprovalAction.REJECTED:
             req.status = LeaveStatus.REJECTED
+            if not (comment and comment.strip()):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Rejection reason is required.",
+                )
+            req.manager_comment = comment.strip()
         elif action == ApprovalAction.CLARIFIED:
             req.status = LeaveStatus.NEEDS_CLARIFICATION
         elif action == ApprovalAction.ESCALATED:
             req.status = LeaveStatus.ESCALATED
+            if not (comment and comment.strip()):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Rejection reason is required.",
+                )
+            req.manager_comment = comment.strip()
         elif action == ApprovalAction.CANCELLED:
             req.status = LeaveStatus.CANCELLED
         else:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid approval action")
 
-        if comment:
-            req.manager_comment = comment
+        if comment and action not in (ApprovalAction.REJECTED, ApprovalAction.ESCALATED):
+            req.manager_comment = comment.strip()
 
         # Log to timeline
         self.create_timeline_entry(

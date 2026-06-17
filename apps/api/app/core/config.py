@@ -139,6 +139,9 @@ class Settings(BaseSettings):
     expo_push_api_url: str = "https://exp.host/--/api/v2/push/send"
     push_notification_message_preview_enabled: bool = True
 
+    attendance_max_active_hours: int = 16
+    attendance_auto_close_grace_minutes: int = 60
+
     @model_validator(mode="after")
     def apply_storage_and_aws_aliases(self) -> "Settings":
         # Re-read env so Railway/AWS vars always win over defaults or .env placeholders
