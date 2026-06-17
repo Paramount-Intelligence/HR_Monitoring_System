@@ -66,7 +66,7 @@ export default function ManageAttendanceScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <ManageScreenHeader title="Attendance Overview" subtitle={`Today · ${today}`} />
         {attendanceQuery.isLoading ? <LoadingState message="Loading attendance…" /> : null}
         {attendanceQuery.isError ? (

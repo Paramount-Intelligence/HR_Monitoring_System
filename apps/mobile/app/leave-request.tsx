@@ -121,7 +121,7 @@ export default function LeaveRequestScreen() {
 
   if (requestsQuery.isLoading) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Leave / WFH Request" onBack={() => router.back()} />
         <LoadingSkeletonList count={4} />
       </Screen>
@@ -130,7 +130,7 @@ export default function LeaveRequestScreen() {
 
   if (requestsQuery.isError) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Leave / WFH Request" onBack={() => router.back()} />
         <ErrorState
           message="Unable to load leave requests."
@@ -141,7 +141,7 @@ export default function LeaveRequestScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <BrandHeader title="Leave / WFH Request" subtitle="Submit time-off or WFH" onBack={() => router.back()} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">

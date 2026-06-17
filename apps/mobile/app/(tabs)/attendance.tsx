@@ -196,7 +196,7 @@ export default function AttendanceScreen() {
 
   if ((activeQuery.isError || historyQuery.isError) && !activeQuery.data && !historyQuery.data?.length) {
     return (
-      <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']} style={styles.screen}>
+      <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']} style={styles.screen}>
         <OfflineBanner />
         <BrandHeader
           title="Attendance"
@@ -218,7 +218,7 @@ export default function AttendanceScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']} style={styles.screen}>
+    <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']} style={styles.screen}>
       <OfflineBanner />
       <BrandHeader
         title="Attendance"

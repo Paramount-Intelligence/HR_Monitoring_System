@@ -130,7 +130,7 @@ export default function ReportsHubScreen() {
   }, [employeeReportQuery.data, pendingCount, role]);
 
   return (
-    <Screen scroll={false}>
+    <Screen headerSafeArea scroll={false}>
       <OfflineBanner />
       <ManageScreenHeader title="Reports" subtitle="Role-based insights and summaries" />
       <ScrollView

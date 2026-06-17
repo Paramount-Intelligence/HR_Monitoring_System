@@ -97,7 +97,7 @@ export default function AttendanceCorrectionScreen() {
 
   if (historyQuery.isLoading) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Attendance Correction" onBack={() => router.back()} />
         <LoadingSkeletonList count={3} />
       </Screen>
@@ -106,7 +106,7 @@ export default function AttendanceCorrectionScreen() {
 
   if (historyQuery.isError) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Attendance Correction" onBack={() => router.back()} />
         <ErrorState
           message="Unable to load session details."
@@ -118,7 +118,7 @@ export default function AttendanceCorrectionScreen() {
 
   if (!session) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Attendance Correction" onBack={() => router.back()} />
         <ErrorState
           title="Session not found"
@@ -130,7 +130,7 @@ export default function AttendanceCorrectionScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <BrandHeader title="Attendance Correction" subtitle={formatDate(session.check_in_at)} onBack={() => router.back()} />
       <KeyboardAvoidingView
         style={styles.flex}

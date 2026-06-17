@@ -57,7 +57,7 @@ export default function LeaveReportScreen() {
   }, [leavesQuery.data]);
 
   return (
-    <Screen scroll={false}>
+    <Screen headerSafeArea scroll={false}>
       <ManageScreenHeader title="My Leave Summary" subtitle={range.label} showBack />
       {(reportQuery.isLoading || leavesQuery.isLoading) ? (
         <LoadingState message="Loading leave summary…" />

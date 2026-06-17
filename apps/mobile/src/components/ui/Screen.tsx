@@ -12,6 +12,11 @@ interface ScreenProps {
   edges?: ('top' | 'bottom' | 'left' | 'right')[];
   /** Tab screens: omit bottom safe-area inset; use hook on inner ScrollView padding instead. */
   withTabBarInset?: boolean;
+  /**
+   * When true, top safe-area is handled by BrandHeader/DashboardHeader/ManageScreenHeader.
+   * Prevents double top inset (blank space above the header).
+   */
+  headerSafeArea?: boolean;
 }
 
 export function Screen({
@@ -21,11 +26,15 @@ export function Screen({
   contentStyle,
   edges = ['top', 'bottom'],
   withTabBarInset = false,
+  headerSafeArea = false,
 }: ScreenProps) {
   const tabInset = useTabScreenBottomInset();
-  const safeEdges = withTabBarInset
+  let safeEdges = withTabBarInset
     ? (edges.filter((edge) => edge !== 'bottom') as ScreenProps['edges'])
     : edges;
+  if (headerSafeArea) {
+    safeEdges = safeEdges?.filter((edge) => edge !== 'top') as ScreenProps['edges'];
+  }
 
   const bottomPadding = scroll
     ? withTabBarInset
@@ -55,13 +64,21 @@ export function Screen({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
     backgroundColor: colors.background,
   },
   content: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    overflow: 'hidden',
   },
   scrollContent: {
     flexGrow: 1,
+    width: '100%',
+    maxWidth: '100%',
     paddingHorizontal: spacing.md,
   },
 });

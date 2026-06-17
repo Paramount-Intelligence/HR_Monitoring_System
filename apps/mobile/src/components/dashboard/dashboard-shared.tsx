@@ -59,15 +59,19 @@ export function DashboardMetricItem({
 
 const styles = StyleSheet.create({
   section: {
+    width: '100%',
+    maxWidth: '100%',
     marginBottom: spacing.xl,
   },
   sectionTitle: {
     color: colors.text,
     fontFamily: 'Inter_600SemiBold',
     marginBottom: spacing.xs,
+    flexShrink: 1,
   },
   sectionSubtitle: {
     color: colors.textSecondary,
     marginBottom: spacing.md,
+    flexShrink: 1,
   },
 });

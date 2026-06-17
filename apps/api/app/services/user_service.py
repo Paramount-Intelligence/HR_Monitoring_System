@@ -31,22 +31,9 @@ class UserService:
 
     def assert_actor_can_view_user(self, actor: User, target_user_id: uuid.UUID) -> User:
         """Enforce RBAC for reading another user's profile."""
-        user = self.get_by_id(target_user_id)
-        if actor.id == target_user_id:
-            return user
-        if actor.role in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
-            return user
-        if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
-            if user.manager_id == actor.id:
-                return user
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied",
-            )
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied",
-        )
+        from app.services.user_authorization import UserAuthorizationService
+
+        return UserAuthorizationService(self.db).assert_can_view_user(actor, target_user_id)
 
     def list_users(
         self,
@@ -256,68 +243,96 @@ class UserService:
         return token, email_sent, email_error
 
     def update_user(self, user_id: uuid.UUID, payload: UserUpdate, actor: User) -> User:
+        from app.core.deps import check_permission
         from app.services.admin_user_service import AdminUserService
+        from app.services.user_authorization import UserAuthorizationService
 
         user = self.get_by_id(user_id)
         admin_svc = AdminUserService(self.db)
+        auth = UserAuthorizationService(self.db)
 
-        # Employees can only update their own profile (limited fields)
-        if actor.role == UserRole.EMPLOYEE and actor.id != user_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Employees can only update their own profile",
-            )
-
-        # Only admin/HR can change roles
-        if payload.role is not None and actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only admins and HR can change user roles",
-            )
+        changed = payload.model_dump(exclude_unset=True)
+        requested_fields = set(changed.keys())
+        auth.assert_can_update_user(actor, user, requested_fields)
 
         if payload.role is not None:
+            admin_svc.assert_can_manage_roles(actor)
             admin_svc.assert_last_admin_safe(actor, user, new_role=payload.role)
             admin_svc.assert_self_lockout_safe(actor, user, new_role=payload.role)
+            admin_svc._assert_role_assignment_allowed(actor, payload.role)
 
         if payload.status is not None:
             admin_svc.assert_last_admin_safe(actor, user, new_status=payload.status)
             admin_svc.assert_self_lockout_safe(actor, user, new_status=payload.status)
-
-        changed_fields = payload.model_dump(exclude_unset=True)
-        if "manager_id" in changed_fields:
-            admin_svc.validate_manager(user_id, payload.manager_id)
-
-        # Prevent privilege escalation: no one can assign a role higher than their own
-        ROLE_HIERARCHY = [
-            UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE, UserRole.EMPLOYEE,
-            UserRole.TEAM_LEAD, UserRole.MANAGER, UserRole.HR_OPERATIONS, UserRole.ADMIN
-        ]
-        if payload.role is not None and actor.role != UserRole.ADMIN:
-            actor_level = ROLE_HIERARCHY.index(actor.role) if actor.role in ROLE_HIERARCHY else -1
-            target_level = ROLE_HIERARCHY.index(payload.role) if payload.role in ROLE_HIERARCHY else -1
-            if target_level >= actor_level:
+            if payload.status == UserStatus.INACTIVE and actor.role not in (
+                UserRole.ADMIN,
+            ) and not check_permission(actor, "users.deactivate", self.db):
+                auth.log_denied_update(
+                    actor=actor,
+                    target_id=user.id,
+                    action="user.update_fields_denied",
+                    requested_fields=requested_fields,
+                    extra={"forbidden_fields": ["status"]},
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Cannot assign a role equal to or higher than your own",
+                    detail="Only admins can deactivate users",
                 )
 
-        old_snapshot = {"role": user.role.value, "status": user.status.value, "manager_id": str(user.manager_id)}
+        if "manager_id" in requested_fields:
+            admin_svc.validate_manager(user_id, payload.manager_id)
 
-        changed = payload.model_dump(exclude_unset=True)
+        if "department_id" in requested_fields and payload.department_id is not None:
+            admin_svc.validate_department(payload.department_id)
+
+        if "shift_id" in requested_fields and payload.shift_id is not None:
+            from app.models.shift import Shift
+
+            shift = self.db.get(Shift, payload.shift_id)
+            if not shift:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Shift not found")
+
+        if not requested_fields:
+            return user
+
+        old_snapshot = {
+            field: self._serialize_patch_value(getattr(user, field))
+            for field in requested_fields
+            if hasattr(user, field)
+        }
+
         for field, value in changed.items():
             setattr(user, field, value)
 
-        self._write_audit(
+        if "department_id" in requested_fields and payload.department_id is not None:
+            from app.models.department import Department
+
+            dept = self.db.get(Department, payload.department_id)
+            user.department = dept.name if dept else user.department
+        elif "department_id" in requested_fields and payload.department_id is None:
+            user.department = None
+
+        auth.log_successful_update(
             actor=actor,
+            target_id=user.id,
             action="USER_UPDATED",
-            entity_id=user.id,
             old_value=old_snapshot,
-            new_value=changed,
+            new_value={
+                field: self._serialize_patch_value(changed[field]) for field in requested_fields
+            },
         )
 
         self.db.commit()
         self.db.refresh(user)
         return user
+
+    @staticmethod
+    def _serialize_patch_value(value):
+        if isinstance(value, (UserRole, UserStatus)):
+            return value.value
+        if isinstance(value, uuid.UUID):
+            return str(value)
+        return value
 
     def deactivate_user(self, user_id: uuid.UUID, actor: User) -> User:
         from app.services.admin_user_service import AdminUserService

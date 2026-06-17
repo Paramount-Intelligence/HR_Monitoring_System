@@ -123,7 +123,7 @@ export default function ManageApprovalDetailScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll>
+      <Screen headerSafeArea scroll>
         <ManageScreenHeader title="Approval Detail" subtitle="Review request and take action" />
         {isLoading ? <LoadingState message="Loading request…" /> : null}
         {isError ? (

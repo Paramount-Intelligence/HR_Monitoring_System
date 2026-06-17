@@ -105,7 +105,7 @@ export default function TeamTasksScreen() {
 
   if (!allowed) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Team Tasks" onBack={() => router.back()} />
         <ErrorState
           title="Access restricted"
@@ -117,7 +117,7 @@ export default function TeamTasksScreen() {
 
   if (tasksQuery.isError && !allTasks.length) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Team Tasks" onBack={() => router.back()} />
         <ErrorState
           title="Team tasks unavailable"
@@ -129,7 +129,7 @@ export default function TeamTasksScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <OfflineBanner />
       <BrandHeader title="Team Tasks" subtitle="Workload overview" onBack={() => router.back()} />
       <ScrollView

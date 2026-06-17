@@ -55,31 +55,55 @@ export function DashboardHeader({
     <View style={[styles.wrapper, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <View style={styles.avatarSlot}>{avatar}</View>
-        <Text style={[typography.headlineMd, styles.brandTitle]} numberOfLines={1}>
+        <Text
+          style={[typography.headlineMd, styles.brandTitle]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           PIMS Intelligence
         </Text>
-        <NotificationBell
-          count={unreadAlerts}
-          onPress={() => router.push('/alerts')}
-          accessibilityLabel="Open alerts"
-        />
+        <View style={styles.bellSlot}>
+          <NotificationBell
+            count={unreadAlerts}
+            onPress={() => router.push('/alerts')}
+            accessibilityLabel="Open alerts"
+          />
+        </View>
       </View>
 
       <View style={styles.hero}>
         <View style={styles.heroRow}>
-          <Text style={[typography.headlineLg, styles.greeting]} numberOfLines={2}>
+          <Text
+            style={[typography.headlineLg, styles.greeting]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
             {getGreeting(user?.full_name)}
           </Text>
-          <RoleBadge role={dashboardRole as RoleBadgeRole} />
+          <RoleBadge role={dashboardRole as RoleBadgeRole} style={styles.roleBadge} />
         </View>
-        <Text style={[typography.headlineMd, styles.sectionTitle]}>{sectionTitle}</Text>
-        <Text style={[typography.bodyMd, styles.subtitle]} numberOfLines={2}>
+        <Text
+          style={[typography.headlineMd, styles.sectionTitle]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {sectionTitle}
+        </Text>
+        <Text
+          style={[typography.bodyMd, styles.subtitle]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
           {subtitle}
           {user?.department_name || user?.department
             ? ` · ${user.department_name ?? user.department}`
             : ''}
         </Text>
-        <Text style={[typography.caption, styles.roleLine]}>
+        <Text
+          style={[typography.caption, styles.roleLine]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
           {getDashboardRoleLabel(dashboardRole)}
           {user?.full_name ? ` · ${user.full_name}` : ''}
         </Text>
@@ -90,14 +114,16 @@ export function DashboardHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
+    width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.92)' : colors.surfaceElevated,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
-    marginHorizontal: -spacing.screenPadding,
     marginBottom: spacing.lg,
     ...shadows.tabBar,
   },
   topBar: {
+    width: '100%',
     minHeight: layout.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
@@ -109,6 +135,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     overflow: 'hidden',
+    flexShrink: 0,
   },
   avatarImage: {
     width: 36,
@@ -130,38 +157,54 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     textAlign: 'center',
     color: colors.primary,
     fontFamily: 'Inter_700Bold',
   },
+  bellSlot: {
+    flexShrink: 0,
+    overflow: 'visible',
+  },
   hero: {
+    width: '100%',
     paddingHorizontal: spacing.screenPadding,
     paddingBottom: spacing.lg,
   },
   heroRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
   greeting: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: colors.text,
     fontFamily: 'Inter_700Bold',
+  },
+  roleBadge: {
+    flexShrink: 0,
+    maxWidth: '100%',
   },
   sectionTitle: {
     color: colors.text,
     fontFamily: 'Inter_600SemiBold',
     marginBottom: spacing.xs,
+    flexShrink: 1,
   },
   subtitle: {
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   roleLine: {
     color: colors.muted,
     marginTop: spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    flexShrink: 1,
   },
 });

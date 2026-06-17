@@ -105,7 +105,7 @@ export default function MessagesScreen() {
   const messagingDenied = conversationsQuery.isError && isForbiddenError(conversationsQuery.error);
 
   return (
-    <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']} style={styles.screen}>
+    <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']} style={styles.screen}>
       <OfflineBanner />
       <BrandHeader
         title="Messages"

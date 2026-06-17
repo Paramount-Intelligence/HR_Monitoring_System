@@ -78,7 +78,7 @@ export default function WorkforceReportScreen() {
 
   if (!canAccessWorkforceReports(role)) {
     return (
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <ManageScreenHeader title="Workforce Reports" subtitle="Org-wide analytics" showBack />
         <EmptyAccessState message="Workforce reports are available to Admin and HR only." />
       </Screen>
@@ -86,7 +86,7 @@ export default function WorkforceReportScreen() {
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen headerSafeArea scroll={false}>
       <ManageScreenHeader
         title={canAccessAdminReports(role) ? 'Workforce Summary' : 'Workforce Attendance'}
         subtitle={range.label}

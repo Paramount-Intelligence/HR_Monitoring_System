@@ -69,7 +69,7 @@ export default function DashboardScreen() {
     alertsUnreadQuery.isRefetching;
 
   return (
-    <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']} style={styles.screen}>
+    <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']} style={styles.screen}>
       <DashboardHeader
         user={user}
         imageUrl={imageUrl}
@@ -103,5 +103,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.screenPadding,
     flexGrow: 1,
+    width: '100%',
+    maxWidth: '100%',
   },
 });

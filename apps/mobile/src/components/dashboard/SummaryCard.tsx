@@ -25,13 +25,21 @@ export function SummaryCard({
     <FadeSlideIn index={index} style={[styles.card, style]}>
       <View style={[styles.accent, { backgroundColor: accentColor }]} />
       <View style={styles.content}>
-        <Text style={[typography.labelSm, styles.title]}>{title.toUpperCase()}</Text>
+        <Text style={[typography.labelSm, styles.title]} numberOfLines={2} ellipsizeMode="tail">
+          {title.toUpperCase()}
+        </Text>
         {loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
         ) : (
-          <Text style={[typography.headlineMd, styles.value]}>{value}</Text>
+          <Text style={[typography.headlineMd, styles.value]} numberOfLines={2} ellipsizeMode="tail">
+            {value}
+          </Text>
         )}
-        {subtitle ? <Text style={[typography.caption, styles.subtitle]}>{subtitle}</Text> : null}
+        {subtitle ? (
+          <Text style={[typography.caption, styles.subtitle]} numberOfLines={2} ellipsizeMode="tail">
+            {subtitle}
+          </Text>
+        ) : null}
       </View>
     </FadeSlideIn>
   );
@@ -52,6 +60,7 @@ export function SummaryCardSkeleton({ style }: { style?: ViewStyle }) {
 const styles = StyleSheet.create({
   card: {
     flex: 1,
+    minWidth: 0,
     minHeight: 112,
     backgroundColor: colors.card,
     borderRadius: radius.lg,
@@ -61,24 +70,29 @@ const styles = StyleSheet.create({
   },
   accent: {
     width: 4,
+    flexShrink: 0,
   },
   content: {
     flex: 1,
+    minWidth: 0,
     padding: spacing.lg,
     justifyContent: 'space-between',
   },
   title: {
     color: colors.textSecondary,
     fontFamily: 'Inter_600SemiBold',
+    flexShrink: 1,
   },
   value: {
     color: colors.text,
     fontFamily: 'Inter_700Bold',
     marginTop: spacing.xs,
+    flexShrink: 1,
   },
   subtitle: {
     color: colors.muted,
     marginTop: spacing.xs,
+    flexShrink: 1,
   },
   loader: {
     marginTop: spacing.sm,

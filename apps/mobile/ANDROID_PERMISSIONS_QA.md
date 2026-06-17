@@ -41,7 +41,9 @@ Created in `src/notifications/notification-channels.ts` via `ensureNotificationC
 
 **Backend:** Push payloads should set `channelId` to match these IDs for correct sound/importance on Android 8+.
 
-**Foreground handler:** `notifications-service.ts` sets `shouldPlaySound: false` while app is foreground to avoid double audio when the in-app incoming-call modal plays the ringtone.
+**Foreground handler:** `notifications-service.ts` sets `shouldPlaySound: true` so notifications use the **device default sound** via Android channel configuration.
+
+**Foreground incoming call:** `incoming-call-ringtone.ts` uses **vibration only** — no custom WAV loop. Background/killed app relies on push + `incoming-calls` channel default sound.
 
 **Tap navigation:** `notification-navigation.ts` routes message → chat, call → chat, alert/notification → `/alerts`, with fallbacks to dashboard.
 
@@ -73,16 +75,17 @@ Created in `src/notifications/notification-channels.ts` via `ensureNotificationC
 
 ### Foreground (app open)
 
-- `IncomingCallModal` visible → `incoming-call-ringtone.ts` plays looping `assets/sounds/incoming-call.wav` via `expo-audio` + Android vibration.
-- Ringtone **stops** on accept, decline, timeout, phase change, or overlay unmount.
+- `IncomingCallModal` visible → `incoming-call-ringtone.ts` runs **Android vibration pattern only** (no custom app audio).
+- Push notifications in foreground play **device default sound** via channel + notification handler.
+- Vibration **stops** on accept, decline, timeout, phase change, or overlay unmount.
 
 ### Test steps
 
 1. Device A calls Device B while B has app open on dashboard.
-2. Confirm modal + audible loop + vibration on B.
-3. Accept → sound stops immediately; decline/timeout → sound stops.
-4. Navigate away / background during ring → sound stops on unmount.
-5. Repeat same call ID → ringtone does not restart redundantly.
+2. Confirm modal + vibration on B; **no looping custom WAV**.
+3. Accept → vibration stops immediately; decline/timeout → vibration stops.
+4. Send message push to B (foreground) → device default notification sound.
+5. Background call push on B → default sound via `incoming-calls` channel.
 
 ---
 
@@ -210,7 +213,8 @@ Created in `src/notifications/notification-channels.ts` via `ensureNotificationC
 - Bluetooth headset selection/routing not implemented.
 - Camera flip (front/back) not implemented during video call.
 - Backend must send correct Android `channelId` on push payloads for channel sounds to apply.
-- Custom ringtone asset is a short bundled WAV; system default used on notification channel when app is backgrounded.
+- `assets/sounds/incoming-call.wav` is bundled but **unused**; production uses device default notification sound + foreground vibration only.
+- Header safe-area: `Screen headerSafeArea` + single inset in brand headers — verify no double top padding on QA devices.
 - Two-device call QA (Phase G7) still pending full sign-off.
 
 ---

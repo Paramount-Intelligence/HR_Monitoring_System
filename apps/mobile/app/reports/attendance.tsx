@@ -35,7 +35,7 @@ export default function AttendanceReportScreen() {
 
   if (!canAccessTeamReports(user?.role)) {
     return (
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <ManageScreenHeader title="Team Attendance" subtitle="Today overview" showBack />
         <EmptyAccessState message="Team attendance reports are not available for your role." />
       </Screen>
@@ -43,7 +43,7 @@ export default function AttendanceReportScreen() {
   }
 
   return (
-    <Screen scroll={false}>
+    <Screen headerSafeArea scroll={false}>
       <ManageScreenHeader title="Team Attendance Report" subtitle={`Today · ${today}`} showBack />
       {attendanceQuery.isLoading ? <LoadingState message="Loading attendance…" /> : null}
       {attendanceQuery.isError ? (

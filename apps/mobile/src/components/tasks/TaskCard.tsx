@@ -28,7 +28,7 @@ export function TaskCard({ task, onPress, showAssignee = false }: TaskCardProps)
         <View style={[styles.accent, { backgroundColor: accent }]} />
         <View style={styles.inner}>
           <View style={styles.header}>
-            <Text style={[typography.titleMd, styles.title]} numberOfLines={2}>
+            <Text style={[typography.titleMd, styles.title]} numberOfLines={2} ellipsizeMode="tail">
               {task.title}
             </Text>
             <TaskStatusBadge status={task.status} />
@@ -106,6 +106,7 @@ const styles = StyleSheet.create({
   },
   inner: {
     flex: 1,
+    minWidth: 0,
     padding: spacing.lg,
     gap: spacing.sm,
   },
@@ -114,9 +115,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: spacing.sm,
+    minWidth: 0,
   },
   title: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: colors.text,
     fontFamily: 'Inter_600SemiBold',
   },

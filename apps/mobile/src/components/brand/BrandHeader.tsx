@@ -69,12 +69,20 @@ export function BrandHeader({
 
         <View style={[styles.center, centerTitle ? styles.centerAligned : undefined]}>
           {title ? (
-            <Text style={[typography.headlineMd, styles.title]} numberOfLines={1}>
+            <Text
+              style={[typography.headlineMd, styles.title]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {title}
             </Text>
           ) : null}
           {subtitle ? (
-            <Text style={[typography.caption, styles.subtitle]} numberOfLines={1}>
+            <Text
+              style={[typography.caption, styles.subtitle]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -113,10 +121,16 @@ export function BrandHeaderWithAvatar({
     >
       <View style={styles.bar}>
         <View style={styles.avatarLeft}>{avatar}</View>
-        <Text style={[typography.headlineMd, styles.intelligenceTitle]} numberOfLines={1}>
+        <Text
+          style={[typography.headlineMd, styles.intelligenceTitle]}
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
           {title}
         </Text>
-        <NotificationBell count={notificationCount} onPress={onNotificationPress} />
+        <View style={styles.bellSlot}>
+          <NotificationBell count={notificationCount} onPress={onNotificationPress} />
+        </View>
       </View>
     </View>
   );
@@ -126,11 +140,14 @@ const SIDE = 44;
 
 const styles = StyleSheet.create({
   wrapper: {
+    width: '100%',
+    alignSelf: 'stretch',
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
     ...shadows.tabBar,
   },
   bar: {
+    width: '100%',
     minHeight: layout.headerHeight,
     flexDirection: 'row',
     alignItems: 'center',
@@ -139,6 +156,7 @@ const styles = StyleSheet.create({
   },
   side: {
     width: SIDE,
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -156,10 +174,12 @@ const styles = StyleSheet.create({
   title: {
     color: colors.primary,
     fontFamily: 'Inter_700Bold',
+    flexShrink: 1,
   },
   subtitle: {
     color: colors.textSecondary,
     marginTop: 2,
+    flexShrink: 1,
   },
   avatarHeader: {},
   avatarLeft: {
@@ -167,11 +187,18 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: radius.pill,
     overflow: 'hidden',
+    flexShrink: 0,
   },
   intelligenceTitle: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: colors.primary,
     fontFamily: 'Inter_700Bold',
     textAlign: 'center',
+  },
+  bellSlot: {
+    flexShrink: 0,
+    overflow: 'visible',
   },
 });

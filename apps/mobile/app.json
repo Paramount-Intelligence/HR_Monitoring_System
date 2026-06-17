@@ -36,7 +36,7 @@
         "VIBRATE"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#08204a",
+        "backgroundColor": "#f9f9ff",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

@@ -135,7 +135,7 @@ export default function ManageTabScreen() {
 
   return (
     <RoleAccessGuard fallback={<EmptyAccessState />}>
-      <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']}>
+      <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']}>
         <OfflineBanner />
         <BrandHeader
           title={getManageHubTitle(role)}

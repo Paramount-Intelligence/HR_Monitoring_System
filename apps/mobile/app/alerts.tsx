@@ -105,7 +105,7 @@ export default function AlertsScreen() {
   };
 
   return (
-    <Screen scroll={false} edges={['left', 'right', 'bottom']} contentStyle={styles.content}>
+    <Screen scroll={false} headerSafeArea edges={['left', 'right', 'bottom']} contentStyle={styles.content}>
       <OfflineBanner />
       <BrandHeader
         title="Alerts"

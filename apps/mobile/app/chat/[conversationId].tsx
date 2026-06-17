@@ -363,7 +363,7 @@ export default function ChatScreen() {
   const showMessagesError = messagesQuery.isError && !messages.length;
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ChatHeader
         title={title}
         subtitle={

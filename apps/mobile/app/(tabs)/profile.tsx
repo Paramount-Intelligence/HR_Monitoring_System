@@ -148,7 +148,7 @@ export default function ProfileScreen() {
 
   if (profileQuery.isError && !currentUser) {
     return (
-      <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']}>
+      <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']}>
         <OfflineBanner />
         <BrandHeader
           title="Profile"
@@ -166,7 +166,7 @@ export default function ProfileScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']}>
+    <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']}>
       <OfflineBanner />
       <BrandHeader
         title="Profile"

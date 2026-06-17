@@ -1496,3 +1496,22 @@ npx eas-cli build --platform android --profile preview --non-interactive
 
 **Backend deploy required** on Railway for audio attachment extensions.
 
+---
+
+## 32. Final Production Polish — Header spacing, default device tones, documentation
+
+- [x] **Top blank space fix** — `Screen` `headerSafeArea` prop omits duplicate top SafeAreaView inset; headers (`BrandHeader`, `DashboardHeader`, `ChatHeader`) apply `insets.top` exactly once
+- [x] Tab screens, alerts, manage, reports, detail screens updated with `headerSafeArea`
+- [x] Chat screen: `SafeAreaView edges={['bottom']}` only (ChatHeader owns top inset)
+- [x] **Device default tones** — all notification channels use `sound: 'default'`; foreground incoming call uses vibration only (no custom WAV loop)
+- [x] `incoming-call-ringtone.ts` — removed `expo-audio` WAV playback; `assets/sounds/incoming-call.wav` retained but unused
+- [x] `notifications-service.ts` — `shouldPlaySound: true` for device default notification sound
+- [x] **PIMS logo branding** — `icon.png`, `favicon.png`, `android-icon-foreground.png` regenerated from `assets/logo.png`; adaptive background `#f9f9ff`
+- [x] **Documentation** — `apps/mobile/docs/` (README, USER_GUIDE, ADMIN_GUIDE, TECHNICAL_GUIDE, TESTING_QA, RELEASE_GUIDE, TROUBLESHOOTING, FEATURE_MATRIX)
+- [x] `ANDROID_PERMISSIONS_QA.md` updated for default sound behavior
+- [x] **Horizontal overflow / right-side clipping** — removed invalid negative header margins; `Screen`/`MetricBentoGrid`/cards use `width: '100%'`, `minWidth: 0`, `flexShrink`, truncation
+- [x] **Dashboard/header responsive layout** — role badge wraps, bell slot fixed, greeting truncates
+- [ ] Preview APK final QA (after typecheck + export)
+
+**QA requirements:** Verify header flush below status bar on Dashboard + all tabs; verify no custom ringtone loop on foreground call; verify push uses device default sound; **verify no horizontal overflow or right-side text clipping** on physical device; run full TESTING_QA.md checklist on preview APK.
+

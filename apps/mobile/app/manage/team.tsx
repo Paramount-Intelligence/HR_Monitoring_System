@@ -50,7 +50,7 @@ export default function ManageTeamScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <OfflineBanner />
         <ManageScreenHeader title="My Team" subtitle="Direct reports and team roster" />
         <View style={styles.content}>

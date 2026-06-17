@@ -97,7 +97,7 @@ export default function CreateTaskScreen() {
   };
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <BrandHeader title="Create task" subtitle="Assign work to your team" onBack={() => router.back()} />
       <KeyboardAvoidingView
         style={styles.flex}

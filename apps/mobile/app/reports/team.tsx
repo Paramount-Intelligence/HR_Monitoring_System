@@ -72,7 +72,7 @@ export default function TeamReportScreen() {
 
   if (!canAccessTeamReports(user?.role)) {
     return (
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <ManageScreenHeader title="Team Reports" subtitle="Scoped team analytics" showBack />
         <EmptyAccessState message="Team reports are not available for your role." />
       </Screen>
@@ -81,7 +81,7 @@ export default function TeamReportScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <ManageScreenHeader title="Team Reports" subtitle={range.label} showBack />
         {teamReportQuery.isLoading ? <LoadingState message="Loading team report…" /> : null}
         {teamReportQuery.isError ? (

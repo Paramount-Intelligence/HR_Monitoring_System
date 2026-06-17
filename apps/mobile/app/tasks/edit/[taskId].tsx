@@ -117,7 +117,7 @@ export default function EditTaskScreen() {
 
   if (isLoading && !task) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Edit task" onBack={() => router.back()} />
         <LoadingSkeletonList count={3} />
       </Screen>
@@ -126,7 +126,7 @@ export default function EditTaskScreen() {
 
   if (isError || !task) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Edit task" onBack={() => router.back()} />
         <ErrorState
           title="Task unavailable"
@@ -139,7 +139,7 @@ export default function EditTaskScreen() {
 
   if (!task.canEdit) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Edit task" onBack={() => router.back()} />
         <ErrorState
           title="Edit unavailable"
@@ -150,7 +150,7 @@ export default function EditTaskScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <BrandHeader title="Edit task" subtitle={task.title} onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <TaskForm

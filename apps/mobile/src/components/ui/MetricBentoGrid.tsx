@@ -28,14 +28,17 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -spacing.gutter / 2,
+    width: '100%',
+    justifyContent: 'space-between',
   },
   item: {
-    width: '50%',
-    paddingHorizontal: spacing.gutter / 2,
+    width: '48%',
+    maxWidth: '48%',
+    minWidth: 0,
     marginBottom: spacing.gutter,
   },
   fullWidth: {
     width: '100%',
+    maxWidth: '100%',
   },
 });

@@ -92,7 +92,7 @@ export default function ProjectDetailScreen() {
 
   if (isLoading && !project) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Project" onBack={() => router.back()} />
         <LoadingSkeletonList count={4} />
       </Screen>
@@ -101,7 +101,7 @@ export default function ProjectDetailScreen() {
 
   if (isError || !project) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Project" onBack={() => router.back()} />
         <ErrorState
           title="Project unavailable"
@@ -115,7 +115,7 @@ export default function ProjectDetailScreen() {
   const accent = getHealthAccentColor(project.health);
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <OfflineBanner />
       <BrandHeader title={project.name} onBack={() => router.back()} />
       <ScrollView

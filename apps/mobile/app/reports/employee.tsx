@@ -36,7 +36,7 @@ export default function EmployeeReportScreen() {
   );
 
   return (
-    <Screen scroll={false}>
+    <Screen headerSafeArea scroll={false}>
       <ManageScreenHeader title="My Attendance Report" subtitle={range.label} showBack />
       {reportQuery.isLoading ? <LoadingState message="Loading report…" /> : null}
       {reportQuery.isError ? (

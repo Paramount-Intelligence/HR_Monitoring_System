@@ -49,7 +49,7 @@ export default function CreateProjectScreen() {
   };
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <BrandHeader title="Create project" subtitle="Submit for manager approval" onBack={() => router.back()} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <ProjectForm

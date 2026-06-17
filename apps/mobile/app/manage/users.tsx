@@ -44,7 +44,7 @@ export default function ManageUsersScreen() {
 
   if (!canAccessAllUsers(user?.role)) {
     return (
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <OfflineBanner />
         <ManageScreenHeader title="Users" subtitle="Company directory" />
         <EmptyAccessState message="Only Admin and HR can access the full user directory." />
@@ -54,7 +54,7 @@ export default function ManageUsersScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <OfflineBanner />
         <ManageScreenHeader title="Users" subtitle="Search and open employee profiles" />
         <View style={styles.content}>

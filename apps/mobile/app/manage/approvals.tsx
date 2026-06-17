@@ -52,7 +52,7 @@ export default function ManageApprovalsScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <OfflineBanner />
         <ManageScreenHeader title="Pending Approvals" subtitle="Review and action requests" />
         <View style={styles.content}>

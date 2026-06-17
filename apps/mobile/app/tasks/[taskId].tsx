@@ -109,7 +109,7 @@ export default function TaskDetailScreen() {
 
   if (isLoading && !task) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Task" onBack={() => router.back()} />
         <LoadingSkeletonList count={4} />
       </Screen>
@@ -118,7 +118,7 @@ export default function TaskDetailScreen() {
 
   if (isError || !task) {
     return (
-      <Screen withTabBarInset={false}>
+      <Screen headerSafeArea withTabBarInset={false}>
         <BrandHeader title="Task" onBack={() => router.back()} />
         <ErrorState
           title="Task unavailable"
@@ -133,7 +133,7 @@ export default function TaskDetailScreen() {
   const actions = getAvailableTaskActions(task.status, task.canUpdateStatus);
 
   return (
-    <Screen scroll={false} withTabBarInset={false}>
+    <Screen headerSafeArea scroll={false} withTabBarInset={false}>
       <OfflineBanner />
       <BrandHeader title="Task detail" onBack={() => router.back()} />
       <ScrollView

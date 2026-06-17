@@ -65,7 +65,7 @@ export default function ManageUserDetailScreen() {
 
   return (
     <RoleAccessGuard>
-      <Screen scroll={false}>
+      <Screen headerSafeArea scroll={false}>
         <OfflineBanner />
         <ManageScreenHeader
           title={isAdminView ? 'User management' : 'Team member'}

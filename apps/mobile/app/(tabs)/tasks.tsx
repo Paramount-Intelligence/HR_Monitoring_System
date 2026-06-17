@@ -95,7 +95,7 @@ export default function TasksTabScreen() {
 
   if (activeQuery.isError && !(activeQuery.data ?? []).length) {
     return (
-      <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']} style={styles.screen}>
+      <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']} style={styles.screen}>
         <OfflineBanner />
         <BrandHeader
           title="Tasks"
@@ -114,7 +114,7 @@ export default function TasksTabScreen() {
   }
 
   return (
-    <Screen scroll={false} withTabBarInset edges={['top', 'left', 'right']} style={styles.screen}>
+    <Screen scroll={false} withTabBarInset headerSafeArea edges={['left', 'right']} style={styles.screen}>
       <OfflineBanner />
       <BrandHeader
         title="Tasks"
@@ -224,12 +224,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.screenPadding,
     flexGrow: 1,
+    width: '100%',
+    maxWidth: '100%',
   },
   stickyFilters: {
     backgroundColor: colors.background,
     paddingBottom: spacing.sm,
-    marginHorizontal: -spacing.screenPadding,
-    paddingHorizontal: spacing.screenPadding,
+    width: '100%',
+    maxWidth: '100%',
   },
   search: {
     marginBottom: spacing.sm,
@@ -240,8 +242,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     marginBottom: spacing.md,
     marginTop: spacing.sm,
+    minWidth: 0,
+    gap: spacing.sm,
   },
   sectionTitle: {
+    flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     color: colors.text,
     fontFamily: 'Inter_600SemiBold',
   },
