@@ -66,6 +66,9 @@ Notes:
 - `NEXT_PUBLIC_WS_URL` must point at the **API** service WebSocket endpoint
   (`wss://<api-host>/api/v1/ws`), not the frontend domain. Redeploy the web service
   after changing either `NEXT_PUBLIC_*` URL.
+- Do **not** set `EXPORT_STATIC=true` on the Railway web service. Static export is
+  only for local Capacitor builds via `npm run build:mobile`.
+- Railway service root directory must be `apps/web`. Config file: `apps/web/railway.toml`.
 - Do not put database, SMTP, bootstrap admin, or backend secrets on the web service.
 
 ## Call Recording Storage (Railway Bucket)

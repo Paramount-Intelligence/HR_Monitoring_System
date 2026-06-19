@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:mobile": "npx cross-env EXPORT_STATIC=true NEXT_PUBLIC_API_URL=https://hrmonitoringsystem-production-cb42.up.railway.app/api/v1 next build",
+    "build:mobile": "npx cross-env NEXT_PUBLIC_API_URL=https://hrmonitoringsystem-production-cb42.up.railway.app/api/v1 next build --config next.config.mobile.mjs",
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0",
     "lint": "next lint"
   },
   "dependencies": {
