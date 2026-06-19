@@ -1,6 +1,7 @@
 """JWT creation, verification, and password hashing utilities."""
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -48,11 +49,19 @@ def create_access_token(user_id: str, role: str) -> str:
     )
 
 
-def create_refresh_token(user_id: str) -> str:
-    return _create_token(
-        {"sub": user_id, "type": "refresh"},
+def create_refresh_token(user_id: str, *, family_id: str | None = None) -> tuple[str, str]:
+    jti = str(uuid.uuid4())
+    family = family_id or str(uuid.uuid4())
+    token = _create_token(
+        {
+            "sub": user_id,
+            "type": "refresh",
+            "jti": jti,
+            "family_id": family,
+        },
         timedelta(days=settings.refresh_token_expire_days),
     )
+    return token, jti
 
 
 def decode_access_token(token: str) -> dict[str, Any]:

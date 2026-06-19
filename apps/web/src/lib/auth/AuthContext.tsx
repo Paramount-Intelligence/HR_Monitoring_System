@@ -121,7 +121,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (redirect = true) => {
     try {
-      await apiClient.post('/auth/logout');
+      const refreshToken = localStorage.getItem('refresh_token');
+      await apiClient.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : {});
     } catch (e) {
       // ignore
     } finally {

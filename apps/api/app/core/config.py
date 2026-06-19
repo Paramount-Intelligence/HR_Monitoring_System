@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     app_secret_key: str = "change-me-in-env"
     access_token_expire_minutes: int = 15
     refresh_token_expire_days: int = 7
+    auth_login_max_attempts: int = 5
+    auth_login_window_seconds: int = 900
+    auth_forgot_password_max_attempts: int = 3
+    auth_forgot_password_window_seconds: int = 900
+    auth_reset_password_max_attempts: int = 5
+    auth_reset_password_window_seconds: int = 900
     database_public_url: str | None = None
     database_url: str | None = None
     

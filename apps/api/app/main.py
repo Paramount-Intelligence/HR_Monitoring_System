@@ -118,7 +118,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     elif exc.status_code == 403: code = "PERMISSION_ERROR"
     elif exc.status_code == 404: code = "NOT_FOUND"
     elif exc.status_code == 409: code = "CONFLICT"
-    
+    elif exc.status_code == 429: code = "RATE_LIMIT_ERROR"
+
     return JSONResponse(
         status_code=exc.status_code,
         content=jsonable_encoder({
@@ -128,6 +129,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
                 "details": []
             }
         }),
+        headers=exc.headers or {},
     )
 
 @app.exception_handler(Exception)

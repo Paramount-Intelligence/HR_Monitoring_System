@@ -35,6 +35,8 @@ from app.models.monthly_report import MonthlyReport  # noqa: F401
 from app.models.account_invitation import AccountInvitation  # noqa: F401
 from app.models.permission import Permission, RolePermission, UserPermissionOverride  # noqa: F401
 from app.models.password_reset_token import PasswordResetToken  # noqa: F401
+from app.models.refresh_token_session import RefreshTokenSession  # noqa: F401
+from app.models.auth_rate_limit import AuthRateLimit  # noqa: F401
 from app.models.daily_stats import DailyStats  # noqa: F401
 from app.models.meetings import Meeting, MeetingParticipant  # noqa: F401
 from app.models.notifications import Notification  # noqa: F401

@@ -308,6 +308,11 @@ class UserService:
         for field, value in changed.items():
             setattr(user, field, value)
 
+        if payload.status is not None and payload.status in (UserStatus.INACTIVE, UserStatus.SUSPENDED):
+            from app.services.refresh_token_service import RefreshTokenService
+
+            RefreshTokenService(self.db).revoke_all_for_user(user.id)
+
         if "department_id" in requested_fields and payload.department_id is not None:
             from app.models.department import Department
 
@@ -351,6 +356,9 @@ class UserService:
                 status_code=status.HTTP_400_BAD_REQUEST, detail="User is already inactive"
             )
         user.status = UserStatus.INACTIVE
+        from app.services.refresh_token_service import RefreshTokenService
+
+        RefreshTokenService(self.db).revoke_all_for_user(user.id)
         self._write_audit(
             actor=actor,
             action="USER_DEACTIVATED",
@@ -376,6 +384,9 @@ class UserService:
         admin_svc.assert_self_lockout_safe(actor, user, new_status=UserStatus.SUSPENDED)
         old_status = user.status.value
         user.status = UserStatus.SUSPENDED
+        from app.services.refresh_token_service import RefreshTokenService
+
+        RefreshTokenService(self.db).revoke_all_for_user(user.id)
         self._write_audit(
             actor=actor,
             action="USER_SUSPENDED",

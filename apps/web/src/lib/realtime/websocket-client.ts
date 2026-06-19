@@ -108,9 +108,11 @@ export class RealtimeWebSocketClient {
 
       const baseUrl = resolveWebSocketUrl();
       const ticket = await this.fetchWsTicket(accessToken);
-      const url = ticket
-        ? `${baseUrl}?ticket=${encodeURIComponent(ticket)}`
-        : `${baseUrl}?token=${encodeURIComponent(accessToken)}`;
+      if (!ticket) {
+        this.scheduleReconnect();
+        return;
+      }
+      const url = `${baseUrl}?ticket=${encodeURIComponent(ticket)}`;
       if (DEV) logRealtime('connecting', baseUrl);
 
       try {

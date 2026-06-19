@@ -1,41 +1,41 @@
 """Auth service: login and token refresh business logic."""
 from __future__ import annotations
 
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, status
 from jose import JWTError
 from sqlalchemy.orm import Session
 
-from app.core.security import (
-    create_access_token,
-    create_refresh_token,
-    decode_refresh_token,
-    verify_password,
-    hash_password,
-)
+from app.core.security import verify_password, hash_password
 from app.models.audit_log import AuditLog
 from app.models.enums import UserStatus
 from app.models.password_reset_token import PasswordResetToken
 from app.models.account_invitation import AccountInvitation
 from app.models.user import User
 from app.schemas.auth import LoginRequest, LoginResponse, RefreshResponse, TokenUser
+from app.services.auth_rate_limit_service import AuthRateLimitService, client_ip
 from app.services.email_service import EmailService
+from app.services.refresh_token_service import RefreshTokenService
 
 
 class AuthService:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def login(self, payload: LoginRequest) -> LoginResponse:
+    def login(self, payload: LoginRequest, *, request: Request | None = None) -> LoginResponse:
+        if request is not None:
+            AuthRateLimitService(self.db).enforce_login(request, payload.email)
+
         user = self.db.query(User).filter(User.email == payload.email).first()
-        
+
         if not user:
+            if request is not None:
+                AuthRateLimitService(self.db).record_login_failure(request, payload.email)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Check status before password
         if user.status == UserStatus.INACTIVE:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -55,18 +55,27 @@ class AuthService:
         if not verify_password(payload.password, user.password_hash):
             self._write_audit(user.id, "LOGIN_FAILED", "auth", user.id, new_value={"reason": "bad_password"})
             self.db.commit()
+            if request is not None:
+                AuthRateLimitService(self.db).record_login_failure(request, payload.email)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        access_token = create_access_token(str(user.id), user.role.value)
-        refresh_token = create_refresh_token(str(user.id))
+        user_agent = request.headers.get("User-Agent") if request else None
+        ip_address = client_ip(request) if request else None
+        access_token, refresh_token = RefreshTokenService(self.db).issue_tokens(
+            user,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
 
-        # Audit login success
         self._write_audit(user.id, "LOGIN", "auth", user.id, new_value={"role": user.role.value})
         self.db.commit()
+
+        if request is not None:
+            AuthRateLimitService(self.db).record_login_success(request, payload.email)
 
         return LoginResponse(
             access_token=access_token,
@@ -82,78 +91,68 @@ class AuthService:
             ),
         )
 
-    def refresh(self, refresh_token: str) -> RefreshResponse:
-        try:
-            payload = decode_refresh_token(refresh_token)
-        except JWTError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired refresh token",
-            )
-        user_id: str | None = payload.get("sub")
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token payload",
-            )
+    def refresh(
+        self,
+        refresh_token: str,
+        *,
+        request: Request | None = None,
+    ) -> RefreshResponse:
+        user_agent = request.headers.get("User-Agent") if request else None
+        ip_address = client_ip(request) if request else None
+        access_token, new_refresh_token, _user = RefreshTokenService(self.db).rotate(
+            refresh_token,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+        return RefreshResponse(access_token=access_token, refresh_token=new_refresh_token)
 
+    def logout(self, user_id: str, refresh_token: str | None = None) -> None:
         import uuid as _uuid
-        user = self.db.get(User, _uuid.UUID(user_id))
-        if not user or user.status in (UserStatus.INACTIVE, UserStatus.SUSPENDED):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found or deactivated",
-            )
 
-        new_access_token = create_access_token(str(user.id), user.role.value)
-        return RefreshResponse(access_token=new_access_token)
-
-    def logout(self, user_id: str) -> None:
-        """Record logout audit event."""
-        import uuid as _uuid
         uid = _uuid.UUID(user_id)
+        RefreshTokenService(self.db).revoke_raw_token(refresh_token)
         self._write_audit(uid, "LOGOUT", "auth", uid)
         self.db.commit()
 
-    def request_password_reset(self, email: str) -> str | None:
-        """Generate a password reset token for the given email."""
+    def request_password_reset(self, email: str, *, request: Request | None = None) -> str | None:
+        if request is not None:
+            limiter = AuthRateLimitService(self.db)
+            limiter.enforce_forgot_password(request, email)
+            limiter.record_forgot_password(request, email)
+
         import secrets
         import hashlib
         from datetime import datetime, timedelta, timezone
-        
+
         user = self.db.query(User).filter(User.email == email).first()
         if not user:
-            return None  # Don't reveal if user exists
-        
-        # Invalidate old tokens
+            return None
+
         self.db.query(PasswordResetToken).filter(
             PasswordResetToken.user_id == user.id,
-            PasswordResetToken.is_used == False
+            PasswordResetToken.is_used == False,
         ).update({"is_used": True})
-        
-        # Create new token
+
         raw_token = secrets.token_urlsafe(48)
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         reset_token = PasswordResetToken(
             user_id=user.id,
             token_hash=token_hash,
-            expires_at=datetime.now(timezone.utc) + timedelta(hours=2)
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=2),
         )
         self.db.add(reset_token)
         self._write_audit(user.id, "PASSWORD_RESET_REQUEST", "auth", user.id)
-        
+
         try:
             EmailService.send_password_reset(user, raw_token)
         except Exception as e:
-            # Audit the failure but don't stop the request (token is still valid for manual help)
             import logging
             logging.getLogger(__name__).error(f"Failed to send password reset email: {e}")
-            
+
         self.db.commit()
         return raw_token
 
     def admin_send_password_reset(self, user: User, actor: User) -> tuple[bool, str | None]:
-        """Admin-triggered password reset. Does not return the raw token."""
         import secrets
         import hashlib
         import logging
@@ -186,70 +185,76 @@ class AuthService:
 
         return email_sent, email_error
 
-    def reset_password(self, raw_token: str, new_password: str) -> bool:
-        """Consume a reset token and set the new password."""
+    def reset_password(self, raw_token: str, new_password: str, *, request: Request | None = None) -> bool:
+        if request is not None:
+            AuthRateLimitService(self.db).enforce_reset_password(request, raw_token)
+
         import hashlib
         from datetime import datetime, timezone
-        
+
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         token = self.db.query(PasswordResetToken).filter(
             PasswordResetToken.token_hash == token_hash,
-            PasswordResetToken.is_used == False
+            PasswordResetToken.is_used == False,
         ).first()
-        
+
         if not token:
+            if request is not None:
+                AuthRateLimitService(self.db).record_reset_password_failure(request, raw_token)
             return False
-            
-        # SQLite returns naive datetimes
+
         now = datetime.now(timezone.utc)
         expires_at = token.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
-            
+
         if expires_at < now:
+            if request is not None:
+                AuthRateLimitService(self.db).record_reset_password_failure(request, raw_token)
             return False
-        
+
         user = self.db.get(User, token.user_id)
         if not user:
+            if request is not None:
+                AuthRateLimitService(self.db).record_reset_password_failure(request, raw_token)
             return False
-        
+
         user.password_hash = hash_password(new_password)
         token.is_used = True
+        RefreshTokenService(self.db).revoke_all_for_user(user.id)
         self._write_audit(user.id, "PASSWORD_RESET_COMPLETE", "auth", user.id)
         self.db.commit()
         return True
 
     def activate_account(self, raw_token: str, password: str) -> bool:
-        """Validate invitation token and activate account with a new password."""
         import hashlib
         from datetime import datetime, timezone
-        
+
         token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
         invitation = self.db.query(AccountInvitation).filter(
             AccountInvitation.token_hash == token_hash,
-            AccountInvitation.is_used == False
+            AccountInvitation.is_used == False,
         ).first()
-        
+
         if not invitation:
             return False
-            
-        # SQLite returns naive datetimes, so we must normalize for comparison
+
         now = datetime.now(timezone.utc)
         expires_at = invitation.expires_at
         if expires_at.tzinfo is None:
             expires_at = expires_at.replace(tzinfo=timezone.utc)
-            
+
         if expires_at < now:
             return False
-            
+
         user = self.db.get(User, invitation.user_id)
         if not user:
             return False
-            
+
         user.password_hash = hash_password(password)
         user.status = UserStatus.ACTIVE
         invitation.is_used = True
-        
+
         self._write_audit(user.id, "ACCOUNT_ACTIVATED", "auth", user.id)
         self.db.commit()
         return True
