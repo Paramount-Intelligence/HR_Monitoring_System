@@ -333,6 +333,9 @@ def create_conversation(
     current_user: User = Depends(get_current_user),
 ) -> Conversation:
     """Create a new direct, group, or channel conversation."""
+    from app.services.directory_service import DirectoryService
+
+    directory = DirectoryService(db)
     if payload.type == ConversationType.DIRECT:
         if not payload.participant_ids or len(payload.participant_ids) < 1:
             raise HTTPException(
@@ -340,12 +343,7 @@ def create_conversation(
                 detail="Please specify at least one other participant for a direct message."
             )
         other_user_id = payload.participant_ids[0]
-        other_user = db.get(User, other_user_id)
-        if not other_user or other_user.status in ["inactive", "suspended"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Specified participant is not active."
-            )
+        other_user = directory.assert_can_message_user(current_user, other_user_id)
 
         # Check if direct message conversation already exists between these two users
         existing = (
@@ -367,7 +365,13 @@ def create_conversation(
         title = None
 
     else:
-        # Group or Channel
+        allowed_ids = directory.get_messageable_user_ids(current_user)
+        for pid in payload.participant_ids:
+            if pid not in allowed_ids:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You are not allowed to add one or more selected participants.",
+                )
         participant_ids = list(set([current_user.id] + payload.participant_ids))
         title = payload.title or f"Group Discussion {datetime.now().strftime('%Y-%m-%d')}"
 

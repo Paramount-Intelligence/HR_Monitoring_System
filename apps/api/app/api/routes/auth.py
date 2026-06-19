@@ -13,7 +13,7 @@ from app.core.config import settings
 from app.schemas.auth import (
     LoginRequest, LoginResponse, RefreshRequest, RefreshResponse,
     ForgotPasswordRequest, ForgotPasswordResponse, ResetPasswordRequest,
-    ActivateAccountRequest
+    ActivateAccountRequest, WsTicketResponse,
 )
 from app.services.auth_service import AuthService
 
@@ -83,6 +83,14 @@ def reset_password(
             detail="Invalid or expired reset token"
         )
     return {"message": "Password reset successful"}
+
+
+@router.post("/ws-ticket", response_model=WsTicketResponse, summary="Issue a short-lived WebSocket connection ticket")
+def issue_ws_ticket(actor: User = Depends(get_current_user)) -> WsTicketResponse:
+    from app.services.ws_ticket_service import issue_ws_ticket as create_ticket
+
+    ticket, expires_in = create_ticket(actor.id)
+    return WsTicketResponse(ticket=ticket, expires_in=expires_in)
 
 
 @router.get("/me/permissions", summary="Get current user's resolved permissions")

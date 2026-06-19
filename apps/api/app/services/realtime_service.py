@@ -333,6 +333,8 @@ class RealtimeService:
         )
         q = db.query(User.id).filter(User.status == UserStatus.ACTIVE)
         audience_lower = (audience or "all").lower()
+        if audience_lower not in {"all", "employee", "admin", "hr_operations", "manager", "team_lead", "intern", "junior_employee"}:
+            return
         if audience_lower != "all":
             if audience_lower == "employee":
                 q = q.filter(
@@ -348,7 +350,7 @@ class RealtimeService:
                 try:
                     q = q.filter(User.role == UserRole(audience_lower))
                 except ValueError:
-                    pass
+                    return
         user_ids = [row[0] for row in q.all()]
         RealtimeService.emit_to_users(user_ids, event)
         RealtimeService.emit_to_users(

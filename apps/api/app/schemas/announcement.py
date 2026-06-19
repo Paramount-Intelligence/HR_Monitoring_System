@@ -26,3 +26,12 @@ class AnnouncementRead(BaseModel):
     is_active: bool
     created_at: datetime
     updated_at: datetime
+
+
+class AnnouncementUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=255)
+    content: str | None = None
+    audience: str | None = None
+    start_date: datetime | None = None
+    end_date: datetime | None = None
+    is_active: bool | None = None

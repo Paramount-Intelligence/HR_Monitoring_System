@@ -23,8 +23,26 @@ router = APIRouter()
 PING_INTERVAL_SECONDS = 30
 
 
-def _authenticate_websocket_user(token: str | None, db: Session) -> tuple[User | None, str | None]:
-    """Validate JWT and load user. Returns (user, rejection_reason)."""
+def _authenticate_websocket_user(
+    token: str | None,
+    ticket: str | None,
+    db: Session,
+) -> tuple[User | None, str | None]:
+    """Validate WS ticket or JWT and load user. Returns (user, rejection_reason)."""
+    from app.services.ws_ticket_service import consume_ws_ticket
+
+    ticket_user_id = consume_ws_ticket(ticket)
+    if ticket_user_id:
+        user = db.get(User, ticket_user_id)
+        if not user:
+            logger.warning("[WS_AUTH] rejected reason=ticket_user_not_found")
+            return None, "user_not_found"
+        if user.status in (UserStatus.INACTIVE, UserStatus.SUSPENDED):
+            logger.warning("[WS_AUTH] rejected reason=inactive_user")
+            return None, "inactive_user"
+        logger.info("[WS_AUTH] ticket accepted user_id=%s", user.id)
+        return user, None
+
     logger.info("[WS_AUTH] token received=%s", bool(token))
     if not token:
         return None, "missing_token"
@@ -75,7 +93,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     user: User | None = None
     try:
         token = websocket.query_params.get("token")
-        user, reject_reason = _authenticate_websocket_user(token, db)
+        ticket = websocket.query_params.get("ticket")
+        user, reject_reason = _authenticate_websocket_user(token, ticket, db)
         if not user:
             if reject_reason:
                 logger.warning("[WS_AUTH] rejected reason=%s", reject_reason)

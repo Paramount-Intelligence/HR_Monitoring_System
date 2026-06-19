@@ -66,6 +66,21 @@ export class RealtimeWebSocketClient {
     void this.connectWithFreshToken(token);
   }
 
+  private async fetchWsTicket(accessToken: string): Promise<string | null> {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+    try {
+      const response = await fetch(`${apiUrl}/auth/ws-ticket`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        credentials: 'include',
+      });
+      if (!response.ok) return null;
+      const data = (await response.json()) as { ticket?: string };
+      return data.ticket ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   private async connectWithFreshToken(token: string) {
     if (typeof window === 'undefined') return;
     if (!token || this.connectInFlight) return;
@@ -92,7 +107,10 @@ export class RealtimeWebSocketClient {
       this.setStatus(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
 
       const baseUrl = resolveWebSocketUrl();
-      const url = `${baseUrl}?token=${encodeURIComponent(accessToken)}`;
+      const ticket = await this.fetchWsTicket(accessToken);
+      const url = ticket
+        ? `${baseUrl}?ticket=${encodeURIComponent(ticket)}`
+        : `${baseUrl}?token=${encodeURIComponent(accessToken)}`;
       if (DEV) logRealtime('connecting', baseUrl);
 
       try {

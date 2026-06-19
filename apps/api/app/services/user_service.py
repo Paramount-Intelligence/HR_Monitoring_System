@@ -73,13 +73,17 @@ class UserService:
     # ------------------------------------------------------------------
 
     def create_user(self, payload: UserCreate, actor: User) -> tuple[User, str | None, bool, str | None]:
+        if actor.role not in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only administrators or HR may create users.",
+            )
         # Define role hierarchy — who can create whom
         ROLE_CREATION_RULES: dict[UserRole, list[UserRole]] = {
-            UserRole.ADMIN: list(UserRole),  # Admin can create any role
+            UserRole.ADMIN: list(UserRole),
             UserRole.HR_OPERATIONS: [
                 UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE, UserRole.TEAM_LEAD
             ],
-            UserRole.MANAGER: [UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE],
         }
         allowed_roles = ROLE_CREATION_RULES.get(actor.role, [])
         if payload.role not in allowed_roles:

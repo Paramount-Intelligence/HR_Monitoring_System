@@ -14,27 +14,17 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectDecision
+from app.services.project_authorization import ProjectAuthorizationService
 
 
 class ProjectService:
     def __init__(self, db: Session) -> None:
         self.db = db
-
-    # ------------------------------------------------------------------
-    # Create
-    # ------------------------------------------------------------------
+        self._authz = ProjectAuthorizationService(db)
 
     def create_project(self, payload: ProjectCreate, actor: User) -> Project:
-        # Default manager_id to actor if not provided
-        target_manager_id = payload.manager_id or actor.id
-
-        # Validate that manager_id points to a real manager/admin
-        manager = self.db.get(User, target_manager_id)
-        if not manager or manager.role not in (UserRole.MANAGER, UserRole.ADMIN):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="manager_id must reference a valid manager or admin user",
-            )
+        self._authz.assert_can_create(actor)
+        target_manager_id = self._authz.resolve_manager_id_for_create(actor, payload.manager_id)
 
         project = Project(
             title=payload.title,
@@ -48,7 +38,6 @@ class ProjectService:
         self.db.add(project)
         self.db.flush()
 
-        # Create an approval record
         approval = Approval(
             entity_type=ApprovalEntityType.PROJECT,
             entity_id=project.id,
@@ -68,10 +57,6 @@ class ProjectService:
         self.db.refresh(project)
         return project
 
-    # ------------------------------------------------------------------
-    # List
-    # ------------------------------------------------------------------
-
     def list_projects(
         self,
         *,
@@ -82,12 +67,7 @@ class ProjectService:
         actor: User,
     ) -> list[Project]:
         q = self.db.query(Project)
-
-        # Managers only see projects assigned to them or created by their team
-        if actor.role == UserRole.MANAGER:
-            q = q.filter(Project.manager_id == actor.id)
-        elif actor.role == UserRole.EMPLOYEE:
-            q = q.filter(Project.owner_id == actor.id)
+        q = self._authz.apply_list_scope(q, actor)
 
         if approval_status:
             q = q.filter(Project.approval_status == approval_status)
@@ -102,45 +82,27 @@ class ProjectService:
         for p in projects:
             p.progress_percentage = self._calculate_progress(p.id)
         return projects
-        
+
     def list_task_eligible_projects(self, actor: User) -> list[Project]:
-        """Return projects that are approved and active, scoped to the actor's visibility."""
-        # A project is task-eligible if it has been approved. 
-        # We accept both 'approved' and 'active' statuses for backward compatibility.
         q = self.db.query(Project).filter(
             Project.approval_status == ApprovalStatus.APPROVED,
-            Project.project_status.in_([ProjectStatus.APPROVED, ProjectStatus.ACTIVE])
+            Project.project_status.in_([ProjectStatus.APPROVED, ProjectStatus.ACTIVE]),
         )
-        
-        # Scope: By default, let employees see all approved projects 
-        # so they can contribute to any active team project.
-        if actor.role == UserRole.MANAGER:
-            q = q.filter(Project.manager_id == actor.id)
-        # Admins see all. Employees now also see all approved projects.
-            
-        projects = q.order_by(Project.created_at.desc()).all()
-        return projects
-
-    # ------------------------------------------------------------------
-    # Get by ID
-    # ------------------------------------------------------------------
+        q = self._authz.apply_list_scope(q, actor)
+        return q.order_by(Project.created_at.desc()).all()
 
     def get_project(self, project_id: uuid.UUID, actor: User) -> Project:
         project = self.db.get(Project, project_id)
         if not project:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-        self._check_read_access(project, actor)
+        self._authz.assert_can_read(actor, project)
         project.progress_percentage = self._calculate_progress(project.id)
         return project
-
-    # ------------------------------------------------------------------
-    # Approve / Reject
-    # ------------------------------------------------------------------
 
     def decide_project(
         self, project_id: uuid.UUID, payload: ProjectDecision, actor: User
     ) -> Project:
-        if actor.role not in (UserRole.MANAGER, UserRole.ADMIN):
+        if actor.role not in (UserRole.MANAGER, UserRole.ADMIN, UserRole.HR_OPERATIONS, UserRole.TEAM_LEAD):
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         if payload.decision == ApprovalStatus.PENDING:
             raise HTTPException(
@@ -151,7 +113,7 @@ class ProjectService:
         project = self.db.get(Project, project_id)
         if not project:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
-        if actor.role == UserRole.MANAGER and project.manager_id != actor.id:
+        if actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD) and project.manager_id != actor.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
         old_status = project.approval_status.value
@@ -166,7 +128,6 @@ class ProjectService:
             project.project_status = ProjectStatus.REJECTED
             project.rejected_reason = payload.reason
 
-        # Update the approval record
         approval = (
             self.db.query(Approval)
             .filter(
@@ -197,25 +158,13 @@ class ProjectService:
         self.db.refresh(project)
         return project
 
-    # ------------------------------------------------------------------
-    # Internal
-    # ------------------------------------------------------------------
-
-    def _check_read_access(self, project: Project, actor: User) -> None:
-        if actor.role == UserRole.ADMIN:
-            return
-        if actor.role == UserRole.MANAGER and project.manager_id != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-        if actor.role == UserRole.EMPLOYEE and project.owner_id != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-
     def _calculate_progress(self, project_id: uuid.UUID) -> float:
         total_tasks = self.db.query(Task).filter(Task.project_id == project_id).count()
         if total_tasks == 0:
             return 0.0
         completed_tasks = self.db.query(Task).filter(
             Task.project_id == project_id,
-            Task.status == TaskStatus.COMPLETED
+            Task.status == TaskStatus.COMPLETED,
         ).count()
         return round((completed_tasks / total_tasks) * 100, 2)
 

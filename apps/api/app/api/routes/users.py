@@ -8,8 +8,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, 
 from sqlalchemy.orm import Session
 
 from app.core.deps import (
-    get_current_user, get_db, require_admin, 
-    require_admin_or_manager, require_permission,
+    get_current_user, get_db, require_admin,
+    require_admin_hr, require_admin_or_manager, require_permission,
     limit_resend_invite
 )
 from app.core.time_utils import pk_now
@@ -28,12 +28,12 @@ router = APIRouter()
     "",
     response_model=UserCreateResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a new user (admin or manager)",
+    summary="Create a new user (admin or HR only)",
 )
 def create_user(
     payload: UserCreate,
     db: Session = Depends(get_db),
-    actor: User = Depends(require_admin_or_manager),
+    actor: User = Depends(require_admin_hr),
 ) -> UserCreateResponse:
     from app.core.config import settings
     user, token, email_sent, email_error = UserService(db).create_user(payload, actor=actor)
@@ -64,21 +64,16 @@ def list_users(
     )
 
 
-@router.get("/active-directory", response_model=list[UserDirectoryRead], summary="List active users for meeting directory")
+@router.get("/active-directory", response_model=list[UserDirectoryRead], summary="List scoped active users for messaging")
 def list_active_directory(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[UserDirectoryRead]:
-    """Get active users in organization for meeting invites.
-    Accessible by any active logged-in user. Exposes only safe basic identity fields.
-    """
-    active_users = (
-        db.query(User)
-        .filter(User.status == UserStatus.ACTIVE)
-        .order_by(User.full_name)
-        .all()
-    )
-    return active_users
+    """Return users the caller may message, with minimal fields."""
+    from app.services.directory_service import DirectoryService
+
+    entries = DirectoryService(db).list_active_directory(current_user)
+    return [UserDirectoryRead.model_validate(entry) for entry in entries]
 
 
 @router.get("/me", response_model=UserRead, summary="Get current user profile")

@@ -912,7 +912,7 @@ function MessagesContent() {
   const addableUsers = usersList.filter((u: any) => !existingParticipantIds.has(u.id));
   const filteredAddableUsers = addableUsers.filter((u: any) =>
     u.full_name.toLowerCase().includes(memberSearch.toLowerCase()) ||
-    u.email.toLowerCase().includes(memberSearch.toLowerCase())
+    (u.email || '').toLowerCase().includes(memberSearch.toLowerCase())
   );
 
   const sharedAttachments = useMemo(() => collectAttachments(messages), [messages]);
@@ -1478,7 +1478,7 @@ function MessagesContent() {
                         <UserProfilePicture user={p.user} name={p.user.full_name} size="sm" className="h-8 w-8" />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs font-semibold truncate">{p.user.full_name}</p>
-                          <p className="text-[10px] text-[var(--text-muted)] truncate">{p.user.email}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] truncate">{p.user.email || p.user.role}</p>
                         </div>
                         <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase border ${roleBadge(p.role).cls}`}>
                           {roleBadge(p.role).label}
@@ -1656,7 +1656,7 @@ function MessagesContent() {
                           <p className="text-xs font-black text-[var(--text-primary)]">
                             {p.user.full_name} {isMe && <span className="text-[var(--text-muted)] font-semibold">(you)</span>}
                           </p>
-                          <p className="text-[9px] text-[var(--text-muted)] font-semibold">{p.user.email}</p>
+                          <p className="text-[9px] text-[var(--text-muted)] font-semibold">{p.user.email || p.user.role}</p>
                         </div>
                         <span className={`px-2 py-0.5 rounded-md border text-[8px] font-black uppercase ${badge.cls}`}>
                           {badge.label}
@@ -1742,7 +1742,7 @@ function MessagesContent() {
                             <UserProfilePicture user={u} name={u.full_name} size="default" className="h-8 w-8 ring-1 ring-[var(--border-default)]" />
                             <div>
                               <p className="text-xs font-black text-[var(--text-primary)]">{u.full_name}</p>
-                              <p className="text-[9px] text-[var(--text-muted)]">{u.role} · {u.email}</p>
+                              <p className="text-[9px] text-[var(--text-muted)]">{u.role}{u.email ? ` · ${u.email}` : ''}</p>
                             </div>
                           </div>
                           {isSelected && <UserCheck className="h-4 w-4 text-[var(--accent-primary)]" />}

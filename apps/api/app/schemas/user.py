@@ -143,9 +143,11 @@ class UserDirectoryRead(BaseModel):
 
     id: uuid.UUID
     full_name: str
-    email: str
+    display_name: str | None = None
+    email: str | None = None
     role: UserRole
     department: str | None = None
+    department_name: str | None = None
     avatar_url: str | None = None
     profile_picture_url: str | None = None
 
@@ -153,12 +155,15 @@ class UserDirectoryRead(BaseModel):
     @classmethod
     def map_profile_picture(cls, data):
         if hasattr(data, "avatar_url"):
+            dept = getattr(data, "department_name", None) or data.department
             return {
                 "id": data.id,
                 "full_name": data.full_name,
-                "email": data.email,
+                "display_name": data.full_name,
+                "email": getattr(data, "email", None),
                 "role": data.role,
-                "department": data.department,
+                "department": dept,
+                "department_name": dept,
                 "avatar_url": data.avatar_url,
                 "profile_picture_url": data.avatar_url,
             }
@@ -166,6 +171,8 @@ class UserDirectoryRead(BaseModel):
             url = data.get("avatar_url") or data.get("profile_picture_url")
             data.setdefault("profile_picture_url", url)
             data.setdefault("avatar_url", url)
+            data.setdefault("display_name", data.get("full_name"))
+            data.setdefault("department_name", data.get("department_name") or data.get("department"))
         return data
 
 

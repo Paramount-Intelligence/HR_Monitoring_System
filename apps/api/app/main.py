@@ -12,6 +12,7 @@ from pathlib import Path
 
 from app.core.config import settings, resolve_cors_origins, validate_production_settings
 from app.core.validation_errors import sanitize_validation_errors
+from app.core.security_headers import SecurityHeadersMiddleware
 from app.api.router import api_router
 from app.db.session import SessionLocal, engine
 from app.db.encoding import assert_utf8_database
@@ -147,6 +148,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 _cors_allowed_origins = resolve_cors_origins(settings)
 logger.info("[CORS] configured allow_origins=%s", _cors_allowed_origins)
 
+app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allowed_origins,
