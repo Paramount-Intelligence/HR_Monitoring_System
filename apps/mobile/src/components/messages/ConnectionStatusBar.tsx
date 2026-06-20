@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { ConnectionStatus } from '../../realtime/realtime-events';
+import { useRealtimeStore } from '../../realtime/realtime-store';
 import { colors, spacing, typography } from '../../theme';
 import { useNetworkStore } from '../../network/network-store';
 
@@ -28,6 +29,16 @@ export function ConnectionStatusBar({ status }: ConnectionStatusBarProps) {
   }
 
   if (status === 'connected' || status === 'idle') return null;
+
+  const connectionError = useRealtimeStore((s) => s.connectionError);
+
+  if (connectionError) {
+    return (
+      <View style={[styles.bar, styles.reconnecting]}>
+        <Text style={styles.text}>{connectionError}</Text>
+      </View>
+    );
+  }
 
   const label =
     status === 'connecting' || status === 'reconnecting'

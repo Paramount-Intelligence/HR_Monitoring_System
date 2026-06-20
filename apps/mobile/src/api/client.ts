@@ -98,12 +98,10 @@ export async function refreshAccessToken(): Promise<string | null> {
 
 
 
-      await saveAccessToken(data.access_token);
-
       if (data.refresh_token) {
-
         await saveTokens(data.access_token, data.refresh_token);
-
+      } else {
+        await saveAccessToken(data.access_token);
       }
 
       return data.access_token;

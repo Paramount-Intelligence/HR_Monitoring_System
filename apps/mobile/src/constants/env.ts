@@ -1,22 +1,24 @@
 import Constants from 'expo-constants';
 
-const DEFAULT_API =
-  'https://hrmonitoringsystem-production-cb42.up.railway.app/api/v1';
-
-const DEFAULT_WS =
-  'wss://hrmonitoringsystem-production-cb42.up.railway.app/api/v1/ws';
+import {
+  PRODUCTION_API_BASE_URL,
+  PRODUCTION_WS_BASE_URL,
+} from '../../config/production-urls.js';
 
 /** Public API base — no secrets. Override via EXPO_PUBLIC_API_BASE_URL. */
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ??
   (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ??
-  DEFAULT_API;
+  PRODUCTION_API_BASE_URL;
 
 /** Public WebSocket base — no secrets. Override via EXPO_PUBLIC_WS_URL. */
-export const WS_URL =
+export const WS_BASE_URL =
   process.env.EXPO_PUBLIC_WS_URL ??
   (Constants.expoConfig?.extra?.wsUrl as string | undefined) ??
-  DEFAULT_WS;
+  PRODUCTION_WS_BASE_URL;
+
+/** @deprecated Use WS_BASE_URL */
+export const WS_URL = WS_BASE_URL;
 
 export const APP_NAME = 'PIMS';
 export const APP_TAGLINE = 'Workforce Intelligence & Execution OS';

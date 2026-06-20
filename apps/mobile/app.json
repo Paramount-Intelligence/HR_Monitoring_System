@@ -79,8 +79,8 @@
       "autolinkingModuleResolution": true
     },
     "extra": {
-      "apiBaseUrl": "https://hrmonitoringsystem-production-cb42.up.railway.app/api/v1",
-      "wsUrl": "wss://hrmonitoringsystem-production-cb42.up.railway.app/api/v1/ws",
+      "apiBaseUrl": "https://hrmonitoringsystem-production.up.railway.app/api/v1",
+      "wsUrl": "wss://hrmonitoringsystem-production.up.railway.app/api/v1/ws",
       "stunUrl": "stun:stun.l.google.com:19302",
       "router": {},
       "environment": "development",

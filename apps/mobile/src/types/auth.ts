@@ -19,6 +19,15 @@ export interface RefreshRequest {
 export interface RefreshResponse {
   access_token: string;
   token_type: string;
+  refresh_token: string;
+}
+
+export interface WsTicketResponse {
+  ticket: string;
+  expires_in: number;
+}
+
+export interface LogoutRequest {
   refresh_token?: string;
 }
 

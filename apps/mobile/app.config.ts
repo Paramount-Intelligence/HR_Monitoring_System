@@ -1,9 +1,15 @@
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
-const PRODUCTION_API =
-  'https://hrmonitoringsystem-production-cb42.up.railway.app/api/v1';
-const PRODUCTION_WS =
-  'wss://hrmonitoringsystem-production-cb42.up.railway.app/api/v1/ws';
+// Expo config is evaluated by Node without TS path resolution for sibling modules.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const {
+  PRODUCTION_API_BASE_URL,
+  PRODUCTION_WS_BASE_URL,
+} = require('./config/production-urls.js') as {
+  PRODUCTION_API_BASE_URL: string;
+  PRODUCTION_WS_BASE_URL: string;
+};
+
 export default ({ config }: ConfigContext): ExpoConfig => {
   const buildProfile = process.env.EAS_BUILD_PROFILE ?? 'development';
   const isProduction = buildProfile === 'production';
@@ -61,8 +67,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     extra: {
       ...config.extra,
-      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? PRODUCTION_API,
-      wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? PRODUCTION_WS,
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? PRODUCTION_API_BASE_URL,
+      wsUrl: process.env.EXPO_PUBLIC_WS_URL ?? PRODUCTION_WS_BASE_URL,
       environment: appEnvironment,
       buildProfile,
       featureSetVersion: 'mobile-stitch-v2',
