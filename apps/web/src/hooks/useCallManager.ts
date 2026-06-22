@@ -395,8 +395,12 @@ export function useCallManager({
         }, MISSED_CALL_TIMEOUT_MS);
       } catch (err: unknown) {
         stream?.getTracks().forEach((t) => t.stop());
-        setError(getErrorMessage(err) || 'Could not initiate call.');
-        handleTeardownCall();
+        const msg = getErrorMessage(err) || 'Could not initiate call.';
+        logCallDebug('start call failed', { message: msg });
+        setError(msg);
+        if (callSessionRef.current) {
+          handleTeardownCall();
+        }
       }
     },
     [activeConv, userId, createPeerConnection, handleTeardownCall, clearMissedCallTimer, setError, applyMediaResult]
@@ -488,6 +492,7 @@ export function useCallManager({
 
       setError(msg);
       setConnectionStatus('incoming');
+      startRingtone();
     }
   }, [
     clearMissedCallTimer,

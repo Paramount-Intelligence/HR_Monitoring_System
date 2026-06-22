@@ -1,5 +1,7 @@
 /** Acquire local media for voice/video calls with graceful degradation. */
 
+import { logMediaError, resolveMediaError } from '@/lib/calls/media-errors';
+
 export interface CallMediaResult {
   stream: MediaStream;
   hasLocalAudio: boolean;
@@ -15,22 +17,18 @@ function trackFlags(stream: MediaStream) {
   return { hasLocalAudio, hasLocalVideo };
 }
 
-async function tryGetUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream | null> {
+async function requestUserMedia(
+  constraints: MediaStreamConstraints,
+  callType: 'voice' | 'video'
+): Promise<MediaStream> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('Your browser does not support audio/video calling.');
+  }
   try {
     return await navigator.mediaDevices.getUserMedia(constraints);
-  } catch {
-    return null;
+  } catch (err) {
+    throw new Error(await resolveMediaError(err, callType));
   }
-}
-
-function permissionDeniedMessage(callType: 'voice' | 'video'): string {
-  return callType === 'video'
-    ? 'Camera/microphone permission was denied. Please allow access from browser site settings.'
-    : 'Microphone permission was denied. Please allow microphone access from browser site settings.';
-}
-
-function bothUnavailableMessage(): string {
-  return 'No camera or microphone access available. Please connect a device or allow browser permissions.';
 }
 
 /** @deprecated use getCallMedia */
@@ -41,34 +39,25 @@ export async function acquireCallMedia(callType: 'voice' | 'video'): Promise<Med
 
 export async function getCallMedia(callType: 'voice' | 'video'): Promise<CallMediaResult> {
   if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error('This browser does not support audio/video calls.');
+    throw new Error('Your browser does not support audio/video calling.');
   }
 
   if (callType === 'voice') {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const flags = trackFlags(stream);
-      if (!flags.hasLocalAudio) {
-        throw new Error('No microphone found. Connect a microphone to place calls.');
-      }
-      return {
-        stream,
-        hasLocalAudio: true,
-        hasLocalVideo: false,
-        localCameraUnavailable: true,
-        localMicrophoneUnavailable: false,
-      };
-    } catch (err) {
-      const domErr = err as DOMException;
-      if (domErr.name === 'NotAllowedError') {
-        throw new Error(permissionDeniedMessage('voice'));
-      }
-      if (err instanceof Error && err.message.includes('microphone')) throw err;
-      throw new Error('No microphone found. Connect a microphone to place calls.');
+    const stream = await requestUserMedia({ audio: true, video: false }, 'voice');
+    const flags = trackFlags(stream);
+    if (!flags.hasLocalAudio) {
+      throw new Error('No microphone device was found.');
     }
+    return {
+      stream,
+      hasLocalAudio: true,
+      hasLocalVideo: false,
+      localCameraUnavailable: true,
+      localMicrophoneUnavailable: false,
+    };
   }
 
-  // Video call — try full A/V first
+  // Video call — audio + video first
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     const flags = trackFlags(stream);
@@ -86,15 +75,18 @@ export async function getCallMedia(callType: 'voice' | 'video'): Promise<CallMed
             : undefined,
     };
   } catch (firstErr) {
-    const domErr = firstErr as DOMException;
-    if (domErr.name === 'NotAllowedError') {
-      throw new Error(permissionDeniedMessage('video'));
+    logMediaError(firstErr, 'video');
+    const firstName = firstErr instanceof DOMException ? firstErr.name : '';
+    if (firstName === 'NotAllowedError' || firstName === 'PermissionDeniedError') {
+      throw new Error(await resolveMediaError(firstErr, 'video'));
     }
   }
 
+  let lastError: unknown = null;
+
   // Camera missing/busy — try audio-only (still a video call for remote)
-  const audioOnly = await tryGetUserMedia({ audio: true, video: false });
-  if (audioOnly) {
+  try {
+    const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     return {
       stream: audioOnly,
       hasLocalAudio: true,
@@ -103,11 +95,14 @@ export async function getCallMedia(callType: 'voice' | 'video'): Promise<CallMed
       localMicrophoneUnavailable: false,
       warning: 'Camera not found. Continuing with audio only.',
     };
+  } catch (err) {
+    lastError = err;
+    logMediaError(err, 'video');
   }
 
   // Microphone missing — try video-only
-  const videoOnly = await tryGetUserMedia({ audio: false, video: true });
-  if (videoOnly) {
+  try {
+    const videoOnly = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
     return {
       stream: videoOnly,
       hasLocalAudio: false,
@@ -116,9 +111,12 @@ export async function getCallMedia(callType: 'voice' | 'video'): Promise<CallMed
       localMicrophoneUnavailable: true,
       warning: 'Microphone not found. Continuing without audio.',
     };
+  } catch (err) {
+    lastError = err;
+    logMediaError(err, 'video');
   }
 
-  // Camera in use but mic may work
+  // Last attempt — full A/V (e.g. transient NotReadableError)
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     const flags = trackFlags(stream);
@@ -129,11 +127,16 @@ export async function getCallMedia(callType: 'voice' | 'video'): Promise<CallMed
       localCameraUnavailable: !flags.hasLocalVideo,
       localMicrophoneUnavailable: !flags.hasLocalAudio,
     };
-  } catch (lastErr) {
-    const domErr = lastErr as DOMException;
-    if (domErr.name === 'NotReadableError') {
-      const audioFallback = await tryGetUserMedia({ audio: true, video: false });
-      if (audioFallback) {
+  } catch (err) {
+    lastError = err;
+    logMediaError(err, 'video');
+    const name = err instanceof DOMException ? err.name : '';
+    if (name === 'NotReadableError' || name === 'TrackStartError') {
+      try {
+        const audioFallback = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
         return {
           stream: audioFallback,
           hasLocalAudio: true,
@@ -143,13 +146,14 @@ export async function getCallMedia(callType: 'voice' | 'video'): Promise<CallMed
           warning:
             'Camera is already in use by another application. Continuing with audio only if microphone is available.',
         };
+      } catch (fallbackErr) {
+        lastError = fallbackErr;
+        logMediaError(fallbackErr, 'video');
       }
     }
-    if (domErr.name === 'NotAllowedError') {
-      throw new Error(permissionDeniedMessage('video'));
-    }
-    throw new Error(bothUnavailableMessage());
   }
+
+  throw new Error(await resolveMediaError(lastError ?? new Error('Media unavailable'), 'video'));
 }
 
 export function isWebRtcSupported(): boolean {
