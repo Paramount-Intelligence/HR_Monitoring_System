@@ -13,6 +13,8 @@ import {
 import { buildIceServers } from '@/lib/calls/webrtc-config';
 import { getCallMedia, isWebRtcSupported, streamHasAudioTrack, streamHasVideoTrack } from '@/lib/calls/media';
 import { createMediaRefCallback } from '@/lib/calls/attach-media-stream';
+import { logCallDebug, CALL_REALTIME_EVENTS } from '@/lib/calls/call-debug';
+import { resolveAcceptFailureAction } from '@/lib/calls/call-ui-utils';
 import { useCallRecording } from '@/hooks/useCallRecording';
 
 export type CallRole = 'caller' | 'callee' | null;
@@ -359,6 +361,7 @@ export function useCallManager({
       let stream: MediaStream | null = null;
       try {
         setError('');
+        logCallDebug('start call clicked', { callType });
         if (!isWebRtcSupported()) {
           setError('This browser does not support audio/video calls.');
           return;
@@ -369,6 +372,7 @@ export function useCallManager({
         applyMediaResult(media);
 
         const session = await messagesApi.startCall(activeConv.id, callType);
+        logCallDebug('start call API success', { callId: session.id, callType });
         setCallSession(session);
         setCallRole('caller');
         setConnectionStatus('calling');
@@ -421,34 +425,78 @@ export function useCallManager({
     }
 
     const callerId = session.started_by_id;
+    if (!callerId) {
+      setError('Invalid call session.');
+      return;
+    }
+
     let stream: MediaStream | null = null;
+    let acceptedOnServer = false;
 
     try {
       stopRingtone();
+      clearMissedCallTimer();
       setConnectionStatus('connecting');
       setError('');
+      logCallDebug('accept clicked', { callId: session.id });
 
       if (!isWebRtcSupported()) {
         setError('This browser does not support audio/video calls.');
+        setConnectionStatus('incoming');
         return;
       }
 
       const media = await getCallMedia(session.call_type === 'video' ? 'video' : 'voice');
       stream = media.stream;
-      applyMediaResult(media);
 
       const acceptedSession = await messagesApi.acceptCall(session.id);
+      acceptedOnServer = true;
+      logCallDebug('accept API success', {
+        callId: session.id,
+        status: acceptedSession.status,
+      });
+
       setCallSession(acceptedSession);
       setCallRole('callee');
+      applyMediaResult(media);
 
       createPeerConnection(acceptedSession, stream, callerId);
       await fetchAndProcessSignals();
     } catch (err: unknown) {
       stream?.getTracks().forEach((t) => t.stop());
-      setError(getErrorMessage(err) || 'Call could not connect.');
-      await handleDeclineCall();
+      const msg = getErrorMessage(err) || 'Call could not connect.';
+      logCallDebug('accept failed', {
+        callId: session.id,
+        acceptedOnServer,
+        message: msg,
+      });
+
+      const action = resolveAcceptFailureAction(acceptedOnServer);
+      if (action === 'end_call') {
+        setError(msg);
+        try {
+          if (callerId) {
+            await messagesApi.sendSignal(session.id, callerId, 'end', {});
+          }
+          await messagesApi.endCall(session.id);
+        } catch (endErr) {
+          console.warn('[Call] Failed to end call after accept error:', endErr);
+        }
+        handleTeardownCall(true);
+        return;
+      }
+
+      setError(msg);
+      setConnectionStatus('incoming');
     }
-  }, [createPeerConnection, fetchAndProcessSignals, handleDeclineCall, setError, applyMediaResult]);
+  }, [
+    clearMissedCallTimer,
+    createPeerConnection,
+    fetchAndProcessSignals,
+    handleTeardownCall,
+    setError,
+    applyMediaResult,
+  ]);
 
   const handleEndCall = useCallback(async () => {
     const session = callSessionRef.current;
@@ -500,6 +548,8 @@ export function useCallManager({
       const callType = (ev.payload.call_type as 'voice' | 'video') || 'voice';
       const callerName = String(ev.payload.started_by_name || 'Someone');
 
+      logCallDebug('incoming call received', { callId, type: callType });
+
       setCallSession({
         id: callId,
         conversation_id: conversationId,
@@ -521,10 +571,10 @@ export function useCallManager({
   );
 
   // Realtime: incoming call (backend emits call_incoming; support incoming_call alias)
-  useRealtimeEvent('call_incoming', handleIncomingCallEvent);
-  useRealtimeEvent('incoming_call', handleIncomingCallEvent);
+  useRealtimeEvent(CALL_REALTIME_EVENTS.incoming[0], handleIncomingCallEvent);
+  useRealtimeEvent(CALL_REALTIME_EVENTS.incoming[1], handleIncomingCallEvent);
 
-  useRealtimeEvent('call_accepted', (ev) => {
+  useRealtimeEvent(CALL_REALTIME_EVENTS.accepted, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
       setCallSession((prev) => (prev ? { ...prev, status: 'active' } : prev));
       setConnectionStatus('connecting');
@@ -532,7 +582,7 @@ export function useCallManager({
     }
   });
 
-  useRealtimeEvent('call_signal', (ev) => {
+  useRealtimeEvent(CALL_REALTIME_EVENTS.signal, (ev) => {
     if (callSessionRef.current?.id !== ev.payload.call_session_id) return;
     void processSignal({
       id: String(ev.payload.signal_id || ''),
@@ -542,19 +592,19 @@ export function useCallManager({
     });
   });
 
-  useRealtimeEvent('call_declined', (ev) => {
+  useRealtimeEvent(CALL_REALTIME_EVENTS.declined, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
       handleTeardownCall(true);
     }
   });
 
-  useRealtimeEvent('call_ended', (ev) => {
+  useRealtimeEvent(CALL_REALTIME_EVENTS.ended, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
       handleTeardownCall(true);
     }
   });
 
-  useRealtimeEvent('call_missed', (ev) => {
+  useRealtimeEvent(CALL_REALTIME_EVENTS.missed, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
       handleTeardownCall(true);
     }

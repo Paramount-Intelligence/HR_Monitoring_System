@@ -69,6 +69,8 @@ import { VoiceMessageRecorder } from '@/components/messages/VoiceMessageRecorder
 import { VoiceMessageBubble } from '@/components/messages/VoiceMessageBubble';
 import { isVoiceNoteAttachment, isVoiceNoteMessage } from '@/lib/messages/voice-messages';
 import { stopActiveVoicePlayback } from '@/lib/messages/voice-playback-controller';
+import { getCallButtonState, getCallButtonTitle } from '@/lib/calls/call-ui-utils';
+import { isWebRtcSupported } from '@/lib/calls/media';
 
 // ─── Permission helpers ───────────────────────────────────────────────────────
 
@@ -377,6 +379,17 @@ function MessagesContent() {
   }, [selectedConversationId]);
 
   const { isConnected } = useRealtimeStatus();
+  const dmCallButtonState = useMemo(
+    () =>
+      getCallButtonState({
+        isDirect: activeConv?.type === 'direct',
+        isParticipant: Boolean(myParticipant),
+        isWebRtcSupported: isWebRtcSupported(),
+        hasActiveCall: Boolean(callSession),
+        realtimeConnected: isConnected,
+      }),
+    [activeConv?.type, myParticipant, callSession, isConnected]
+  );
   const [hasNewMessagesBelow, setHasNewMessagesBelow] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -995,10 +1008,10 @@ function MessagesContent() {
               <div className="flex items-center gap-1 shrink-0">
                 {activeConv.type === 'direct' ? (
                   <>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!isConnected} onClick={() => handleStartCall('voice')} title={isConnected ? 'Voice call' : 'Reconnecting — calls unavailable'}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!dmCallButtonState.canCall} onClick={() => handleStartCall('voice')} title={getCallButtonTitle('voice', dmCallButtonState)}>
                       <Phone className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!isConnected} onClick={() => handleStartCall('video')} title={isConnected ? 'Video call' : 'Reconnecting — calls unavailable'}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!dmCallButtonState.canCall} onClick={() => handleStartCall('video')} title={getCallButtonTitle('video', dmCallButtonState)}>
                       <Video className="h-4 w-4" />
                     </Button>
                   </>
@@ -1384,10 +1397,10 @@ function MessagesContent() {
                     )}
                     {activeConv?.type === 'direct' && (
                       <>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" disabled={!isConnected} onClick={() => handleStartCall('voice')} title={isConnected ? 'Voice call' : 'Reconnecting — calls unavailable'}>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" disabled={!dmCallButtonState.canCall} onClick={() => handleStartCall('voice')} title={getCallButtonTitle('voice', dmCallButtonState)}>
                           <Phone className="h-3.5 w-3.5" />
                         </Button>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" disabled={!isConnected} onClick={() => handleStartCall('video')} title={isConnected ? 'Video call' : 'Reconnecting — calls unavailable'}>
+                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-md hidden sm:flex" disabled={!dmCallButtonState.canCall} onClick={() => handleStartCall('video')} title={getCallButtonTitle('video', dmCallButtonState)}>
                           <Video className="h-3.5 w-3.5" />
                         </Button>
                       </>
@@ -1440,7 +1453,15 @@ function MessagesContent() {
                     <Phone className="h-8 w-8 mb-2 opacity-50" />
                     <p>No call history in this conversation yet.</p>
                     {activeConv?.type === 'direct' && (
-                      <Button size="sm" className="mt-3 rounded-lg" onClick={() => handleStartCall('voice')}>Start voice call</Button>
+                      <Button
+                        size="sm"
+                        className="mt-3 rounded-lg"
+                        disabled={!dmCallButtonState.canCall}
+                        title={getCallButtonTitle('voice', dmCallButtonState)}
+                        onClick={() => handleStartCall('voice')}
+                      >
+                        Start voice call
+                      </Button>
                     )}
                   </div>
                 ) : (
