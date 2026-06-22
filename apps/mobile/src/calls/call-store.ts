@@ -632,10 +632,13 @@ export const useCallStore = create<CallStoreState>((set, get) => {
 
       set({ isBusy: true, errorMessage: null, connectionStatus: 'connecting' });
 
+      let acceptedOnServer = false;
+
       try {
         const callType = session.call_type;
         const media = await prepareMedia(callType);
         const updated = await acceptCall(session.id);
+        acceptedOnServer = true;
         logCall(`accepted call_id=${session.id}`);
 
         wireWebRTC(session.id, remoteUserId);
@@ -654,11 +657,23 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         startConnectTimeout();
       } catch (error) {
         teardownWebRTC();
+        const msg = getErrorMessage(error, 'Unable to accept call.');
+        logCall(`accept_failed acceptedOnServer=${acceptedOnServer} msg=${msg}`);
         set({
           isBusy: false,
-          errorMessage: getErrorMessage(error, 'Unable to accept call.'),
+          errorMessage: msg,
+          connectionStatus: acceptedOnServer ? 'connecting' : 'incoming',
+          phase: acceptedOnServer ? 'active' : 'incoming',
         });
-        await get().declineIncomingCall();
+        if (acceptedOnServer) {
+          try {
+            await endCall(session.id);
+          } catch {
+            /* ignore */
+          }
+          await teardownCallMedia(session.id);
+          scheduleEndBrief(get, set, 'Call could not connect');
+        }
       }
     },
 
@@ -731,7 +746,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
     },
 
     processCallSignalEvent: async (payload) => {
-      const { session, isCaller, remoteUserId } = get();
+      const { session, isCaller, remoteUserId, phase } = get();
       if (!session) return;
       if (payload.call_session_id && String(payload.call_session_id) !== session.id) return;
 
@@ -743,18 +758,33 @@ export const useCallStore = create<CallStoreState>((set, get) => {
       };
 
       if (sig.signal_type === 'end') {
+        logCall('ended reason=signal_end');
         await teardownCallMedia(session.id);
         scheduleEndBrief(get, set, 'Call ended');
+        return;
+      }
+
+      // WebRTC signals before accept — peer connection not ready; poll on accept fetches from API.
+      if (phase === 'incoming') {
+        if (sig.signal_type === 'offer') {
+          logCall('offer received while ringing — will process on accept');
+        }
         return;
       }
 
       const role = isCaller ? 'caller' : 'callee';
       const recipientId = remoteUserId ?? session.started_by_id;
 
-      await webrtcClient.processSignal(sig, role, async (answer) => {
-        if (!recipientId) return;
-        await sendCallSignal(session.id, recipientId, 'answer', answer);
-      });
+      try {
+        await webrtcClient.processSignal(sig, role, async (answer) => {
+          if (!recipientId) return;
+          logCall(`answer_sent call_id=${session.id}`);
+          await sendCallSignal(session.id, recipientId, 'answer', answer);
+        });
+      } catch (error) {
+        logCall(`signal_error type=${sig.signal_type} msg=${getErrorMessage(error, 'failed')}`);
+        throw error;
+      }
 
       refreshStreamUrls(set);
 
@@ -814,10 +844,13 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         case 'call_accepted': {
           if (session?.id !== callId) return;
           logCall(`call_accepted call_id=${callId}`);
+          const missed = get().missedCallTimer;
+          if (missed) clearTimeout(missed);
           set({
             session: session ? { ...session, status: 'active' } : session,
             connectionStatus: 'connecting',
             phase: 'active',
+            missedCallTimer: null,
           });
           void fetchAndProcessSignals();
           startConnectTimeout();

@@ -38,3 +38,18 @@ export const CALL_REALTIME_EVENTS = {
 } as const;
 
 export const CALL_SIGNAL_TYPES = ['offer', 'answer', 'ice_candidate', 'end'] as const;
+
+export type CallEndReason =
+  | 'no_answer_timeout'
+  | 'remote_declined'
+  | 'remote_ended'
+  | 'remote_missed'
+  | 'ice_failed'
+  | 'user_ended'
+  | 'signal_end'
+  | 'media_error'
+  | 'unknown';
+
+export function logCallEndReason(reason: CallEndReason, detail?: Record<string, unknown>): void {
+  logCallDebug(`call ended: ${reason}`, detail);
+}

@@ -13,8 +13,9 @@ import {
 import { buildIceServers } from '@/lib/calls/webrtc-config';
 import { getCallMedia, isWebRtcSupported, streamHasAudioTrack, streamHasVideoTrack } from '@/lib/calls/media';
 import { createMediaRefCallback } from '@/lib/calls/attach-media-stream';
-import { logCallDebug, CALL_REALTIME_EVENTS } from '@/lib/calls/call-debug';
+import { logCallDebug, CALL_REALTIME_EVENTS, logCallEndReason } from '@/lib/calls/call-debug';
 import { resolveAcceptFailureAction } from '@/lib/calls/call-ui-utils';
+import { shouldFireOutgoingRingTimeout } from '@/lib/calls/call-timer-utils';
 import { useCallRecording } from '@/hooks/useCallRecording';
 
 export type CallRole = 'caller' | 'callee' | null;
@@ -96,6 +97,7 @@ export function useCallManager({
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const callSessionRef = useRef<CallSession | null>(null);
   const callRoleRef = useRef<CallRole>(null);
+  const connectionStatusRef = useRef<CallConnectionStatus>('idle');
   const missedCallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectedAtRef = useRef<number | null>(null);
@@ -125,6 +127,10 @@ export function useCallManager({
   useEffect(() => {
     callRoleRef.current = callRole;
   }, [callRole]);
+
+  useEffect(() => {
+    connectionStatusRef.current = connectionStatus;
+  }, [connectionStatus]);
 
   const setError = useCallback(
     (msg: string) => {
@@ -222,12 +228,21 @@ export function useCallManager({
 
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          logCallDebug('ICE candidate sent', { callId: session.id, role: callRoleRef.current });
           void messagesApi.sendSignal(session.id, recipientId, 'ice_candidate', event.candidate.toJSON());
         }
       };
 
       pc.oniceconnectionstatechange = () => {
         setIceConnectionState(pc.iceConnectionState);
+        logCallDebug('ICE state', {
+          callId: session.id,
+          role: callRoleRef.current,
+          iceState: pc.iceConnectionState,
+          signalingState: pc.signalingState,
+          hasLocalDescription: Boolean(pc.localDescription),
+          hasRemoteDescription: Boolean(pc.remoteDescription),
+        });
         if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
           setConnectionStatus('connected');
           if (!connectedAtRef.current) {
@@ -240,6 +255,7 @@ export function useCallManager({
           }
         } else if (pc.iceConnectionState === 'failed') {
           setConnectionStatus('failed');
+          logCallEndReason('ice_failed', { callId: session.id, role: callRoleRef.current });
           setError('Call connection failed. This may happen on restricted networks.');
         }
       };
@@ -291,26 +307,38 @@ export function useCallManager({
         if (sig.signal_type === 'offer' && role === 'callee') {
           if (!pc.remoteDescription) {
             setConnectionStatus('connecting');
+            logCallDebug('offer received', { callId: session.id, role });
             await pc.setRemoteDescription(new RTCSessionDescription(payload));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
+            logCallDebug('answer sent', { callId: session.id, role });
             await messagesApi.sendSignal(session.id, session.started_by_id, 'answer', answer);
             await drainPendingCandidates(pc);
           }
         } else if (sig.signal_type === 'answer' && role === 'caller') {
           if (!pc.remoteDescription) {
             setConnectionStatus('connecting');
+            clearMissedCallTimer();
+            logCallDebug('answer received', { callId: session.id, role });
             await pc.setRemoteDescription(new RTCSessionDescription(payload));
+            logCallDebug('remote answer applied', { callId: session.id, role });
             await drainPendingCandidates(pc);
           }
         } else if (sig.signal_type === 'ice_candidate') {
           const ice = payload as RTCIceCandidateInit;
           if (pc.remoteDescription && ice.candidate) {
+            logCallDebug('ICE candidate received', { callId: session.id, role });
             await pc.addIceCandidate(new RTCIceCandidate(ice));
           } else if (ice.candidate) {
             pendingCandidates.current.push(ice);
+            logCallDebug('ICE candidate queued', {
+              callId: session.id,
+              role,
+              queued: pendingCandidates.current.length,
+            });
           }
         } else if (sig.signal_type === 'end') {
+          logCallEndReason('signal_end', { callId: session.id, role });
           handleTeardownCall(true);
         }
       } catch (err) {
@@ -318,7 +346,7 @@ export function useCallManager({
         setError(getErrorMessage(err) || 'Failed to process call signal.');
       }
     },
-    [drainPendingCandidates, handleTeardownCall, setError]
+    [drainPendingCandidates, handleTeardownCall, setError, clearMissedCallTimer]
   );
 
   const fetchAndProcessSignals = useCallback(async () => {
@@ -380,11 +408,18 @@ export function useCallManager({
         const pc = createPeerConnection(session, stream, recipient.id);
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
+        logCallDebug('offer created', { callId: session.id, role: 'caller' });
         await messagesApi.sendSignal(session.id, recipient.id, 'offer', offer);
+        logCallDebug('offer sent', { callId: session.id, role: 'caller' });
 
         clearMissedCallTimer();
         missedCallTimerRef.current = setTimeout(async () => {
-          if (callSessionRef.current?.id === session.id && callRoleRef.current === 'caller') {
+          if (
+            callSessionRef.current?.id === session.id &&
+            callRoleRef.current === 'caller' &&
+            shouldFireOutgoingRingTimeout(connectionStatusRef.current)
+          ) {
+            logCallEndReason('no_answer_timeout', { callId: session.id, role: 'caller' });
             try {
               await messagesApi.endCall(session.id);
             } catch {
@@ -581,6 +616,11 @@ export function useCallManager({
 
   useRealtimeEvent(CALL_REALTIME_EVENTS.accepted, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      clearMissedCallTimer();
+      logCallDebug('call accepted event', {
+        callId: String(ev.payload.call_session_id),
+        role: callRoleRef.current,
+      });
       setCallSession((prev) => (prev ? { ...prev, status: 'active' } : prev));
       setConnectionStatus('connecting');
       void fetchAndProcessSignals();
@@ -599,18 +639,21 @@ export function useCallManager({
 
   useRealtimeEvent(CALL_REALTIME_EVENTS.declined, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      logCallEndReason('remote_declined', { callId: String(ev.payload.call_session_id) });
       handleTeardownCall(true);
     }
   });
 
   useRealtimeEvent(CALL_REALTIME_EVENTS.ended, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      logCallEndReason('remote_ended', { callId: String(ev.payload.call_session_id) });
       handleTeardownCall(true);
     }
   });
 
   useRealtimeEvent(CALL_REALTIME_EVENTS.missed, (ev) => {
     if (callSessionRef.current?.id === ev.payload.call_session_id) {
+      logCallEndReason('remote_missed', { callId: String(ev.payload.call_session_id) });
       handleTeardownCall(true);
     }
   });
