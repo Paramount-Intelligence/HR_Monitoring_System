@@ -87,6 +87,7 @@ class TaskStatus(str, enum.Enum):
     COMPLETED = "completed"
     REVIEWED = "reviewed"
     REOPENED = "reopened"
+    ARCHIVED = "archived"
 
 
 class ApprovalEntityType(str, enum.Enum):

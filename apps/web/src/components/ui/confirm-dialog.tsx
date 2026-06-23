@@ -47,7 +47,7 @@ export function ConfirmDialog({
             {description}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        <AlertDialogFooter className="mt-6 flex gap-2">
+        <AlertDialogFooter className="flex gap-3">
           <AlertDialogCancel 
             className="rounded-lg border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] hover:text-[var(--text-primary)] font-medium bg-[var(--bg-elevated)]"
             disabled={isLoading}

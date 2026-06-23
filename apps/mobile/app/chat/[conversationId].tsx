@@ -30,7 +30,10 @@ import { dedupeMessages, buildVoiceNoteFilename, getConversationDisplayName, get
 import { colors } from '../../src/theme';
 
 export default function ChatScreen() {
-  const { conversationId } = useLocalSearchParams<{ conversationId: string }>();
+  const { conversationId, callId } = useLocalSearchParams<{
+    conversationId: string;
+    callId?: string;
+  }>();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const isOffline = useNetworkStore((s) => s.isOffline);
@@ -38,6 +41,18 @@ export default function ChatScreen() {
   const setActiveConversationId = useRealtimeStore((s) => s.setActiveConversationId);
   const callPhase = useCallStore((s) => s.phase);
   const startOutgoingCall = useCallStore((s) => s.startOutgoingCall);
+  const hydrateIncomingCallFromPush = useCallStore((s) => s.hydrateIncomingCallFromPush);
+
+  useEffect(() => {
+    if (!callId || !user?.id) return;
+    void hydrateIncomingCallFromPush(
+      {
+        call_id: callId,
+        conversation_id: conversationId,
+      },
+      user.id
+    );
+  }, [callId, conversationId, hydrateIncomingCallFromPush, user?.id]);
 
   useEffect(() => {
     if (conversationId) {

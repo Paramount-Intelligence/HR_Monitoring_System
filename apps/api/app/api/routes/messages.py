@@ -22,6 +22,7 @@ from app.models.notifications import Notification
 from app.services.realtime_service import RealtimeService
 from app.services.websocket_manager import ws_manager
 from app.services import message_receipt_service as receipt_svc
+from app.services.message_html_service import prepare_message_content
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +49,48 @@ from app.schemas.communication import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _populate_conversation_read(
+    conv: Conversation,
+    db: Session,
+    current_user: User,
+) -> Conversation:
+    """Attach participants, preview, and display title for ConversationRead."""
+    parts = (
+        db.query(ConversationParticipant)
+        .filter(ConversationParticipant.conversation_id == conv.id)
+        .options(joinedload(ConversationParticipant.user))
+        .all()
+    )
+    conv.participants = parts
+
+    last_msg = (
+        db.query(Message)
+        .filter(Message.conversation_id == conv.id, Message.is_deleted == False)
+        .order_by(Message.created_at.desc())
+        .options(joinedload(Message.sender))
+        .first()
+    )
+    if last_msg:
+        conv.last_message = {
+            "id": last_msg.id,
+            "body": last_msg.body,
+            "sender_id": last_msg.sender_id,
+            "sender_name": last_msg.sender.full_name if last_msg.sender else "Unknown",
+            "created_at": last_msg.created_at,
+        }
+    else:
+        conv.last_message = None
+
+    if conv.type == ConversationType.DIRECT and not conv.title:
+        other_part = next((p for p in parts if p.user_id != current_user.id), None)
+        if other_part and other_part.user:
+            conv.title = other_part.user.full_name
+        else:
+            conv.title = "Direct Message"
+
+    return conv
 
 
 def check_thread_access(db: Session, user: User, relation_type: str, relation_id: uuid.UUID) -> bool:
@@ -357,9 +400,7 @@ def create_conversation(
             other_parts = db.query(ConversationParticipant).filter_by(conversation_id=c.id).all()
             part_ids = {p.user_id for p in other_parts}
             if part_ids == {current_user.id, other_user_id}:
-                # Re-use existing conversation
-                c.participants = db.query(ConversationParticipant).filter_by(conversation_id=c.id).all()
-                return c
+                return _populate_conversation_read(c, db, current_user)
 
         participant_ids = [current_user.id, other_user_id]
         title = None
@@ -398,16 +439,8 @@ def create_conversation(
 
     db.commit()
     db.refresh(new_conv)
-    
-    # Reload participants
-    new_conv.participants = (
-        db.query(ConversationParticipant)
-        .filter(ConversationParticipant.conversation_id == new_conv.id)
-        .options(joinedload(ConversationParticipant.user))
-        .all()
-    )
-    
-    return new_conv
+
+    return _populate_conversation_read(new_conv, db, current_user)
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationRead)
@@ -433,41 +466,7 @@ def get_conversation(
         )
 
     # Populate fields
-    parts = (
-        db.query(ConversationParticipant)
-        .filter(ConversationParticipant.conversation_id == conv.id)
-        .options(joinedload(ConversationParticipant.user))
-        .all()
-    )
-    conv.participants = parts
-
-    # Populate last message
-    last_msg = (
-        db.query(Message)
-        .filter(Message.conversation_id == conv.id, Message.is_deleted == False)
-        .order_by(Message.created_at.desc())
-        .options(joinedload(Message.sender))
-        .first()
-    )
-    if last_msg:
-        conv.last_message = {
-            "id": last_msg.id,
-            "body": last_msg.body,
-            "sender_id": last_msg.sender_id,
-            "sender_name": last_msg.sender.full_name,
-            "created_at": last_msg.created_at,
-        }
-    else:
-        conv.last_message = None
-
-    if conv.type == ConversationType.DIRECT and not conv.title:
-        other_part = next((p for p in parts if p.user_id != current_user.id), None)
-        if other_part and other_part.user:
-            conv.title = other_part.user.full_name
-        else:
-            conv.title = "Direct Message"
-
-    return conv
+    return _populate_conversation_read(conv, db, current_user)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])
@@ -613,10 +612,18 @@ def send_message(
                 detail="Reply target must belong to this conversation.",
             )
 
+    plain_body, sanitized_html = prepare_message_content(payload.body, payload.body_html)
+    if not plain_body and not sanitized_html and not payload.attachment_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Message content or attachment is required.",
+        )
+
     new_msg = Message(
         conversation_id=conversation_id,
         sender_id=current_user.id,
-        body=(payload.body or "").strip() if payload.body is not None else "",
+        body=plain_body,
+        body_html=sanitized_html,
         message_type=MessageType.TEXT,
         parent_message_id=parent_message_id,
     )
@@ -679,7 +686,7 @@ def send_message(
         db_notif = Notification(
             user_id=op.user_id,
             title=n_title,
-            message=(payload.body or "Sent an attachment")[:200],
+            message=(plain_body or "Sent an attachment")[:200],
             notification_type=n_type,
             related_entity_type="conversation",
             related_entity_id=conversation_id,
@@ -740,7 +747,9 @@ def edit_message(
             detail="You do not have permission to edit this message."
         )
 
-    msg.body = payload.body
+    plain_body, sanitized_html = prepare_message_content(payload.body, payload.body_html)
+    msg.body = plain_body
+    msg.body_html = sanitized_html
     msg.is_edited = True
     msg.updated_at = datetime.now(timezone.utc)
     db.commit()
@@ -750,7 +759,7 @@ def edit_message(
         db,
         conversation_id=msg.conversation_id,
         message_id=msg.id,
-        preview=msg.body or "",
+        preview=plain_body or "",
     )
 
     return msg
@@ -1640,8 +1649,8 @@ def start_call(
             title="Incoming Call",
             message=f"{current_user.full_name} is calling you ({req.call_type}).",
             notification_type=NotificationType.CALL_INCOMING,
-            related_entity_type="user",
-            related_entity_id=current_user.id,
+            related_entity_type="call_session",
+            related_entity_id=call_session.id,
             is_read=False,
             created_at=datetime.now(timezone.utc)
         )
@@ -1671,6 +1680,24 @@ def start_call(
         if call_notification:
             db.refresh(call_notification)
             RealtimeService.emit_notification_created(call_notification)
+        try:
+            from app.services.push_notification_service import PushNotificationService
+
+            PushNotificationService.send_incoming_call_push(
+                db,
+                recipient_user_id=recipient.user_id,
+                call_session_id=call_session.id,
+                conversation_id=conversation_id,
+                caller_id=current_user.id,
+                caller_name=current_user.full_name or "Someone",
+                call_type=req.call_type,
+            )
+        except Exception:
+            logger.exception(
+                "[CALL] incoming_call_push_failed call_id=%s receiver=%s",
+                call_session.id,
+                recipient.user_id,
+            )
         logger.info(
             "[CALL] sent call_incoming to user_id=%s call_id=%s",
             recipient.user_id,

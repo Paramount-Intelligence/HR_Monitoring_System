@@ -22,6 +22,8 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = None
+    project_id: uuid.UUID | None = None
+    assigned_to: uuid.UUID | None = None
     parent_id: uuid.UUID | None = None
     priority: ProjectPriority | None = None
     due_date: date | None = None
@@ -42,7 +44,9 @@ class TaskRead(BaseModel):
     project_title: str | None = None
     assigned_to: uuid.UUID
     assigned_to_name: str | None = None
+    assigned_to_role: str | None = None
     created_by: uuid.UUID
+    created_by_name: str | None = None
     title: str
     description: str | None
     parent_id: uuid.UUID | None = None

@@ -5,10 +5,12 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.audit_log import AuditLog
 from app.models.enums import ProjectStatus, TaskStatus, UserRole
+
+TASK_FULL_ACCESS_ROLES = frozenset({UserRole.ADMIN, UserRole.HR_OPERATIONS})
 from app.models.project import Project
 from app.models.task import Task
 from app.models.task_comment import TaskComment
@@ -35,8 +37,7 @@ class TaskService:
         assignee = self.db.get(User, payload.assigned_to)
         if not assignee:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
-        if actor.role == UserRole.MANAGER and assignee.id != actor.id and assignee.manager_id != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only assign tasks to your direct reports or yourself")
+        self._validate_assignee(actor, payload.assigned_to)
 
         task = Task(
             project_id=payload.project_id,
@@ -65,20 +66,33 @@ class TaskService:
         )
         return task
 
-    def list_tasks(self, *, project_id: uuid.UUID | None = None, assigned_to: uuid.UUID | None = None, task_status: TaskStatus | None = None, actor: User) -> list[Task]:
+    def list_tasks(
+        self,
+        *,
+        project_id: uuid.UUID | None = None,
+        assigned_to: uuid.UUID | None = None,
+        task_status: TaskStatus | None = None,
+        include_archived: bool = False,
+        actor: User,
+    ) -> list[Task]:
         q = self.db.query(Task)
+        if not include_archived or actor.role not in TASK_FULL_ACCESS_ROLES:
+            q = q.filter(Task.status != TaskStatus.ARCHIVED)
         if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
             q = q.filter(Task.assigned_to == actor.id)
         elif actor.role == UserRole.MANAGER:
-            member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]
-            q = q.filter(Task.assigned_to.in_(member_ids))
+            q = q.filter(Task.assigned_to.in_(self._manager_task_user_ids(actor)))
         if project_id:
             q = q.filter(Task.project_id == project_id)
         if assigned_to:
             q = q.filter(Task.assigned_to == assigned_to)
         if task_status:
             q = q.filter(Task.status == task_status)
-        return q.order_by(Task.created_at.desc()).all()
+        return (
+            q.options(joinedload(Task.assignee), joinedload(Task.project))
+            .order_by(Task.created_at.desc())
+            .all()
+        )
 
     def get_task(self, task_id: uuid.UUID, actor: User) -> Task:
         task = self.db.get(Task, task_id)
@@ -89,17 +103,37 @@ class TaskService:
 
     def update_task(self, task_id: uuid.UUID, payload: TaskUpdate, actor: User) -> Task:
         task = self.get_task(task_id, actor)
+        self._assert_can_modify(task, actor)
         if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
             allowed = {"status", "blocked_reason"}
             if set(payload.model_dump(exclude_unset=True).keys()) - allowed:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Employees can only update status and blocked_reason")
-        old_snapshot = {"status": task.status.value, "priority": task.priority.value}
+        old_snapshot = {
+            "title": task.title,
+            "status": task.status.value,
+            "priority": task.priority.value,
+            "assigned_to": str(task.assigned_to),
+            "project_id": str(task.project_id),
+        }
         changes = payload.model_dump(exclude_unset=True)
+        audit_changes = payload.model_dump(exclude_unset=True, mode="json")
+        if "assigned_to" in changes and changes["assigned_to"] is not None:
+            self._validate_assignee(actor, changes["assigned_to"])
+        if "project_id" in changes and changes["project_id"] is not None:
+            project = self.db.get(Project, changes["project_id"])
+            if not project:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+            status_val = project.project_status.value if hasattr(project.project_status, "value") else project.project_status
+            if status_val not in ("approved", "active"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Tasks can only be linked to approved or active projects",
+                )
         for field, value in changes.items():
             setattr(task, field, value)
         if task.status == TaskStatus.COMPLETED and not task.completed_at:
             task.completed_at = datetime.now(timezone.utc)
-        self._write_audit(actor, "TASK_UPDATED", task.id, old_value=old_snapshot, new_value=changes)
+        self._write_audit(actor, "TASK_UPDATED", task.id, old_value=old_snapshot, new_value=audit_changes)
         self.db.commit()
         self.db.refresh(task)
         from app.services.realtime_service import RealtimeService
@@ -113,6 +147,24 @@ class TaskService:
             actor_id=actor.id,
             status=task.status.value if hasattr(task.status, "value") else str(task.status),
         )
+        return task
+
+    def archive_task(self, task_id: uuid.UUID, actor: User) -> Task:
+        task = self.get_task(task_id, actor)
+        self._assert_can_modify(task, actor)
+        if task.status == TaskStatus.ARCHIVED:
+            return task
+        old_status = task.status.value if hasattr(task.status, "value") else str(task.status)
+        task.status = TaskStatus.ARCHIVED
+        self._write_audit(
+            actor,
+            "TASK_ARCHIVED",
+            task.id,
+            old_value={"status": old_status},
+            new_value={"status": TaskStatus.ARCHIVED.value},
+        )
+        self.db.commit()
+        self.db.refresh(task)
         return task
 
     def set_complexity(self, task_id: uuid.UUID, payload: TaskComplexity, actor: User) -> Task:
@@ -149,14 +201,41 @@ class TaskService:
 
 
     def _check_read_access(self, task: Task, actor: User) -> None:
-        if actor.role == UserRole.ADMIN:
+        if actor.role in TASK_FULL_ACCESS_ROLES:
             return
         if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE) and task.assigned_to != actor.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         if actor.role == UserRole.MANAGER:
-            member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]
-            if task.assigned_to not in member_ids:
+            if task.assigned_to not in self._manager_task_user_ids(actor):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    def _assert_can_modify(self, task: Task, actor: User) -> None:
+        if actor.role in TASK_FULL_ACCESS_ROLES:
+            return
+        if actor.role == UserRole.MANAGER:
+            if task.assigned_to not in self._manager_task_user_ids(actor):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized to modify this task")
+            return
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
+            if task.assigned_to != actor.id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            return
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+
+    def _validate_assignee(self, actor: User, assignee_id: uuid.UUID) -> None:
+        assignee = self.db.get(User, assignee_id)
+        if not assignee:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignee not found")
+        if actor.role == UserRole.MANAGER and assignee.id != actor.id and assignee.manager_id != actor.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only assign tasks to your direct reports or yourself",
+            )
+
+    def _manager_task_user_ids(self, actor: User) -> list[uuid.UUID]:
+        member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]
+        member_ids.append(actor.id)
+        return member_ids
 
     def _write_audit(self, actor: User, action: str, entity_id: uuid.UUID, old_value: dict | None = None, new_value: dict | None = None) -> None:
         self.db.add(AuditLog(actor_user_id=actor.id, action_type=action, entity_type="task", entity_id=entity_id, old_value=old_value, new_value=new_value))

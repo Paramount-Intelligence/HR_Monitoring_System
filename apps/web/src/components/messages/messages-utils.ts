@@ -1,9 +1,34 @@
 import type { Conversation, ConversationType, Message, MessageAttachment } from '@/lib/api/messages';
+import { htmlToPlainText } from '@/lib/messages/message-sanitize';
 import { isVoiceNoteMessage } from '@/lib/messages/voice-messages';
 import { format, isValid, parseISO } from 'date-fns';
 
 export type SidebarFilter = 'home' | 'threads' | 'mentions' | 'drafts' | 'files' | 'calls';
 export type ConversationPanelTab = 'messages' | 'files' | 'calls' | 'details';
+
+export const SLACK_GROUP_WINDOW_MS = 5 * 60 * 1000;
+
+export interface SlackMessageRenderItem {
+  message: Message;
+  showAvatar: boolean;
+  showHeader: boolean;
+  isContinuation: boolean;
+}
+
+export interface ConversationLoadError {
+  title: string;
+  message: string;
+  canRetry: boolean;
+}
+
+export function stripMessagePreviewText(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes('<') && trimmed.includes('>')) {
+    return htmlToPlainText(trimmed).replace(/\s+/g, ' ').trim();
+  }
+  return trimmed.replace(/\s+/g, ' ').trim();
+}
 
 export function getConversationDisplayName(
   conv: Conversation,
@@ -18,8 +43,8 @@ export function getConversationDisplayName(
 }
 
 export function getConversationPreview(conv: Conversation): string {
-  const body = conv.last_message?.body?.trim();
   if (!conv.last_message) return 'No messages yet';
+  const body = stripMessagePreviewText(conv.last_message.body || '');
   if (
     !body ||
     /sent an attachment/i.test(body) ||
@@ -27,7 +52,7 @@ export function getConversationPreview(conv: Conversation): string {
   ) {
     return 'Voice message';
   }
-  if (conv.last_message?.sender_name) {
+  if (conv.last_message.sender_name) {
     return `${conv.last_message.sender_name}: ${body}`;
   }
   return body;
@@ -36,8 +61,12 @@ export function getConversationPreview(conv: Conversation): string {
 export function getMessagePreviewText(message: Message): string {
   if (message.is_deleted) return 'This message was deleted.';
   if (isVoiceNoteMessage(message)) return 'Voice message';
-  const body = message.body?.trim();
+  const body = stripMessagePreviewText(message.body || '');
   if (body) return body;
+  if (message.body_html) {
+    const fromHtml = stripMessagePreviewText(message.body_html);
+    if (fromHtml) return fromHtml;
+  }
   if (message.attachments?.length) return 'Attachment';
   return 'Message';
 }
@@ -85,6 +114,94 @@ export function groupMessagesByDate(messages: Message[]): { date: string; items:
     }
   });
   return groups;
+}
+
+export function getSlackMessageRenderItems(
+  messages: Message[],
+  windowMs: number = SLACK_GROUP_WINDOW_MS
+): SlackMessageRenderItem[] {
+  const items: SlackMessageRenderItem[] = [];
+  let previous: Message | null = null;
+
+  for (const message of messages) {
+    if (message.message_type === 'system') {
+      items.push({
+        message,
+        showAvatar: false,
+        showHeader: false,
+        isContinuation: false,
+      });
+      previous = null;
+      continue;
+    }
+
+    const sameSender = Boolean(previous && previous.sender_id === message.sender_id);
+    const elapsed = previous
+      ? new Date(message.created_at).getTime() - new Date(previous.created_at).getTime()
+      : Number.POSITIVE_INFINITY;
+    const grouped = sameSender && elapsed <= windowMs;
+
+    items.push({
+      message,
+      showAvatar: !grouped,
+      showHeader: !grouped,
+      isContinuation: grouped,
+    });
+    previous = message;
+  }
+
+  return items;
+}
+
+export function groupMessagesByDateWithSlack(
+  messages: Message[],
+  windowMs: number = SLACK_GROUP_WINDOW_MS
+): { date: string; items: SlackMessageRenderItem[] }[] {
+  return groupMessagesByDate(messages).map((group) => ({
+    date: group.date,
+    items: getSlackMessageRenderItems(group.items, windowMs),
+  }));
+}
+
+export function getConversationLoadError(error: unknown): ConversationLoadError {
+  const err = error as {
+    response?: { status?: number; data?: { detail?: string; error?: { message?: string } } };
+    message?: string;
+  };
+  const status = err.response?.status;
+  const detail = err.response?.data?.detail;
+  const apiMessage =
+    (typeof detail === 'string' && detail) ||
+    (typeof err.response?.data?.error?.message === 'string' && err.response.data.error.message) ||
+    undefined;
+
+  if (status === 403) {
+    return {
+      title: 'Access denied',
+      message: apiMessage || 'You do not have access to this conversation.',
+      canRetry: false,
+    };
+  }
+  if (status === 404) {
+    return {
+      title: 'Conversation not found',
+      message: apiMessage || 'Conversation not found.',
+      canRetry: false,
+    };
+  }
+  if (status === 500) {
+    return {
+      title: 'Could not load conversation',
+      message: 'Could not load this conversation. Please try again.',
+      canRetry: true,
+    };
+  }
+
+  return {
+    title: 'Could not load conversation',
+    message: apiMessage || err.message || 'Could not load this conversation. Please try again.',
+    canRetry: true,
+  };
 }
 
 export function collectAttachments(messages: Message[]): MessageAttachment[] {

@@ -42,13 +42,18 @@ function resolveEnvironment(): DeviceTokenRegisterPayload['environment'] {
 async function configureNotificationHandler(): Promise<void> {
   const Notifications = await import('expo-notifications');
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowAlert: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-      shouldShowBanner: true,
-      shouldShowList: true,
-    }),
+    handleNotification: async (notification) => {
+      const data = notification.request.content.data as Record<string, unknown> | undefined;
+      const type = typeof data?.type === 'string' ? data.type : undefined;
+      const suppressIncomingBanner = type === 'incoming_call';
+      return {
+        shouldShowAlert: !suppressIncomingBanner,
+        shouldPlaySound: !suppressIncomingBanner,
+        shouldSetBadge: type !== 'incoming_call',
+        shouldShowBanner: !suppressIncomingBanner,
+        shouldShowList: !suppressIncomingBanner,
+      };
+    },
   });
 }
 

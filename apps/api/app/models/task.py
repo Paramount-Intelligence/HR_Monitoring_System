@@ -56,3 +56,13 @@ class Task(Base, TimestampMixin):
     @property
     def assigned_to_name(self) -> str | None:
         return self.assignee.full_name if self.assignee else None
+
+    @property
+    def assigned_to_role(self) -> str | None:
+        if not self.assignee or not self.assignee.role:
+            return None
+        return self.assignee.role.value if hasattr(self.assignee.role, "value") else str(self.assignee.role)
+
+    @property
+    def created_by_name(self) -> str | None:
+        return self.creator.full_name if self.creator else None

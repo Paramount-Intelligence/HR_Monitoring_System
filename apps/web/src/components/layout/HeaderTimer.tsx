@@ -4,37 +4,49 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Play, Coffee, ChevronRight, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { timeLogsApi, TimeLog, TaskTimerSession } from '@/lib/api/timeLogs';
+import { timeLogsApi, TaskTimerSession } from '@/lib/api/timeLogs';
 import { attendanceApi, AttendanceBreak } from '@/lib/api/attendance';
 import { TaskTimer } from '@/components/tasks/TaskTimer';
+import { useAuth } from '@/lib/auth/AuthContext';
+import { canFetchProtectedData } from '@/lib/auth/session';
+import { logProtectedFetchError } from '@/lib/api/fetch-errors';
+import { getActiveTimerHref } from '@/lib/task-routes';
 
 export function HeaderTimer() {
+  const { user, isAuthenticated } = useAuth();
   const [activeTimer, setActiveTimer] = useState<TaskTimerSession | null>(null);
   const [activeBreak, setActiveBreak] = useState<AttendanceBreak | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchData = async () => {
+    if (!canFetchProtectedData()) return;
     try {
-      // Find active task timer
       const timer = await timeLogsApi.getActiveTimer();
       setActiveTimer(timer);
 
-      // Find active break
       const currentBreak = await attendanceApi.getCurrentBreak();
       setActiveBreak(currentBreak);
     } catch (error) {
-      console.error('Failed to fetch header status', error);
+      logProtectedFetchError('[HeaderTimer] Failed to fetch header status', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setActiveTimer(null);
+      setActiveBreak(null);
+      setIsLoading(false);
+      return;
+    }
+
     fetchData();
-    // Poll every 60 seconds to sync state
-    const interval = setInterval(fetchData, 60000);
+    const interval = setInterval(() => {
+      if (canFetchProtectedData()) fetchData();
+    }, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuthenticated]);
 
   if (isLoading) return null;
 
@@ -51,7 +63,7 @@ export function HeaderTimer() {
       {/* Task Timer Pill */}
       {activeTimer && (
         <Link 
-          href="/employee/tasks"
+          href={getActiveTimerHref({ taskId: activeTimer.task_id, role: user?.role })}
           className={cn(
             "flex items-center gap-2.5 px-3 py-1.5 border rounded-full transition-all shadow-[var(--shadow-soft)] group hover:shadow-md",
             activeTimer.status === 'running' 

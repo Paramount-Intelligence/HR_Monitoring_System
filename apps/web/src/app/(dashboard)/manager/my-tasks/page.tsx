@@ -8,9 +8,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from 'sonner';
-import { Loader2, Plus, CheckSquare, Clock, Briefcase, Calendar, ChevronRight } from 'lucide-react';
+import { Loader2, Plus, CheckSquare, Clock, Briefcase, Calendar, Pencil, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -24,6 +24,20 @@ import { formatPKDate } from '@/lib/time';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Label } from '@/components/ui/label';
+import { makeProjectOptions, resolveOptionLabel, getAssigneeLabel } from '@/lib/display-labels';
+import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
+import { getErrorMessage } from '@/lib/api/client';
+import { TaskEditDialog } from '@/components/tasks/TaskEditDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const taskSchema = z.object({
   project_id: z.string().min(1, 'Project is required'),
@@ -40,13 +54,20 @@ export default function TasksPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [archivingTask, setArchivingTask] = useState<Task | null>(null);
   const { user } = useAuth();
 
   const fetchData = async () => {
     try {
-      const tasksData = await tasksApi.getTasks();
-      const projectsData = await projectsApi.getTaskEligibleProjects(); 
-      setTasks(tasksData);
+      const [tasksData, projectsData] = await Promise.all([
+        tasksApi.getTasks(user ? { assigned_to: user.id } : undefined),
+        projectsApi.getTaskEligibleProjects(),
+      ]);
+      const myTasks = user
+        ? tasksData.filter((t) => t.assigned_to === user.id)
+        : tasksData;
+      setTasks(myTasks);
       setProjects(projectsData);
     } catch (error) {
       toast.error('Failed to load tasks data');
@@ -56,8 +77,10 @@ export default function TasksPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (user?.id) fetchData();
+  }, [user?.id]);
+
+  const projectOptions = makeProjectOptions(projects);
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
@@ -78,14 +101,28 @@ export default function TasksPage() {
         assigned_to: user.id,
         due_date: data.due_date ? new Date(data.due_date).toISOString().split('T')[0] : undefined
       });
-      toast.success('Task created successfully');
+      toast.success('Task assigned to you.');
       setIsDialogOpen(false);
       form.reset();
       await fetchData();
-    } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Failed to create task');
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error) || 'Failed to create task');
     }
   };
+
+  const handleArchiveTask = async () => {
+    if (!archivingTask) return;
+    try {
+      await tasksApi.archiveTask(archivingTask.id);
+      toast.success('Task archived');
+      setArchivingTask(null);
+      await fetchData();
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    }
+  };
+
+  const selfAssignees = user ? [user] : [];
 
   const updateTaskStatus = async (taskId: string, status: Task['status']) => {
     try {
@@ -120,7 +157,7 @@ export default function TasksPage() {
                 Create Task
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-10">
+            <DialogContent className="sm:max-w-[500px] rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">Create Task</DialogTitle>
                 <DialogDescription className="text-sm font-medium text-[var(--text-muted)]">
@@ -128,19 +165,20 @@ export default function TasksPage() {
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                  <DialogBody className={modalFormClass}>
                   <FormField control={form.control} name="project_id" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Project</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger className="rounded-xl border-[var(--border-default)] h-11 font-medium bg-[var(--bg-subtle)]/50 text-[var(--text-primary)]">
-                            <SelectValue placeholder="Select project..." />
+                            <span className="truncate">{resolveOptionLabel(projectOptions, field.value, 'Select project...')}</span>
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent className="rounded-xl border-[var(--border-subtle)] bg-[var(--bg-surface)] text-[var(--text-primary)] shadow-[var(--shadow-card)]">
-                          {projects.map(p => (
-                            <SelectItem key={p.id} value={p.id} className="font-medium text-sm">{p.title}</SelectItem>
+                          {projectOptions.map((p) => (
+                            <SelectItem key={p.value} value={p.value} className="font-medium text-sm">{p.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -165,7 +203,7 @@ export default function TasksPage() {
                       <FormMessage className="text-[10px] font-bold uppercase tracking-tight text-rose-500" />
                     </FormItem>
                   )} />
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={modalFormGridClass}>
                     <FormField control={form.control} name="priority" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Priority</FormLabel>
@@ -195,8 +233,10 @@ export default function TasksPage() {
                       </FormItem>
                     )} />
                   </div>
-                  <DialogFooter className="pt-4">
-                    <Button type="submit" disabled={form.formState.isSubmitting} className="w-full bg-[var(--accent-primary)] hover:opacity-90 h-12 rounded-xl font-bold uppercase tracking-widest text-xs border-none text-white shadow-sm">
+                  </DialogBody>
+                  <DialogFooter>
+                    <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={form.formState.isSubmitting} className="bg-[var(--accent-primary)] hover:opacity-90 rounded-xl font-semibold border-none text-white shadow-sm">
                       {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
                       Create Task
                     </Button>
@@ -234,7 +274,9 @@ export default function TasksPage() {
                     <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
                     <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Priority</TableHead>
                     <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actual Hours</TableHead>
+                    <TableHead className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Assignee</TableHead>
                     <TableHead className="text-right px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Change Status</TableHead>
+                    <TableHead className="text-right px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -271,6 +313,9 @@ export default function TasksPage() {
                             )}
                         </div>
                       </TableCell>
+                      <TableCell className="px-6 py-5">
+                        <span className="text-xs font-bold text-[var(--text-primary)]">{getAssigneeLabel(task, undefined, user?.id)}</span>
+                      </TableCell>
                       <TableCell className="text-right px-6 py-5">
                         <Select 
                           value={task.status} 
@@ -287,6 +332,16 @@ export default function TasksPage() {
                           </SelectContent>
                         </Select>
                       </TableCell>
+                      <TableCell className="text-right px-6 py-5">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingTask(task)} title="Edit task">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600" onClick={() => setArchivingTask(task)} title="Archive task">
+                            <Archive className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -295,6 +350,31 @@ export default function TasksPage() {
           )}
         </CardContent>
       </Card>
+
+      <TaskEditDialog
+        task={editingTask}
+        open={!!editingTask}
+        onOpenChange={(open) => !open && setEditingTask(null)}
+        projects={projects}
+        assignees={selfAssignees}
+        currentUserId={user?.id}
+        onSaved={fetchData}
+      />
+
+      <AlertDialog open={!!archivingTask} onOpenChange={(open) => !open && setArchivingTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              It will be hidden from active task lists but history and time logs will be kept.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveTask}>Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

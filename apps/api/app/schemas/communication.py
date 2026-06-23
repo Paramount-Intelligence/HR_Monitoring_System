@@ -65,6 +65,7 @@ class MessageRead(BaseModel):
     sender_id: UUID
     sender: UserMinimal
     body: str
+    body_html: str | None = None
     message_type: MessageType
     parent_message_id: UUID | None = None
     reply_to_message_id: UUID | None = None
@@ -138,6 +139,7 @@ class ConversationCreate(BaseModel):
 
 class MessageCreate(BaseModel):
     body: Optional[str] = None
+    body_html: Optional[str] = None
     mentioned_user_ids: list[UUID] = Field(default_factory=list)
     attachment_ids: list[UUID] = Field(default_factory=list)
     reply_to_message_id: UUID | None = None
@@ -145,13 +147,15 @@ class MessageCreate(BaseModel):
     @model_validator(mode="after")
     def validate_body_or_attachments(self) -> "MessageCreate":
         clean_body = (self.body or "").strip()
-        if not clean_body and not self.attachment_ids:
+        clean_html = (self.body_html or "").strip()
+        if not clean_body and not clean_html and not self.attachment_ids:
             raise ValueError("Message content or attachment is required.")
         return self
 
 
 class MessageEdit(BaseModel):
     body: str = Field(..., min_length=1)
+    body_html: str | None = None
 
 
 class MessageReceiptRead(BaseModel):

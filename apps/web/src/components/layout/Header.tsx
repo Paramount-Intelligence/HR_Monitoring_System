@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { canFetchProtectedData } from '@/lib/auth/session';
+import { logProtectedFetchError } from '@/lib/api/fetch-errors';
 import { notificationsApi, Notification } from '@/lib/api/notifications';
 import { Breadcrumbs } from './Breadcrumbs';
 import { HeaderTimer } from './HeaderTimer';
@@ -28,7 +30,7 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuToggle }: HeaderProps) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -43,31 +45,34 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const { permission, isSupported } = useBrowserNotifications();
 
   const fetchUnreadCount = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       const res = await notificationsApi.getUnreadCount();
       setUnreadCount(res.count);
     } catch (err) {
-      console.error('[Header] Failed to load unread count:', err);
+      logProtectedFetchError('[Header] Failed to load unread count', err);
     }
   };
 
   const fetchUnreadMsgCount = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       const res = await messagesApi.getUnreadMessageCount();
       setUnreadMsgCount(res.unread_conversations);
     } catch (err) {
-      console.error('[Header] Failed to load message unread count:', err);
+      logProtectedFetchError('[Header] Failed to load message unread count', err);
     }
   };
 
   const loadNotifications = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       setNotifLoading(true);
       setNotifError(null);
       const data = await notificationsApi.getNotifications(8);
       setNotifications(data);
     } catch (err) {
-      console.error('[Header] Failed to load notifications:', err);
+      logProtectedFetchError('[Header] Failed to load notifications', err);
       setNotifError('Could not load notifications.');
     } finally {
       setNotifLoading(false);
@@ -77,35 +82,36 @@ export function Header({ onMenuToggle }: HeaderProps) {
   useRealtimeEvent(
     ['notification_created', 'notifications_count_updated', 'notification_read'],
     () => {
-      fetchUnreadCount();
+      if (canFetchProtectedData()) fetchUnreadCount();
     }
   );
 
   useRealtimeEvent(['new_message', 'conversation_updated'], () => {
-    fetchUnreadMsgCount();
+    if (canFetchProtectedData()) fetchUnreadMsgCount();
   });
 
   useEffect(() => {
-    if (user) {
+    if (!isAuthenticated || !user) return;
+
+    fetchUnreadCount();
+    fetchUnreadMsgCount();
+    const pollMs = isConnected ? 60000 : 30000;
+    const interval = setInterval(() => {
+      if (!canFetchProtectedData()) return;
       fetchUnreadCount();
       fetchUnreadMsgCount();
-      const pollMs = isConnected ? 60000 : 30000;
-      const interval = setInterval(() => {
-        fetchUnreadCount();
-        fetchUnreadMsgCount();
-      }, pollMs);
+    }, pollMs);
 
-      const handleUpdate = () => {
-        fetchUnreadMsgCount();
-      };
-      window.addEventListener('pims-messages-unread-update', handleUpdate);
+    const handleUpdate = () => {
+      if (canFetchProtectedData()) fetchUnreadMsgCount();
+    };
+    window.addEventListener('pims-messages-unread-update', handleUpdate);
 
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('pims-messages-unread-update', handleUpdate);
-      };
-    }
-  }, [user, isConnected]);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('pims-messages-unread-update', handleUpdate);
+    };
+  }, [user, isAuthenticated, isConnected]);
 
   const handleMarkAllRead = async () => {
     try {
@@ -113,7 +119,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
       setUnreadCount(0);
       setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
     } catch (err) {
-      console.error('[Header] Failed to mark all read:', err);
+      logProtectedFetchError('[Header] Failed to mark all read', err);
     }
   };
 
@@ -135,7 +141,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         router.push(route);
       }
     } catch (err) {
-      console.error('[Header] Failed to process notification click:', err);
+      logProtectedFetchError('[Header] Failed to process notification click', err);
     }
   };
 

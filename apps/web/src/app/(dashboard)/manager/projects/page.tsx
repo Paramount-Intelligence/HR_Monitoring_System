@@ -18,7 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  Dialog, DialogContent, DialogDescription, DialogHeader, 
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, 
   DialogTitle, DialogTrigger 
 } from '@/components/ui/dialog';
 import {
@@ -38,6 +38,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { formatPKDate } from '@/lib/time';
 import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
 import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
+import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
 
 const projectSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -129,32 +130,33 @@ export default function ManagerProjectsPage() {
               New Project
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none bg-[var(--bg-surface)] shadow-[var(--shadow-hard)] p-10 animate-in zoom-in-95 duration-300 text-[var(--text-primary)]">
-            <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black tracking-tighter text-[var(--text-primary)]">Create Project</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">
+          <DialogContent className="sm:max-w-[550px] rounded-2xl border-none bg-[var(--bg-surface)] shadow-[var(--shadow-hard)] text-[var(--text-primary)]">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-xl font-bold text-[var(--text-primary)] sm:text-2xl">Create Project</DialogTitle>
+              <DialogDescription className="text-sm text-[var(--text-muted)]">
                 Add a new project to your team's workspace
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pt-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                <DialogBody className={modalFormClass}>
                 <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem className="space-y-2">
+                  <FormItem className={modalFormFieldClass}>
                     <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Project Title</FormLabel>
                     <FormControl><Input placeholder="e.g. Q4 Performance Audit" className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
                     <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem className="space-y-2">
+                  <FormItem className={modalFormFieldClass}>
                     <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Description</FormLabel>
                     <FormControl><Textarea placeholder="Define objectives and key results..." className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)]/50 border-[var(--border-default)] text-[var(--text-primary)] min-h-[120px] font-bold text-sm leading-relaxed p-6 focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
                     <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                   </FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-6">
+                <div className={modalFormGridClass}>
                   <FormField control={form.control} name="priority" render={({ field }) => (
-                    <FormItem className="space-y-2">
+                    <FormItem className={modalFormFieldClass}>
                       <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Priority</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)]"><SelectValue placeholder="Set level" /></SelectTrigger></FormControl>
@@ -169,20 +171,21 @@ export default function ManagerProjectsPage() {
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="due_date" render={({ field }) => (
-                    <FormItem className="space-y-2">
+                    <FormItem className={modalFormFieldClass}>
                       <FormLabel className="text-[10px] font-black text-[var(--text-secondary)] uppercase tracking-[0.2em] ml-1">Target Deadline</FormLabel>
                       <FormControl><Input type="date" className="h-12 rounded-xl bg-[var(--bg-subtle)]/50 border-[var(--border-default)] font-bold text-[var(--text-primary)] focus:bg-[var(--bg-surface)] transition-all" {...field} /></FormControl>
                       <FormMessage className="text-[10px] font-bold text-rose-500 uppercase" />
                     </FormItem>
                   )} />
                 </div>
-                <div className="flex justify-end pt-6 gap-4">
-                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
-                  <Button type="submit" disabled={form.formState.isSubmitting} className="h-14 bg-[var(--accent-primary)] hover:opacity-90 text-white font-black text-[10px] uppercase tracking-[0.2em] px-10 rounded-2xl border-none shadow-xl transition-all active:scale-95 flex-1">
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)} className="rounded-xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">Discard</Button>
+                  <Button type="submit" disabled={form.formState.isSubmitting} className="bg-[var(--accent-primary)] hover:opacity-90 text-white font-semibold rounded-xl border-none shadow-sm">
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
                     Save Project
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>

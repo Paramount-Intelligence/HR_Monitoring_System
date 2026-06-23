@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { canFetchProtectedData } from '@/lib/auth/session';
+import { logProtectedFetchError } from '@/lib/api/fetch-errors';
 import { 
   LayoutDashboard, 
   Clock, 
@@ -53,7 +55,7 @@ interface SidebarProps {
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, isAuthenticated } = useAuth();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -64,34 +66,36 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { isConnected } = useRealtimeStatus();
 
   useRealtimeEvent(['new_message', 'conversation_updated'], () => {
+    if (!canFetchProtectedData()) return;
     messagesApi.getUnreadMessageCount().then(res => setUnreadMsgCount(res.unread_conversations)).catch(() => {});
   });
 
   useEffect(() => {
-    if (user) {
-      const fetchCount = async () => {
-        try {
-          const res = await messagesApi.getUnreadMessageCount();
-          setUnreadMsgCount(res.unread_conversations);
-        } catch (err) {
-          console.warn('[Sidebar] Failed to load message unread count:', err);
-        }
-      };
-      fetchCount();
-      const pollMs = isConnected ? 60000 : 30000;
-      const interval = setInterval(fetchCount, pollMs);
+    if (!isAuthenticated || !user) return;
 
-      const handleUpdate = () => {
-        fetchCount();
-      };
-      window.addEventListener('pims-messages-unread-update', handleUpdate);
+    const fetchCount = async () => {
+      if (!canFetchProtectedData()) return;
+      try {
+        const res = await messagesApi.getUnreadMessageCount();
+        setUnreadMsgCount(res.unread_conversations);
+      } catch (err) {
+        logProtectedFetchError('[Sidebar] Failed to load message unread count', err);
+      }
+    };
+    fetchCount();
+    const pollMs = isConnected ? 60000 : 30000;
+    const interval = setInterval(fetchCount, pollMs);
 
-      return () => {
-        clearInterval(interval);
-        window.removeEventListener('pims-messages-unread-update', handleUpdate);
-      };
-    }
-  }, [user, isConnected]);
+    const handleUpdate = () => {
+      if (canFetchProtectedData()) fetchCount();
+    };
+    window.addEventListener('pims-messages-unread-update', handleUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('pims-messages-unread-update', handleUpdate);
+    };
+  }, [user, isAuthenticated, isConnected]);
 
   const ROLE_CONFIG: Record<string, { label: string, color: string }> = {
     admin: { label: 'Admin', color: 'bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] border-[var(--status-danger-border)]' },

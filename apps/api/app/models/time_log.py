@@ -36,7 +36,16 @@ class TimeLog(Base, TimestampMixin):
     )
 
     task = relationship("Task", foreign_keys=[task_id], lazy="select")
+    user = relationship("User", foreign_keys=[user_id], lazy="select")
 
     @property
     def task_title(self) -> str | None:
         return self.task.title if self.task else None
+
+    @property
+    def user_name(self) -> str | None:
+        return self.user.full_name if self.user else None
+
+    @property
+    def project_title(self) -> str | None:
+        return self.task.project.title if self.task and self.task.project else None

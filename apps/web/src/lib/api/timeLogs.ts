@@ -24,6 +24,8 @@ export interface TimeLog {
   task_id: string;
   task_title?: string;
   user_id: string;
+  user_name?: string;
+  project_title?: string;
   started_at: string;
   ended_at: string | null;
   duration_minutes: number;

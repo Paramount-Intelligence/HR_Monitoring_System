@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
-import { getProfilePictureUrl } from '@/lib/profile-picture';
+import { getProfilePictureUrl, clearFailedAvatarUrl } from '@/lib/profile-picture';
 import {
   requestBrowserNotificationPermission,
   setBrowserNotificationsEnabled,
@@ -100,6 +100,15 @@ export default function ProfilePage() {
       const updated = await usersApi.uploadMyProfilePicture(file);
       const pictureUrl = updated.profile_picture_url || updated.avatar_url || null;
       const cacheBust = Date.now();
+      const resolvedUrl = getProfilePictureUrl(
+        {
+          profile_picture_url: pictureUrl,
+          avatar_url: pictureUrl,
+          profile_picture_updated_at: updated.profile_picture_updated_at || new Date(cacheBust).toISOString(),
+        },
+        { cacheBust }
+      );
+      if (resolvedUrl) clearFailedAvatarUrl(resolvedUrl);
       setProfile({
         ...updated,
         profile_picture_url: pictureUrl,

@@ -1,10 +1,10 @@
 import type { ConnectionStatus, RealtimeEvent } from './events';
 import { ensureFreshAccessToken, isTokenExpiringSoon } from '@/lib/auth/token-utils';
+import { isDebugWs } from '@/lib/debug';
 
 const MAX_DEDUPE = 2000;
 const INITIAL_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30000;
-const DEV = process.env.NODE_ENV === 'development';
 const WS_AUTH_CLOSE_CODE = 1008;
 
 const CALL_EVENT_TYPES = new Set([
@@ -20,6 +20,7 @@ const CALL_EVENT_TYPES = new Set([
 ]);
 
 function logRealtime(message: string, detail?: string) {
+  if (!isDebugWs()) return;
   if (detail) {
     console.log(`[WS] ${message}`, detail);
   } else {
@@ -48,6 +49,10 @@ export function resolveWebSocketUrl(): string {
 type EventHandler = (event: RealtimeEvent) => void;
 type StatusHandler = (status: ConnectionStatus) => void;
 
+type WsTicketResult =
+  | { ok: true; ticket: string }
+  | { ok: false; retryable: boolean; status?: number };
+
 export class RealtimeWebSocketClient {
   private ws: WebSocket | null = null;
   private token: string | null = null;
@@ -61,29 +66,42 @@ export class RealtimeWebSocketClient {
   private status: ConnectionStatus = 'idle';
   private connectInFlight = false;
   private authRefreshOnCloseAttempted = false;
+  private configError = false;
 
   connect(token: string) {
     void this.connectWithFreshToken(token);
   }
 
-  private async fetchWsTicket(accessToken: string): Promise<string | null> {
+  private async fetchWsTicket(accessToken: string): Promise<WsTicketResult> {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
     try {
       const response = await fetch(`${apiUrl}/auth/ws-ticket`, {
+        method: 'POST',
         headers: { Authorization: `Bearer ${accessToken}` },
         credentials: 'include',
       });
-      if (!response.ok) return null;
+      if (response.status === 401) {
+        return { ok: false, retryable: true, status: 401 };
+      }
+      if (response.status === 404 || response.status === 405) {
+        return { ok: false, retryable: false, status: response.status };
+      }
+      if (!response.ok) {
+        return { ok: false, retryable: response.status >= 500, status: response.status };
+      }
       const data = (await response.json()) as { ticket?: string };
-      return data.ticket ?? null;
+      if (!data.ticket) {
+        return { ok: false, retryable: false, status: response.status };
+      }
+      return { ok: true, ticket: data.ticket };
     } catch {
-      return null;
+      return { ok: false, retryable: true };
     }
   }
 
   private async connectWithFreshToken(token: string) {
     if (typeof window === 'undefined') return;
-    if (!token || this.connectInFlight) return;
+    if (!token || this.connectInFlight || this.configError) return;
 
     this.connectInFlight = true;
 
@@ -91,7 +109,7 @@ export class RealtimeWebSocketClient {
       let accessToken = token;
 
       if (isTokenExpiringSoon(accessToken)) {
-        console.log('[WS] connecting with fresh token');
+        logRealtime('connecting with fresh token');
         const fresh = await ensureFreshAccessToken();
         if (!fresh) return;
         accessToken = fresh;
@@ -107,13 +125,30 @@ export class RealtimeWebSocketClient {
       this.setStatus(this.reconnectAttempt > 0 ? 'reconnecting' : 'connecting');
 
       const baseUrl = resolveWebSocketUrl();
-      const ticket = await this.fetchWsTicket(accessToken);
-      if (!ticket) {
+      const ticketResult = await this.fetchWsTicket(accessToken);
+      if (!ticketResult.ok) {
+        if (ticketResult.status === 401 && !this.authRefreshOnCloseAttempted) {
+          this.authRefreshOnCloseAttempted = true;
+          const fresh = await ensureFreshAccessToken();
+          if (fresh) {
+            this.authRefreshOnCloseAttempted = false;
+            void this.connectWithFreshToken(fresh);
+            return;
+          }
+        }
+        if (!ticketResult.retryable) {
+          this.configError = true;
+          this.setStatus('disconnected');
+          console.warn(
+            '[WS] Realtime unavailable. WebSocket ticket endpoint misconfigured — please refresh or contact admin.'
+          );
+          return;
+        }
         this.scheduleReconnect();
         return;
       }
-      const url = `${baseUrl}?ticket=${encodeURIComponent(ticket)}`;
-      if (DEV) logRealtime('connecting', baseUrl);
+      const url = `${baseUrl}?ticket=${encodeURIComponent(ticketResult.ticket)}`;
+      logRealtime('connecting', baseUrl);
 
       try {
         this.ws = new WebSocket(url);
@@ -126,7 +161,7 @@ export class RealtimeWebSocketClient {
         this.reconnectAttempt = 0;
         this.authRefreshOnCloseAttempted = false;
         this.setStatus('connected');
-        if (DEV) logRealtime('connected');
+        logRealtime('connected');
         this.startPing();
       };
 
@@ -150,7 +185,7 @@ export class RealtimeWebSocketClient {
               if (first) this.seenEventIds.delete(first);
             }
           }
-          if (DEV && CALL_EVENT_TYPES.has(data.type)) {
+          if (CALL_EVENT_TYPES.has(data.type)) {
             logRealtime(`event received: ${data.type}`);
           }
           this.eventHandlers.forEach((handler) => handler(data));
@@ -166,7 +201,7 @@ export class RealtimeWebSocketClient {
 
         if (!this.intentionalClose) {
           this.setStatus('disconnected');
-          if (DEV) logRealtime('disconnected', `code=${event.code}`);
+          logRealtime('disconnected', `code=${event.code}`);
 
           if (authRejected && !this.authRefreshOnCloseAttempted) {
             this.authRefreshOnCloseAttempted = true;
@@ -189,13 +224,13 @@ export class RealtimeWebSocketClient {
   }
 
   private async reconnectWithRefreshedToken() {
-    console.log('[WS] auth rejected, refreshing once');
+    logRealtime('auth rejected, refreshing once');
     const fresh = await ensureFreshAccessToken();
     if (!fresh) {
       this.disconnect(true);
       return;
     }
-    console.log('[WS] reconnecting after refresh');
+    logRealtime('reconnecting after refresh');
     this.reconnectAttempt = 0;
     void this.connectWithFreshToken(fresh);
     this.refetchMissedData();
@@ -217,6 +252,7 @@ export class RealtimeWebSocketClient {
       this.token = null;
       this.reconnectAttempt = 0;
       this.authRefreshOnCloseAttempted = false;
+      this.configError = false;
       this.setStatus('idle');
     }
   }
@@ -265,14 +301,14 @@ export class RealtimeWebSocketClient {
   }
 
   private scheduleReconnect() {
-    if (!this.token || this.intentionalClose) return;
+    if (!this.token || this.intentionalClose || this.configError) return;
     const delay = Math.min(
       INITIAL_BACKOFF_MS * 2 ** this.reconnectAttempt,
       MAX_BACKOFF_MS
     );
     this.reconnectAttempt += 1;
     this.reconnectTimer = setTimeout(() => {
-      if (this.token) {
+      if (this.token && !this.configError) {
         void this.connectWithFreshToken(this.token);
         this.refetchMissedData();
       }

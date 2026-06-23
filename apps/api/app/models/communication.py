@@ -95,6 +95,7 @@ class Message(Base, TimestampMixin):
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     body: Mapped[str] = mapped_column(Text, nullable=False)
+    body_html: Mapped[str | None] = mapped_column(Text, nullable=True)
     message_type: Mapped[MessageType] = mapped_column(
         Enum(MessageType, name="message_type", native_enum=False, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,

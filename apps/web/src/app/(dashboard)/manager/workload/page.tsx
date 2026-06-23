@@ -84,7 +84,7 @@ export default function ManagerWorkloadPage() {
               </div>
             ) : (
               <div className="h-[400px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={400}>
                   <BarChart
                     data={workloadData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}

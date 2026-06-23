@@ -590,24 +590,26 @@ export default function AttendancePage() {
 
       {/* Correction Dialog */}
       <Dialog open={correctionDialog.isOpen} onOpenChange={(open) => setCorrectionDialog(prev => ({ ...prev, isOpen: open }))}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)] p-10">
+        <DialogContent className="sm:max-w-md rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[var(--text-primary)]">Attendance Correction</DialogTitle>
             <DialogDescription className="text-sm font-medium text-[var(--text-muted)]">
               Request adjustment for this attendance session.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="reason" className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-2 block">Reason for Correction</Label>
-            <Textarea
-              id="reason"
-              className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-xl bg-[var(--bg-subtle)]/50 font-bold text-xs text-[var(--text-primary)]"
-              value={correctionReason}
-              onChange={(e) => setCorrectionReason(e.target.value)}
-              placeholder="Explain the reason for correction..."
-            />
-          </div>
-          <DialogFooter className="gap-2">
+          <DialogBody>
+            <div className="space-y-2">
+              <Label htmlFor="reason" className="text-xs font-medium text-[var(--text-secondary)]">Reason for Correction</Label>
+              <Textarea
+                id="reason"
+                className="min-h-[120px] border-[var(--border-default)] focus:border-[var(--accent-primary)] rounded-xl bg-[var(--bg-subtle)]/50 text-sm text-[var(--text-primary)]"
+                value={correctionReason}
+                onChange={(e) => setCorrectionReason(e.target.value)}
+                placeholder="Explain the reason for correction..."
+              />
+            </div>
+          </DialogBody>
+          <DialogFooter>
             <Button variant="ghost" className="rounded-xl font-bold text-[var(--text-muted)] hover:text-[var(--text-primary)] text-xs" onClick={() => setCorrectionDialog({ isOpen: false, sessionId: '' })}>Discard</Button>
             <Button
               className="bg-[var(--accent-primary)] hover:opacity-90 text-white font-bold rounded-xl px-8 shadow-sm text-xs border-none"

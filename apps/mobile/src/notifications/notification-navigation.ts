@@ -7,6 +7,9 @@ export interface NotificationNavigationPayload {
   conversation_id?: string;
   message_id?: string;
   call_id?: string;
+  caller_id?: string;
+  caller_name?: string;
+  call_type?: string;
   screen?: string;
   entity_type?: string;
   entity_id?: string;
@@ -41,12 +44,17 @@ export function navigateFromNotificationPayload(
     return;
   }
 
-  if (type === 'incoming_call' && payload.conversation_id) {
-    router.push({
-      pathname: '/chat/[conversationId]',
-      params: { conversationId: payload.conversation_id },
-    });
-    return;
+  if (type === 'incoming_call') {
+    if (payload.conversation_id) {
+      router.push({
+        pathname: '/chat/[conversationId]',
+        params: {
+          conversationId: payload.conversation_id,
+          ...(payload.call_id ? { callId: payload.call_id } : {}),
+        },
+      });
+      return;
+    }
   }
 
   if (type === 'notification' || payload.notification_id) {
@@ -89,6 +97,9 @@ export function handleNotificationResponseData(
       typeof data.conversation_id === 'string' ? data.conversation_id : undefined,
     message_id: typeof data.message_id === 'string' ? data.message_id : undefined,
     call_id: typeof data.call_id === 'string' ? data.call_id : undefined,
+    caller_id: typeof data.caller_id === 'string' ? data.caller_id : undefined,
+    caller_name: typeof data.caller_name === 'string' ? data.caller_name : undefined,
+    call_type: typeof data.call_type === 'string' ? data.call_type : undefined,
     screen: typeof data.screen === 'string' ? data.screen : undefined,
     entity_type: typeof data.entity_type === 'string' ? data.entity_type : undefined,
     entity_id: typeof data.entity_id === 'string' ? data.entity_id : undefined,

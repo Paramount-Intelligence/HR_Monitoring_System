@@ -5,7 +5,9 @@ export interface Project {
   title: string;
   description: string;
   owner_id: string;
+  owner_name?: string;
   manager_id: string;
+  manager_name?: string;
   priority: 'low' | 'medium' | 'high' | 'critical';
   approval_status: 'pending' | 'approved' | 'rejected';
   project_status: 'draft' | 'pending_approval' | 'approved' | 'active' | 'on_hold' | 'completed' | 'rejected' | 'archived';
@@ -43,5 +45,22 @@ export const projectsApi = {
       reason: reason || ''
     });
     return response.data;
-  }
+  },
+
+  updateProject: async (id: string, data: Partial<{
+    title: string;
+    description: string;
+    priority: string;
+    due_date: string | null;
+    project_status: string;
+    manager_id: string;
+  }>) => {
+    const response = await apiClient.patch<Project>(`/projects/${id}`, data);
+    return response.data;
+  },
+
+  archiveProject: async (id: string) => {
+    const response = await apiClient.patch<Project>(`/projects/${id}/archive`);
+    return response.data;
+  },
 };

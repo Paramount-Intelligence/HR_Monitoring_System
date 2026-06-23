@@ -107,6 +107,7 @@ class TimeLogService:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
         if actor.role == UserRole.MANAGER:
             member_ids = [u.id for u in self.db.query(User).filter(User.manager_id == actor.id).all()]
+            member_ids.append(actor.id)
         else:
             member_ids = [u.id for u in self.db.query(User).all()]
         return self.db.query(TimeLog).filter(TimeLog.user_id.in_(member_ids)).order_by(TimeLog.started_at.desc()).all()
@@ -132,7 +133,14 @@ class TimeLogService:
         if not project or status_val not in ("approved", "active"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Task project is not approved or active")
 
-        if actor.role == UserRole.EMPLOYEE and task.assigned_to != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only log time on tasks assigned to you")
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
+            if task.assigned_to != actor.id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only log time on tasks assigned to you")
+        elif actor.role == UserRole.MANAGER:
+            if task.assigned_to != actor.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only start timers for tasks assigned to you.",
+                )
 
         return task

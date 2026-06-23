@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Loader2, UserPlus, MoreHorizontal, UserCog, Building2, Shield, Mail, ShieldOff, CheckCircle2 } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -28,7 +28,8 @@ import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
 import { getProfilePictureUrl } from '@/lib/profile-picture';
 import { AdminUserControlPanel } from '@/components/admin/users/AdminUserControlPanel';
 import { ALL_ROLES, ROLE_LABELS, ROLE_BADGE_COLORS } from '@/lib/admin-users/constants';
-import { getUserDepartmentDisplay, getUserManagerDisplay } from '@/lib/display-labels';
+import { getUserDepartmentDisplay, getUserManagerDisplay, makeDepartmentOptions, makeShiftOptions, makeManagerOptions, resolveOptionLabel } from '@/lib/display-labels';
+import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,6 +100,9 @@ export default function AdminUsersPage() {
   }, []);
 
   const managers = users.filter(u => ['manager', 'admin', 'team_lead', 'hr_operations'].includes(u.role));
+  const departmentOptions = makeDepartmentOptions(departments);
+  const shiftOptions = makeShiftOptions(shifts);
+  const managerOptions = makeManagerOptions(managers, undefined, users);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -275,18 +279,19 @@ export default function AdminUsersPage() {
               New User
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[560px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-premium-lg p-8">
-            <DialogHeader className="space-y-3">
-              <DialogTitle className="text-3xl font-black text-[var(--text-primary)] tracking-tighter">Create New User</DialogTitle>
-              <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight">Add a new member to the platform governance structure.</DialogDescription>
+          <DialogContent className="sm:max-w-[560px] rounded-2xl border border-[var(--border-default)] bg-[var(--bg-elevated)] text-[var(--text-primary)] shadow-premium-lg">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-xl font-bold text-[var(--text-primary)] sm:text-2xl">Create New User</DialogTitle>
+              <DialogDescription className="text-sm text-[var(--text-muted)]">Add a new member to the platform governance structure.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                <DialogBody className={modalFormClass}>
                 <FormField control={form.control} name="full_name" render={({ field }) => (
                   <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className={modalFormGridClass}>
                   <FormField control={form.control} name="email" render={({ field }) => (
                     <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="john@company.com" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
@@ -300,7 +305,7 @@ export default function AdminUsersPage() {
                   )} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className={modalFormGridClass}>
                 <FormField control={form.control} name="role" render={({ field }) => (
                   <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">Role</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -321,12 +326,12 @@ export default function AdminUsersPage() {
                 )} />
                 <FormField control={form.control} name="department_id" render={({ field }) => (
                   <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">Department</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)] font-bold"><SelectValue placeholder="Select department" /></SelectTrigger></FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)] font-bold"><span className="truncate">{resolveOptionLabel(departmentOptions, field.value, 'Select department')}</span></SelectTrigger></FormControl>
                       <SelectContent className="rounded-2xl bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-primary)] shadow-premium-lg">
                         <SelectItem value="none" className="text-xs font-bold">None</SelectItem>
-                        {departments.map(d => (
-                          <SelectItem key={d.id} value={d.id} className="text-xs font-bold">{d.name}</SelectItem>
+                        {departmentOptions.map((d) => (
+                          <SelectItem key={d.value} value={d.value} className="text-xs font-bold">{d.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -335,15 +340,15 @@ export default function AdminUsersPage() {
                 )} />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className={modalFormGridClass}>
                 <FormField control={form.control} name="shift_id" render={({ field }) => (
                   <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">Work Shift</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)] font-bold"><SelectValue placeholder="Select shift" /></SelectTrigger></FormControl>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)] font-bold"><span className="truncate">{resolveOptionLabel(shiftOptions, field.value, 'Select shift')}</span></SelectTrigger></FormControl>
                       <SelectContent className="rounded-2xl bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-primary)] shadow-premium-lg">
                         <SelectItem value="none" className="text-xs font-bold">Default Shift</SelectItem>
-                        {shifts.map(s => (
-                          <SelectItem key={s.id} value={s.id} className="text-xs font-bold">{s.name} ({s.start_time}-{s.end_time})</SelectItem>
+                        {shiftOptions.map((s) => (
+                          <SelectItem key={s.value} value={s.value} className="text-xs font-bold">{s.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -355,12 +360,12 @@ export default function AdminUsersPage() {
                   )} />
                   <FormField control={form.control} name="manager_id" render={({ field }) => (
                     <FormItem className="space-y-1.5"><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest ml-1">Reporting Manager</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)] font-bold"><SelectValue placeholder="Select manager" /></SelectTrigger></FormControl>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger className="h-12 rounded-xl bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)] font-bold"><span className="truncate">{resolveOptionLabel(managerOptions, field.value, 'Select manager')}</span></SelectTrigger></FormControl>
                         <SelectContent className="rounded-2xl bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-primary)] shadow-premium-lg">
                           <SelectItem value="none" className="text-xs font-bold">None</SelectItem>
-                          {managers.map(m => (
-                            <SelectItem key={m.id} value={m.id} className="text-xs font-bold">{m.full_name} ({ROLE_LABELS[m.role] || m.role})</SelectItem>
+                          {managerOptions.map((m) => (
+                            <SelectItem key={m.value} value={m.value} className="text-xs font-bold">{m.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -369,12 +374,14 @@ export default function AdminUsersPage() {
                   )} />
                 </div>
 
-                <div className="flex justify-end pt-2">
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
                   <Button type="submit" disabled={form.formState.isSubmitting} className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/90 text-[var(--text-on-accent)] font-semibold rounded-xl h-11 px-6">
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Account
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>
@@ -501,6 +508,7 @@ export default function AdminUsersPage() {
               An activation email has been sent to the user.
             </DialogDescription>
           </DialogHeader>
+          <DialogBody>
           <div className="bg-[var(--bg-subtle)] p-4 rounded-lg border border-[var(--border-subtle)] space-y-3">
             <p className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Dev Activation Link</p>
             <div className="flex items-center gap-2 bg-[var(--bg-surface)] p-2 rounded border border-[var(--border-default)]">
@@ -523,9 +531,10 @@ export default function AdminUsersPage() {
               This link is only shown in development mode for easy testing. In production, users will receive this link via email.
             </p>
           </div>
-          <div className="flex justify-end">
+          </DialogBody>
+          <DialogFooter>
             <Button onClick={() => setIsTokenDialogOpen(false)} className="bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/90 text-[var(--text-on-accent)] font-semibold rounded-lg">Done</Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
       {/* Confirmation Dialog */}
@@ -538,7 +547,7 @@ export default function AdminUsersPage() {
               This action will affect their platform access immediately.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="ghost" onClick={() => setIsConfirmDialogOpen(false)} className="text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]">Cancel</Button>
             <Button 
               onClick={executeStatusAction}
@@ -574,12 +583,14 @@ export default function AdminUsersPage() {
             </DialogDescription>
           </DialogHeader>
           {editAvatarUser && (
+            <DialogBody>
             <ProfilePictureUpload
               name={editAvatarUser.full_name}
               profilePictureUrl={getProfilePictureUrl(editAvatarUser)}
               onUpload={handleUploadUserProfilePicture}
               onRemove={handleRemoveUserProfilePicture}
             />
+            </DialogBody>
           )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditAvatarUser(null)}>Close</Button>

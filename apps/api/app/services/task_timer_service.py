@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.enums import TaskStatus, TimerPauseReason, TimerSessionStatus, TimeLogSourceType, TimeLogStatus
+from app.models.enums import TaskStatus, TimerPauseReason, TimerSessionStatus, TimeLogSourceType, TimeLogStatus, UserRole
 from app.models.task import Task
 from app.models.task_timer_session import TaskTimerSession
 from app.models.time_log import TimeLog
@@ -171,7 +171,14 @@ class TaskTimerService:
         if task.status == TaskStatus.COMPLETED:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot start timer on a completed task")
         
-        if actor.role == "employee" and task.assigned_to != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
-        
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
+            if task.assigned_to != actor.id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only log time on tasks assigned to you")
+        elif actor.role == UserRole.MANAGER:
+            if task.assigned_to != actor.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You can only start timers for tasks assigned to you.",
+                )
+
         return task

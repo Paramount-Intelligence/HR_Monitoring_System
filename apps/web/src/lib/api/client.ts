@@ -1,9 +1,19 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { isDebugApi } from '@/lib/debug';
+import {
+  canFetchProtectedData,
+  enqueueTokenRefresh,
+  isAuthEndpoint,
+  isSessionExpired,
+  markSessionExpired,
+} from '@/lib/auth/session';
 
 // Always use Next.js local proxy from browser
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
-console.log('[API Client] Base URL:', API_URL);
+if (isDebugApi()) {
+  console.log('[API Client] Base URL:', API_URL);
+}
 
 const apiClient = axios.create({
   baseURL: API_URL,
@@ -14,49 +24,85 @@ const apiClient = axios.create({
 });
 
 // Helper to extract a readable error message from standardized backend responses
-export const getErrorMessage = (error: any): string => {
-  const errorData = error.response?.data?.error;
+export const getErrorMessage = (error: unknown): string => {
+  const err = error as { response?: { status?: number; data?: Record<string, unknown> }; message?: string };
+  const status = err.response?.status;
+  const errorData = err.response?.data?.error as { code?: string; message?: string; details?: unknown[] } | undefined;
+
+  if (status === 403) {
+    return (typeof errorData?.message === 'string' && errorData.message) || 'You do not have permission to update this item.';
+  }
+  if (status === 404) {
+    return (typeof errorData?.message === 'string' && errorData.message) || 'This item was not found or has been archived.';
+  }
+  if (status === 409) {
+    return (typeof errorData?.message === 'string' && errorData.message) || 'This action conflicts with the current state.';
+  }
 
   if (errorData) {
     if (errorData.code === 'VALIDATION_ERROR' && Array.isArray(errorData.details)) {
       return errorData.details
-        .map((d: any) => `${d.loc[d.loc.length - 1] || d.loc.join('.')}: ${d.msg}`)
+        .map((d: { loc?: string[]; msg?: string }) => {
+          const loc = d.loc ?? [];
+          return `${loc[loc.length - 1] || loc.join('.')}: ${d.msg}`;
+        })
         .join(' | ');
     }
 
-    return errorData.message || 'An unexpected error occurred';
+    if (typeof errorData.message === 'string' && errorData.message) {
+      return errorData.message;
+    }
   }
 
-  const detail = error.response?.data?.detail;
+  const detail = err.response?.data?.detail;
 
   if (detail) {
     if (typeof detail === 'string') return detail;
 
     if (Array.isArray(detail)) {
       return detail
-        .map((d: any) => {
-          const fieldName = d.loc[d.loc.length - 1] || d.loc.join('.');
+        .map((d: { loc?: string[]; msg?: string }) => {
+          const loc = d.loc ?? [];
+          const fieldName = loc[loc.length - 1] || loc.join('.');
           return `${fieldName}: ${d.msg}`;
         })
         .join(' | ');
     }
   }
 
-  return error.message || 'An unexpected error occurred';
+  if (status === 422) {
+    return 'Validation failed. Please check the form fields and try again.';
+  }
+  if (status === 500) {
+    return 'An unexpected internal server error occurred. Please try again or contact support.';
+  }
+
+  return err.message || 'An unexpected error occurred';
 };
 
-// Add JWT token
 apiClient.interceptors.request.use(
-  (config) => {
+  (config: InternalAxiosRequestConfig) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('access_token');
+      const url = config.url ?? '';
 
+      if (isSessionExpired() && !isAuthEndpoint(url)) {
+        return Promise.reject(
+          new AxiosError('Session expired', 'ERR_SESSION_EXPIRED', config)
+        );
+      }
+
+      if (!isAuthEndpoint(url) && !canFetchProtectedData()) {
+        return Promise.reject(
+          new AxiosError('Not authenticated', 'ERR_NOT_AUTHENTICATED', config)
+        );
+      }
+
+      const token = localStorage.getItem('access_token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
 
-    // Let the browser set multipart boundary for FormData uploads
     if (config.data instanceof FormData) {
       if (config.headers && 'Content-Type' in config.headers) {
         delete config.headers['Content-Type'];
@@ -68,64 +114,37 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Refresh token handling
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const url = originalRequest?.url ?? '';
+
+    if (url.includes('/auth/refresh') && error.response?.status === 401) {
+      markSessionExpired('refresh 401');
+      return Promise.reject(error);
+    }
 
     if (
       error.response?.status === 401 &&
       typeof window !== 'undefined' &&
-      !originalRequest._retry
+      originalRequest &&
+      !originalRequest._retry &&
+      !isAuthEndpoint(url)
     ) {
-      if (
-        !originalRequest.url.includes('/auth/refresh') &&
-        !originalRequest.url.includes('/auth/login')
-      ) {
-        originalRequest._retry = true;
-
-        try {
-          const refresh_token = localStorage.getItem('refresh_token');
-
-          if (!refresh_token) {
-            throw new Error('No refresh token');
-          }
-
-          const res = await axios.post(
-            `${API_URL}/auth/refresh`,
-            { refresh_token },
-            {
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            }
-          );
-
-          const { access_token, refresh_token: new_refresh_token } = res.data;
-
-          localStorage.setItem('access_token', access_token);
-
-          if (new_refresh_token) {
-            localStorage.setItem('refresh_token', new_refresh_token);
-          }
-
-          window.dispatchEvent(
-            new CustomEvent('pims-token-refreshed', { detail: { access_token } })
-          );
-
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
-
-          return apiClient(originalRequest);
-        } catch (refreshError) {
-          window.dispatchEvent(new Event('auth:unauthorized'));
-          return Promise.reject(refreshError);
-        }
+      if (isSessionExpired()) {
+        return Promise.reject(error);
       }
 
-      if (originalRequest.url.includes('/auth/refresh')) {
-        window.dispatchEvent(new Event('auth:unauthorized'));
+      originalRequest._retry = true;
+
+      const accessToken = await enqueueTokenRefresh();
+      if (!accessToken) {
+        return Promise.reject(error);
       }
+
+      originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+      return apiClient(originalRequest);
     }
 
     return Promise.reject(error);

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, Enum, ForeignKey, Index, String, Text, Uuid
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
 from app.models.enums import ApprovalStatus, ProjectPriority, ProjectStatus
@@ -37,3 +37,14 @@ class Project(Base, TimestampMixin):
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     rejected_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    owner = relationship("User", foreign_keys=[owner_id], lazy="select")
+    manager = relationship("User", foreign_keys=[manager_id], lazy="select")
+
+    @property
+    def owner_name(self) -> str | None:
+        return self.owner.full_name if self.owner else None
+
+    @property
+    def manager_name(self) -> str | None:
+        return self.manager.full_name if self.manager else None

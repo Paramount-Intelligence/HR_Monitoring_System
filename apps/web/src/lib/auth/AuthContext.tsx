@@ -1,9 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { TokenUser } from '@/types';
 import apiClient from '@/lib/api/client';
+import {
+  AUTH_EXPIRED_EVENT,
+  canFetchProtectedData,
+  clearStoredAuth,
+  isSessionExpired,
+  resetSessionState,
+} from '@/lib/auth/session';
 
 // Roles that map to a dashboard path
 const ROLE_DASHBOARD_MAP: Record<string, string> = {
@@ -50,13 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [permissions]);
 
   const fetchPermissions = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       const response = await apiClient.get<{ permissions: string[] }>('/auth/me/permissions');
       setPermissions(response.data.permissions);
+      localStorage.setItem('permissions', JSON.stringify(response.data.permissions));
     } catch {
       setPermissions([]);
     }
   };
+
+  const authExpiryHandledRef = useRef(false);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('access_token');
@@ -72,24 +83,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           fetchPermissions();
         }
-      } catch (e) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('permissions');
+      } catch {
+        clearStoredAuth();
       }
     }
     setIsLoading(false);
   }, []);
 
-  // Auth:unauthorized event handler
   useEffect(() => {
-    const handleUnauthorized = () => {
-      logout(false).then(() => router.push('/login'));
+    const handleAuthExpired = () => {
+      if (authExpiryHandledRef.current) return;
+      authExpiryHandledRef.current = true;
+      setUser(null);
+      setPermissions([]);
+      router.replace('/login');
     };
-    window.addEventListener('auth:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
-  }, []);
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleAuthExpired);
+  }, [router]);
 
   // Route protection
   useEffect(() => {
@@ -106,14 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, isLoading, pathname, router, getDashboardPath]);
 
   const login = (access_token: string, refresh_token: string, userData: TokenUser) => {
+    resetSessionState();
+    authExpiryHandledRef.current = false;
     localStorage.setItem('access_token', access_token);
     localStorage.setItem('refresh_token', refresh_token);
     localStorage.setItem('user', JSON.stringify(userData));
     setUser(userData);
-    // Fetch permissions after login
     fetchPermissions().then(() => {
-      const stored = localStorage.getItem('permissions');
-      // After fetch, navigate
       const dashPath = ROLE_DASHBOARD_MAP[userData.role] || '/employee/dashboard';
       router.push(dashPath);
     });
@@ -121,19 +132,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async (redirect = true) => {
     try {
-      const refreshToken = localStorage.getItem('refresh_token');
-      await apiClient.post('/auth/logout', refreshToken ? { refresh_token: refreshToken } : {});
-    } catch (e) {
+      if (!isSessionExpired()) {
+        const refreshToken = localStorage.getItem('refresh_token');
+        if (refreshToken) {
+          await apiClient.post('/auth/logout', { refresh_token: refreshToken });
+        }
+      }
+    } catch {
       // ignore
     } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('permissions');
+      clearStoredAuth();
       setUser(null);
       setPermissions([]);
+      authExpiryHandledRef.current = redirect;
       if (redirect) {
-        router.push('/login');
+        router.replace('/login');
       }
     }
   };

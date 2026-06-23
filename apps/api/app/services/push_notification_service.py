@@ -55,9 +55,9 @@ def build_push_data_from_notification(notif: Notification) -> dict[str, Any]:
             data["conversation_id"] = str(notif.related_entity_id)
     elif ntype == "call_incoming":
         data["type"] = "incoming_call"
-        data["screen"] = "chat"
-        if notif.related_entity_id:
-            data["conversation_id"] = str(notif.related_entity_id)
+        data["screen"] = "call"
+        if notif.related_entity_type == "call_session" and notif.related_entity_id:
+            data["call_id"] = str(notif.related_entity_id)
     elif ntype == "call_missed":
         data["type"] = "notification"
         data["screen"] = "alerts"
@@ -105,6 +105,13 @@ class PushNotificationService:
 
     @staticmethod
     def send_for_notification(db: Session, notif: Notification) -> None:
+        ntype = (
+            notif.notification_type.value
+            if hasattr(notif.notification_type, "value")
+            else str(notif.notification_type)
+        )
+        if ntype == "call_incoming":
+            return
         title = _truncate_preview(notif.title, 80)
         body = (
             _truncate_preview(notif.message, 120)
@@ -169,6 +176,14 @@ class PushNotificationService:
             "data": data or {},
             "sound": "default",
         }
+        push_type = (data or {}).get("type")
+        if push_type == "incoming_call":
+            payload["priority"] = "high"
+            payload["channelId"] = "incoming-calls"
+        elif push_type == "message":
+            payload["channelId"] = "messages"
+        elif push_type == "notification":
+            payload["channelId"] = "alerts"
         logger.info(
             "[PUSH] send_start user_id=%s token_id=%s type=%s",
             token_row.user_id,
@@ -230,6 +245,42 @@ class PushNotificationService:
             )
             if error_code in ("DeviceNotRegistered", "InvalidCredentials", "MessageTooBig"):
                 PushNotificationService.deactivate_invalid_token(db, token_row, str(error_code))
+
+    @staticmethod
+    def send_incoming_call_push(
+        db: Session,
+        *,
+        recipient_user_id: uuid.UUID,
+        call_session_id: uuid.UUID,
+        conversation_id: uuid.UUID,
+        caller_id: uuid.UUID,
+        caller_name: str,
+        call_type: str,
+    ) -> None:
+        """High-priority push backup for incoming calls (foreground + background)."""
+        if not settings.push_notifications_enabled:
+            return
+        from datetime import timedelta
+
+        expires_at = (datetime.now(timezone.utc) + timedelta(seconds=45)).isoformat()
+        label = "video" if call_type == "video" else "voice"
+        data = {
+            "type": "incoming_call",
+            "screen": "call",
+            "call_id": str(call_session_id),
+            "conversation_id": str(conversation_id),
+            "caller_id": str(caller_id),
+            "caller_name": caller_name,
+            "call_type": call_type,
+            "expires_at": expires_at,
+        }
+        PushNotificationService.send_push_to_user(
+            db,
+            recipient_user_id,
+            f"Incoming {label} call",
+            f"{caller_name} is calling you",
+            data,
+        )
 
     @staticmethod
     def deactivate_invalid_token(

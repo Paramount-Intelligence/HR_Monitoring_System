@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { tasksApi } from '@/lib/api/tasks';
+import { tasksApi, Task } from '@/lib/api/tasks';
 import { usersApi } from '@/lib/api/users';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { getErrorMessage } from '@/lib/api/client';
@@ -11,8 +11,10 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Plus, Search, Pause, Clock, AlertCircle, CheckCircle, 
-  User as UserIcon, Calendar, Briefcase, RefreshCw, X, ChevronRight, Award
+  User as UserIcon, Calendar, Briefcase, RefreshCw, X, ChevronRight, Award, Pencil, Archive
 } from 'lucide-react';
+import { makeAssigneeOptions, makeProjectOptions } from '@/lib/display-labels';
+import { TaskEditDialog } from '@/components/tasks/TaskEditDialog';
 
 export default function AdminTasksPage() {
   // Data states
@@ -37,6 +39,7 @@ export default function AdminTasksPage() {
   // Dialog/Modal states
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   
   // Create task states
   const [newTitle, setNewTitle] = useState('');
@@ -50,6 +53,25 @@ export default function AdminTasksPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const handleArchiveTask = async (taskId: string) => {
+    try {
+      setActionLoading(true);
+      await tasksApi.archiveTask(taskId);
+      toast.success('Task archived');
+      setSelectedTask(null);
+      fetchOverview(true);
+    } catch (err: any) {
+      toast.error(getErrorMessage(err) || 'Failed to archive task');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const projectOptions = makeProjectOptions(
+    projects.filter((p) => p.project_status === 'approved' || p.project_status === 'active')
+  );
+  const assigneeOptions = makeAssigneeOptions(users.filter((u) => u.role !== 'intern'));
 
   // Load organizational task overview
   const fetchOverview = async (showSilently = false) => {
@@ -633,6 +655,12 @@ export default function AdminTasksPage() {
             <div className="border-t border-[var(--border-default)] pt-6 space-y-4">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-[var(--text-muted)]">Administrative Action Panel</h3>
               <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" onClick={() => { setEditingTask(selectedTask); setSelectedTask(null); }} className="rounded-xl text-xs font-bold">
+                  <Pencil className="h-4 w-4 mr-1" /> Edit Task
+                </Button>
+                <Button variant="outline" onClick={() => handleArchiveTask(selectedTask.id)} disabled={actionLoading} className="rounded-xl text-xs font-bold text-amber-700">
+                  <Archive className="h-4 w-4 mr-1" /> Archive Task
+                </Button>
                 {selectedTask.status !== 'completed' && selectedTask.status !== 'reviewed' && (
                   <Button 
                     onClick={() => handleUpdateTaskStatus(selectedTask.id, 'completed')}
@@ -727,12 +755,9 @@ export default function AdminTasksPage() {
                     className="w-full px-3 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] font-bold text-xs focus:outline-none focus:border-[var(--accent-primary)] h-10"
                   >
                     <option value="">Select Project</option>
-                    {projects
-                      .filter(p => p.project_status === 'approved' || p.project_status === 'active')
-                      .map(p => (
-                        <option key={p.id} value={p.id}>{p.title}</option>
-                      ))
-                    }
+                    {projectOptions.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -744,8 +769,8 @@ export default function AdminTasksPage() {
                     className="w-full px-3 py-2 rounded-xl border border-[var(--border-default)] bg-[var(--bg-surface)] text-[var(--text-primary)] font-bold text-xs focus:outline-none focus:border-[var(--accent-primary)] h-10"
                   >
                     <option value="">Select Assignee</option>
-                    {users.map(u => (
-                      <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>
+                    {assigneeOptions.map((u) => (
+                      <option key={u.value} value={u.value}>{u.label}</option>
                     ))}
                   </select>
                 </div>
@@ -798,6 +823,15 @@ export default function AdminTasksPage() {
           </Card>
         </div>
       )}
+
+      <TaskEditDialog
+        task={editingTask}
+        open={!!editingTask}
+        onOpenChange={(open) => !open && setEditingTask(null)}
+        projects={projects}
+        assignees={users}
+        onSaved={() => fetchOverview(true)}
+      />
 
     </div>
   );

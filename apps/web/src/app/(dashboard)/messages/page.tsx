@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, Suspense, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { canFetchProtectedData } from '@/lib/auth/session';
+import { logProtectedFetchError } from '@/lib/api/fetch-errors';
 import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
 import { useCall } from '@/providers/CallProvider';
 import { unlockSounds } from '@/lib/calls/sounds';
@@ -40,14 +42,12 @@ import { MessageQuotedReply } from '@/components/messages/MessageQuotedReply';
 import { MessageInfoDialog } from '@/components/messages/MessageInfoDialog';
 import { MessageStatusIndicator } from '@/components/messages/MessageStatusIndicator';
 import { MessageBody } from '@/components/messages/MessageBody';
-import { ComposerFormattingToolbar } from '@/components/messages/ComposerFormattingToolbar';
-import { ComposerEmojiPicker } from '@/components/messages/ComposerEmojiPicker';
 import {
-  applyTextSelection,
-  handleFormattingAction,
-  insertAtCursor,
-  type FormatAction,
-} from '@/components/messages/composer-formatting';
+  RichTextComposer,
+  type RichTextComposerHandle,
+} from '@/components/messages/RichTextComposer';
+import { ComposerEmojiPicker } from '@/components/messages/ComposerEmojiPicker';
+import { hasRichFormatting } from '@/lib/messages/message-sanitize';
 import {
   Dialog,
   DialogContent,
@@ -60,10 +60,12 @@ import {
   SidebarFilter,
   ConversationPanelTab,
   getConversationDisplayName,
-  groupMessagesByDate,
+  groupMessagesByDateWithSlack,
   collectAttachments,
   collectCallEvents,
   formatMessageTime,
+  getConversationLoadError,
+  type ConversationLoadError,
 } from '@/components/messages/messages-utils';
 import { VoiceMessageRecorder } from '@/components/messages/VoiceMessageRecorder';
 import { VoiceMessageBubble } from '@/components/messages/VoiceMessageBubble';
@@ -233,7 +235,7 @@ function FilePreviewCard({ file, onRemove }: { file: File; onRemove: () => void 
 function MessagesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const messageEndRef = useRef<HTMLDivElement>(null);
 
   const [isMobile, setIsMobile] = useState(false);
@@ -256,7 +258,7 @@ function MessagesContent() {
 
   // Attachment upload states
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const composerTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<RichTextComposerHandle>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,12 +299,12 @@ function MessagesContent() {
 
 
   // Input fields
-  const [newMessage, setNewMessage] = useState('');
+  const [composerPlainText, setComposerPlainText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [loadingConvs, setLoadingConvs] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
-  const [threadLoadError, setThreadLoadError] = useState<string | null>(null);
+  const [threadLoadError, setThreadLoadError] = useState<ConversationLoadError | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -401,12 +403,16 @@ function MessagesContent() {
 
   // Poll & directory loading
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     loadConversations();
     loadActiveDirectory();
     const pollMs = isConnected ? 60000 : 15000;
-    const interval = setInterval(pollUpdates, pollMs);
+    const interval = setInterval(() => {
+      if (canFetchProtectedData()) pollUpdates();
+    }, pollMs);
     return () => clearInterval(interval);
-  }, [isConnected]);
+  }, [isAuthenticated, isConnected]);
 
   const queryConvId = searchParams.get('conversation_id');
   useEffect(() => {
@@ -425,40 +431,48 @@ function MessagesContent() {
     }
   }, [conversations, selectedConversationId, queryConvId, loadingConvs, isMobile]);
 
-  // Load messages + mark read + mentionable users on conversation change
   useEffect(() => {
-    if (!selectedConversationId) { setMessages([]); setMentionableUsers([]); setReplyingTo(null); return; }
+    if (!selectedConversationId || !isAuthenticated) {
+      setMessages([]);
+      setMentionableUsers([]);
+      setReplyingTo(null);
+      return;
+    }
+    if (!canFetchProtectedData()) return;
     let active = true;
 
     const fetchThread = async () => {
+      if (!canFetchProtectedData()) return;
       try {
         setLoadingMsgs(true); setThreadLoadError(null); setMessages([]);
         const data = await messagesApi.getMessages(selectedConversationId, { limit: 50 });
         if (active) setMessages(data);
-      } catch (err) { if (active) setThreadLoadError(getErrorMessage(err)); }
+      } catch (err) { if (active) setThreadLoadError(getConversationLoadError(err)); }
       finally { if (active) setLoadingMsgs(false); }
     };
 
     const markRead = async () => {
+      if (!canFetchProtectedData()) return;
       try {
         await messagesApi.markConversationRead(selectedConversationId);
         if (active) {
           setConversations(prev => prev.map(c => c.id === selectedConversationId ? { ...c, unread_count: 0 } : c));
           window.dispatchEvent(new Event('pims-messages-unread-update'));
         }
-      } catch (err) { console.error('[Messages] Mark read error:', err); }
+      } catch (err) { logProtectedFetchError('[Messages] Mark read error', err); }
     };
 
     const fetchMentionable = async () => {
+      if (!canFetchProtectedData()) return;
       try {
         const data = await messagesApi.getMentionableUsers(selectedConversationId);
         if (active) setMentionableUsers(data);
-      } catch (err) { console.error('[Messages] Mentionable users error:', err); }
+      } catch (err) { logProtectedFetchError('[Messages] Mentionable users error', err); }
     };
 
     fetchThread(); markRead(); fetchMentionable();
     return () => { active = false; };
-  }, [selectedConversationId]);
+  }, [selectedConversationId, isAuthenticated]);
 
   useEffect(() => {
     if (!hasNewMessagesBelow) {
@@ -467,6 +481,7 @@ function MessagesContent() {
   }, [messages, hasNewMessagesBelow]);
 
   const loadConversations = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       setLoadingConvs(true);
       const data = await messagesApi.getConversations();
@@ -480,13 +495,15 @@ function MessagesContent() {
   };
 
   const loadActiveDirectory = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       const data = await usersApi.getActiveDirectory();
       setUsersList(data.filter((u: any) => u.id !== user?.id));
-    } catch (err) { console.error('[Messages] Directory error:', err); }
+    } catch (err) { logProtectedFetchError('[Messages] Directory error', err); }
   };
 
   const pollUpdates = async () => {
+    if (!canFetchProtectedData()) return;
     try {
       const data = await messagesApi.getConversations();
       setConversations(data);
@@ -495,7 +512,7 @@ function MessagesContent() {
         const freshMsgs = await messagesApi.getMessages(activeId, { limit: 50 });
         setMessages(freshMsgs);
       }
-    } catch (err) { console.warn('[Messages Polling] Failed:', err); }
+    } catch (err) { logProtectedFetchError('[Messages Polling] Failed', err); }
   };
 
   useRealtimeEvent('new_message', (ev) => {
@@ -586,11 +603,12 @@ function MessagesContent() {
   });
 
   const loadMessages = async (convId: string) => {
+    if (!canFetchProtectedData()) return;
     try {
       setLoadingMsgs(true); setThreadLoadError(null); setMessages([]);
       const data = await messagesApi.getMessages(convId, { limit: 50 });
       setMessages(data);
-    } catch (err) { setThreadLoadError(getErrorMessage(err)); }
+    } catch (err) { setThreadLoadError(getConversationLoadError(err)); }
     finally { setLoadingMsgs(false); }
   };
 
@@ -633,8 +651,11 @@ function MessagesContent() {
     e.preventDefault();
     if (!selectedConversationId || isSending || !canISend) return;
 
-    const messageText = newMessage.trim();
+    const messageText = composerRef.current?.getPlainText().trim() ?? composerPlainText.trim();
     if (!messageText && selectedFiles.length === 0) return;
+
+    const messageHtml = composerRef.current?.getHtml() ?? '';
+    const sendRichHtml = hasRichFormatting(messageHtml, messageText) ? messageHtml : undefined;
 
     try {
       setIsSending(true);
@@ -661,6 +682,7 @@ function MessagesContent() {
 
       const payload: Parameters<typeof messagesApi.sendMessage>[1] = {
         body: messageText,
+        body_html: sendRichHtml,
         mentioned_user_ids,
         attachment_ids,
       };
@@ -671,7 +693,8 @@ function MessagesContent() {
       const sentMsg = await messagesApi.sendMessage(selectedConversationId, payload);
 
       setMessages(prev => [...prev, sentMsg]);
-      setNewMessage('');
+      composerRef.current?.clear();
+      setComposerPlainText('');
       setSelectedFiles([]);
       setReplyingTo(null);
       setConversations(prev =>
@@ -831,13 +854,10 @@ function MessagesContent() {
 
   // ─── Mention picker ─────────────────────────────────────────────────────
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const val = e.target.value;
-    setNewMessage(val);
-    const cursorIdx = e.target.selectionStart;
-    const textBeforeCursor = val.slice(0, cursorIdx);
-    const words = textBeforeCursor.split(/\s+/);
-    const lastWord = words[words.length - 1];
+  const handleComposerUpdate = (plainText: string) => {
+    setComposerPlainText(plainText);
+    const words = plainText.split(/\s+/);
+    const lastWord = words[words.length - 1] ?? '';
     if (lastWord.startsWith('@') && activeConv?.type !== 'direct') {
       setMentionFilter(lastWord.slice(1));
       setShowMentionPicker(true);
@@ -847,35 +867,24 @@ function MessagesContent() {
   };
 
   const handleSelectMention = (fullName: string) => {
-    const words = newMessage.split(' ');
-    words[words.length - 1] = `@${fullName} `;
-    setNewMessage(words.join(' '));
+    const plain = composerRef.current?.getPlainText() ?? composerPlainText;
+    const words = plain.split(/\s+/);
+    words[words.length - 1] = `@${fullName}`;
+    const next = `${words.join(' ')} `;
+    composerRef.current?.clear();
+    composerRef.current?.insertText(next);
+    setComposerPlainText(next.trimEnd());
     setShowMentionPicker(false);
   };
 
-  const handleComposerFormatting = (action: FormatAction) => {
-    const textarea = composerTextareaRef.current;
-    if (!textarea || !canISend) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    let linkUrl: string | undefined;
-
-    if (action === 'link') {
-      const url = window.prompt('Enter link URL', 'https://');
-      if (url === null) return;
-      linkUrl = url.trim() || 'url';
-    }
-
-    const result = handleFormattingAction(action, newMessage, start, end, linkUrl);
-    applyTextSelection(textarea, result, setNewMessage);
+  const handleEmojiInsert = (emoji: string) => {
+    composerRef.current?.insertText(emoji);
   };
 
-  const handleEmojiInsert = (emoji: string) => {
-    const textarea = composerTextareaRef.current;
-    if (!textarea || !canISend) return;
-    const result = insertAtCursor(newMessage, textarea.selectionStart, textarea.selectionEnd, emoji);
-    applyTextSelection(textarea, result, setNewMessage);
+  const handleComposerSubmit = () => {
+    if (!canISend || isSending) return;
+    if (!composerPlainText.trim() && selectedFiles.length === 0) return;
+    void handleSendMessage({ preventDefault: () => {} } as React.FormEvent);
   };
 
   const filteredMentionUsers = mentionableUsers.filter(u =>
@@ -930,7 +939,7 @@ function MessagesContent() {
 
   const sharedAttachments = useMemo(() => collectAttachments(messages), [messages]);
   const callEvents = useMemo(() => collectCallEvents(messages), [messages]);
-  const groupedMessages = useMemo(() => groupMessagesByDate(messages), [messages]);
+  const groupedMessages = useMemo(() => groupMessagesByDateWithSlack(messages), [messages]);
   const activeConvName = activeConv ? getConversationDisplayName(activeConv, user?.id) : '';
 
   const PANEL_TABS: { id: ConversationPanelTab; label: string }[] = [
@@ -1089,22 +1098,25 @@ function MessagesContent() {
                     <AlertCircle className="h-6 w-6" />
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[var(--text-primary)] font-black uppercase tracking-wider text-xs">Unable to load conversation.</p>
-                    <p className="text-[var(--text-secondary)] text-[10px] max-w-sm mx-auto font-semibold leading-relaxed">{threadLoadError}</p>
+                    <p className="text-[var(--text-primary)] font-black uppercase tracking-wider text-xs">{threadLoadError.title}</p>
+                    <p className="text-[var(--text-secondary)] text-[10px] max-w-sm mx-auto font-semibold leading-relaxed">{threadLoadError.message}</p>
                   </div>
-                  <Button
-                    variant="outline"
-                    className="rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-2"
-                    onClick={() => loadMessages(activeConv.id)}
-                  >
-                    Please try again
-                  </Button>
+                  {threadLoadError.canRetry && (
+                    <Button
+                      variant="outline"
+                      className="rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-2"
+                      onClick={() => loadMessages(activeConv.id)}
+                    >
+                      Retry
+                    </Button>
+                  )}
                 </div>
               ) : messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[var(--text-muted)] space-y-2 py-12">
                   <MessageSquare className="h-8 w-8 text-[var(--text-muted)] opacity-50" />
-                  <p className="font-medium text-[var(--text-secondary)]">No recent messages yet.</p>
-                  <p>Start the conversation below.</p>
+                  <p className="font-medium text-[var(--text-secondary)]">
+                    No messages yet. Start the conversation with {activeConvName}.
+                  </p>
                 </div>
               ) : (
                 groupedMessages.map((group) => (
@@ -1116,7 +1128,8 @@ function MessagesContent() {
                       </span>
                       <div className="h-px flex-1 bg-[var(--border-subtle)]" />
                     </div>
-                    {group.items.map((msg) => {
+                    {group.items.map((item) => {
+                  const msg = item.message;
                   const isSelf = msg.sender_id === user?.id;
                   const isSystem = msg.message_type === 'system';
 
@@ -1134,81 +1147,72 @@ function MessagesContent() {
                     <div
                       key={msg.id}
                       className={cn(
-                        'group/message flex gap-2.5 w-full max-w-[min(100%,42rem)]',
-                        isSelf ? 'ml-auto flex-row-reverse' : 'mr-auto'
+                        'group/message relative flex gap-2 w-full max-w-4xl hover:bg-[var(--bg-subtle)]/60 rounded-md px-2 -mx-2',
+                        item.isContinuation ? 'mt-0.5 pt-0.5' : 'mt-3 first:mt-1'
                       )}
                     >
-                      <UserProfilePicture
-                        user={msg.sender}
-                        name={msg.sender.full_name}
-                        size="default"
-                        className="h-8 w-8 shrink-0 shadow-sm ring-1 ring-[var(--border-default)]"
-                      />
-                      <div className={cn('flex flex-col min-w-0 max-w-[85%]', isSelf ? 'items-end' : 'items-start')}>
-                        <div
-                          className={cn(
-                            'flex items-center gap-2 mb-0.5 px-0.5',
-                            isSelf ? 'flex-row-reverse' : 'flex-row'
-                          )}
-                        >
-                          <span className="text-xs font-semibold text-[var(--text-primary)]">{msg.sender.full_name}</span>
-                          <span className="text-[10px] text-[var(--text-muted)] tabular-nums">
+                      <div className="w-9 shrink-0 flex justify-center">
+                        {item.showAvatar ? (
+                          <UserProfilePicture
+                            user={msg.sender}
+                            name={msg.sender.full_name}
+                            size="default"
+                            className="h-9 w-9 shrink-0"
+                          />
+                        ) : (
+                          <span className="w-9" aria-hidden />
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        {item.showHeader && (
+                          <div className="flex items-baseline gap-2 leading-none mb-1">
+                            <span className="text-sm font-bold text-[var(--text-primary)]">{msg.sender.full_name}</span>
+                            {isSelf && (
+                              <span className="text-[10px] font-medium text-[var(--text-muted)]">(you)</span>
+                            )}
+                            <span className="text-[10px] text-[var(--text-muted)] tabular-nums">
+                              {formatMessageTime(msg.created_at)}
+                            </span>
+                            {isSelf && activeConv && (
+                              <MessageStatusIndicator
+                                status={msg.delivery_status}
+                                seenCount={msg.seen_count}
+                                deliveredCount={msg.delivered_count}
+                                totalRecipients={msg.total_recipients}
+                                conversationType={activeConv.type}
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {!item.showHeader && (
+                          <span className="absolute left-1 top-1 w-10 text-right pr-1 text-[10px] text-[var(--text-muted)] opacity-0 group-hover/message:opacity-100 tabular-nums pointer-events-none">
                             {formatMessageTime(msg.created_at)}
                           </span>
-                          {isSelf && activeConv && (
-                            <MessageStatusIndicator
-                              status={msg.delivery_status}
-                              seenCount={msg.seen_count}
-                              deliveredCount={msg.delivered_count}
-                              totalRecipients={msg.total_recipients}
-                              conversationType={activeConv.type}
-                            />
-                          )}
-                        </div>
+                        )}
 
-                        <div
-                          className={cn(
-                            'flex items-center gap-1 max-w-full',
-                            isSelf ? 'flex-row-reverse' : 'flex-row'
-                          )}
-                        >
-                          <MessageActionsMenu
-                            isSelf={isSelf}
-                            canDelete={canDeleteMessage(msg, activeConv, user?.id, user?.role)}
-                            showDelete={!msg.is_deleted}
-                            showReply={!msg.is_deleted}
-                            onReply={() => setReplyingTo(msg)}
-                            onInfo={() => openMessageInfo(msg)}
-                            onDelete={() => setDeleteConfirmMessage(msg)}
-                          />
-                          <div
-                            className={cn(
-                              'px-3 py-2 rounded-lg text-sm leading-relaxed border min-w-0',
-                              isSelf
-                                ? 'bg-[var(--accent-primary)] text-white border-[var(--accent-primary)]'
-                                : 'bg-[var(--bg-elevated)] text-[var(--text-primary)] border-[var(--border-subtle)]',
-                              msg.is_deleted && 'opacity-80 italic'
-                            )}
-                          >
+                        <div className="flex items-start gap-1">
+                          <div className="min-w-0 flex-1 text-sm leading-relaxed text-[var(--text-primary)]">
                             {msg.reply_to_message && !msg.is_deleted && (
-                              <MessageQuotedReply reply={msg.reply_to_message} isSelf={isSelf} />
+                              <MessageQuotedReply reply={msg.reply_to_message} isSelf={false} />
                             )}
                             {msg.is_deleted ? (
-                              <p className={cn('text-sm', isSelf ? 'text-white/80' : 'text-[var(--text-muted)]')}>
+                              <p className="text-sm italic text-[var(--text-muted)]">
                                 This message was deleted.
                               </p>
                             ) : (
                               <>
                                 {msg.body && !isVoiceNoteMessage(msg) && (
-                                  <MessageBody text={msg.body} isSelf={isSelf} />
+                                  <MessageBody text={msg.body} html={msg.body_html} />
                                 )}
 
                                 {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="space-y-2 mt-2 pt-1 border-t border-white/10">
+                            <div className="space-y-2 mt-2 pt-1 border-t border-[var(--border-subtle)]">
                               {msg.attachments
                                 .filter((att) => isVoiceNoteAttachment(att))
                                 .map((att) => (
-                                  <VoiceMessageBubble key={att.id} attachment={att} isSelf={isSelf} />
+                                  <VoiceMessageBubble key={att.id} attachment={att} isSelf={false} />
                                 ))}
 
                               {msg.attachments.some(att => att.mime_type.startsWith('image/')) && (
@@ -1244,31 +1248,23 @@ function MessagesContent() {
                                     .map(att => (
                                       <div
                                         key={att.id}
-                                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs gap-3 ${
-                                          isSelf
-                                            ? 'bg-white/10 border-white/20 text-white'
-                                            : 'bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)]'
-                                        }`}
+                                        className="flex items-center justify-between p-2.5 rounded-lg border text-xs gap-3 bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)]"
                                       >
                                         <div className="h-8 w-8 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-lg flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-800/30">
                                           <FileText className="h-4 w-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="truncate font-black mb-0.5" title={att.original_file_name}>
+                                          <p className="truncate font-semibold mb-0.5" title={att.original_file_name}>
                                             {att.original_file_name}
                                           </p>
-                                          <p className={`text-[9px] font-black uppercase ${isSelf ? 'text-gray-400' : 'text-[var(--text-muted)]'}`}>
+                                          <p className="text-[9px] font-semibold uppercase text-[var(--text-muted)]">
                                             {(att.file_size / 1024).toFixed(0)} KB
                                           </p>
                                         </div>
                                         <button
                                           type="button"
                                           onClick={() => messagesApi.downloadAttachment(att.id)}
-                                          className={`p-1.5 rounded-lg border transition-colors ${
-                                            isSelf
-                                              ? 'hover:bg-white/10 text-white border-white/20'
-                                              : 'hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] border-[var(--border-default)]'
-                                          }`}
+                                          className="p-1.5 rounded-lg border transition-colors hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] border-[var(--border-default)]"
                                           title="Download"
                                         >
                                           <Download className="h-3.5 w-3.5" />
@@ -1282,6 +1278,15 @@ function MessagesContent() {
                             </>
                           )}
                           </div>
+                          <MessageActionsMenu
+                            isSelf={isSelf}
+                            canDelete={canDeleteMessage(msg, activeConv, user?.id, user?.role)}
+                            showDelete={!msg.is_deleted}
+                            showReply={!msg.is_deleted}
+                            onReply={() => setReplyingTo(msg)}
+                            onInfo={() => openMessageInfo(msg)}
+                            onDelete={() => setDeleteConfirmMessage(msg)}
+                          />
                         </div>
                       </div>
                     </div>
@@ -1355,27 +1360,12 @@ function MessagesContent() {
               )}
 
               <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden">
-                <ComposerFormattingToolbar
-                  disabled={!canISend || isSending}
-                  onAction={handleComposerFormatting}
-                />
-                <textarea
-                  ref={composerTextareaRef}
+                <RichTextComposer
+                  ref={composerRef}
                   placeholder={canISend ? `Message ${activeConvName}` : sendRestrictionMsg ?? ''}
-                  rows={3}
-                  disabled={!canISend}
-                  className={cn(
-                    'w-full px-3 py-2 text-sm bg-transparent border-0 focus:outline-none focus:ring-0 text-[var(--text-primary)] resize-none min-h-[72px]',
-                    !canISend && 'opacity-50 cursor-not-allowed'
-                  )}
-                  value={newMessage}
-                  onChange={handleInputChange}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey && canISend) {
-                      e.preventDefault();
-                      handleSendMessage(e);
-                    }
-                  }}
+                  disabled={!canISend || isSending}
+                  onUpdate={handleComposerUpdate}
+                  onSubmit={handleComposerSubmit}
                 />
                 <div className="flex items-center justify-between gap-2 px-2 py-1.5 border-t border-[var(--border-subtle)] bg-[var(--bg-subtle)]/30">
                   <div className="flex items-center gap-0.5 min-w-0">
@@ -1409,7 +1399,7 @@ function MessagesContent() {
                   <Button
                     type="submit"
                     size="sm"
-                    disabled={(!newMessage.trim() && selectedFiles.length === 0) || isSending || !canISend}
+                    disabled={(!composerPlainText.trim() && selectedFiles.length === 0) || isSending || !canISend}
                     className="h-8 rounded-md px-3"
                   >
                     {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Send</>}

@@ -2,9 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
+@layer components {
+  .message-rich-editor .ProseMirror {
+    min-height: 72px;
+    outline: none;
+  }
+
+  .message-rich-editor .ProseMirror p.is-editor-empty:first-child::before {
+    color: var(--text-muted);
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
   }
 }
 

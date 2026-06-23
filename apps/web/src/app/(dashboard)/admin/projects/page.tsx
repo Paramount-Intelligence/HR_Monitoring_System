@@ -7,8 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
-import { Loader2, Briefcase, Plus, CheckCircle, XCircle } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { getErrorMessage } from '@/lib/api/client';
+import { Loader2, Briefcase, Plus, CheckCircle, XCircle, Pencil, Archive } from 'lucide-react';
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useForm } from 'react-hook-form';
@@ -16,6 +17,18 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { safeDisplayLabel } from '@/lib/display-labels';
+import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const projectSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -26,10 +39,19 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
+const editProjectSchema = projectSchema.extend({
+  project_status: z.enum(['draft', 'pending_approval', 'approved', 'active', 'on_hold', 'completed', 'rejected', 'archived']).optional(),
+});
+
+type EditProjectFormValues = z.infer<typeof editProjectSchema>;
+
 export default function AdminProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [archivingProject, setArchivingProject] = useState<Project | null>(null);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -44,7 +66,7 @@ export default function AdminProjectsPage() {
   const loadProjects = async () => {
     setIsLoading(true);
     try {
-      const data = await projectsApi.getProjects();
+      const data = await projectsApi.getProjects({ include_archived: showArchived });
       setProjects(data);
     } catch (error) {
       toast.error('Failed to load org projects');
@@ -55,7 +77,59 @@ export default function AdminProjectsPage() {
 
   useEffect(() => {
     loadProjects();
-  }, []);
+  }, [showArchived]);
+
+  const editForm = useForm<EditProjectFormValues>({
+    resolver: zodResolver(editProjectSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      priority: 'medium',
+      due_date: '',
+      project_status: 'active',
+    },
+  });
+
+  const openEditDialog = (project: Project) => {
+    setEditingProject(project);
+    editForm.reset({
+      title: project.title,
+      description: project.description,
+      priority: project.priority,
+      due_date: project.due_date ? project.due_date.split('T')[0] : '',
+      project_status: project.project_status,
+    });
+  };
+
+  const onEditSubmit = async (data: EditProjectFormValues) => {
+    if (!editingProject) return;
+    try {
+      await projectsApi.updateProject(editingProject.id, {
+        title: data.title,
+        description: data.description,
+        priority: data.priority,
+        due_date: data.due_date || null,
+        project_status: data.project_status,
+      });
+      toast.success('Project updated');
+      setEditingProject(null);
+      loadProjects();
+    } catch (error) {
+      toast.error(getErrorMessage(error) || 'Failed to update project');
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!archivingProject) return;
+    try {
+      await projectsApi.archiveProject(archivingProject.id);
+      toast.success('Project archived');
+      setArchivingProject(null);
+      loadProjects();
+    } catch (error) {
+      toast.error(getErrorMessage(error) || 'Failed to archive project');
+    }
+  };
 
   const onSubmit = async (data: ProjectFormValues) => {
     try {
@@ -117,6 +191,16 @@ export default function AdminProjectsPage() {
           <p className="text-sm text-[var(--text-muted)]">View and manage all projects across the company.</p>
         </div>
         
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-muted)]">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded border-[var(--border-default)]"
+            />
+            Show archived
+          </label>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button className="bg-slate-900 hover:bg-slate-800">
@@ -129,14 +213,15 @@ export default function AdminProjectsPage() {
               <DialogDescription>Add a new project to the organization roadmap.</DialogDescription>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                <DialogBody className={modalFormClass}>
                 <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem><FormLabel>Project Title</FormLabel><FormControl><Input placeholder="e.g. Q4 Growth Campaign" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className={modalFormFieldClass}><FormLabel>Project Title</FormLabel><FormControl><Input placeholder="e.g. Q4 Growth Campaign" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem><FormLabel>Description</FormLabel><FormControl><Input placeholder="Brief project scope..." {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className={modalFormFieldClass}><FormLabel>Description</FormLabel><FormControl><Input placeholder="Brief project scope..." {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-4">
+                <div className={modalFormGridClass}>
                    <FormField control={form.control} name="priority" render={({ field }) => (
                       <FormItem><FormLabel>Priority</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
@@ -155,17 +240,92 @@ export default function AdminProjectsPage() {
                       <FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
-                <div className="flex justify-end pt-4">
+                </DialogBody>
+                <DialogFooter>
                   <Button type="submit" disabled={form.formState.isSubmitting} className="bg-slate-900">
                     {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     Create Project
                   </Button>
-                </div>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
+
+      <Dialog open={!!editingProject} onOpenChange={(open) => !open && setEditingProject(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update project details.</DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="flex min-h-0 flex-1 flex-col">
+              <DialogBody className={modalFormClass}>
+              <FormField control={editForm.control} name="title" render={({ field }) => (
+                <FormItem className={modalFormFieldClass}><FormLabel>Project Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={editForm.control} name="description" render={({ field }) => (
+                <FormItem className={modalFormFieldClass}><FormLabel>Description</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className={modalFormGridClass}>
+                <FormField control={editForm.control} name="priority" render={({ field }) => (
+                  <FormItem className={modalFormFieldClass}><FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="due_date" render={({ field }) => (
+                  <FormItem className={modalFormFieldClass}><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </div>
+              <FormField control={editForm.control} name="project_status" render={({ field }) => (
+                <FormItem className={modalFormFieldClass}><FormLabel>Status</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="on_hold">On Hold</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setEditingProject(null)}>Cancel</Button>
+                <Button type="submit" disabled={editForm.formState.isSubmitting}>Save Changes</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!archivingProject} onOpenChange={(open) => !open && setArchivingProject(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide it from active project lists but keep history and time logs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Card className="shadow-sm">
         <CardContent className="p-0">
@@ -184,6 +344,8 @@ export default function AdminProjectsPage() {
                 <TableHeader>
                   <TableRow className="bg-[var(--bg-subtle)]">
                     <TableHead className="w-[300px]">Project</TableHead>
+                    <TableHead>Manager</TableHead>
+                    <TableHead>Owner</TableHead>
                     <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Due Date</TableHead>
@@ -198,6 +360,12 @@ export default function AdminProjectsPage() {
                         <div className="font-medium text-[var(--text-primary)]">{project.title}</div>
                         <div className="text-xs text-[var(--text-muted)] truncate max-w-[250px]">{project.description}</div>
                       </TableCell>
+                      <TableCell className="text-[var(--text-muted)] text-sm">
+                        {safeDisplayLabel(project.manager_name, 'Unknown user', 'Project manager')}
+                      </TableCell>
+                      <TableCell className="text-[var(--text-muted)] text-sm">
+                        {safeDisplayLabel(project.owner_name, 'Unknown user', 'Project owner')}
+                      </TableCell>
                       <TableCell>{getPriorityBadge(project.priority)}</TableCell>
                       <TableCell>{getStatusBadge(project.approval_status)}</TableCell>
                       <TableCell className="text-[var(--text-muted)]">
@@ -207,8 +375,31 @@ export default function AdminProjectsPage() {
                         {format(parseISO(project.created_at), 'PP')}
                       </TableCell>
                       <TableCell className="text-right">
-                        {(project.approval_status === 'pending' || project.approval_status === 'pending_approval') && (
-                          <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-1">
+                          {project.project_status !== 'archived' && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openEditDialog(project)}
+                                title="Edit project"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-amber-600"
+                                onClick={() => setArchivingProject(project)}
+                                title="Archive project"
+                              >
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                          {(project.approval_status === 'pending' || project.approval_status === 'pending_approval') && (
+                            <>
                             <Button 
                               variant="ghost" size="icon" 
                               className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 h-8 w-8"
@@ -223,8 +414,9 @@ export default function AdminProjectsPage() {
                             >
                               <XCircle className="h-4 w-4" />
                             </Button>
-                          </div>
-                        )}
+                            </>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}

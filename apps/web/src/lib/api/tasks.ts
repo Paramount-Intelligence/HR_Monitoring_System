@@ -13,12 +13,14 @@ export interface Task {
   expected_duration_minutes: number;
   actual_duration_minutes: number;
   priority: 'low' | 'medium' | 'high' | 'critical';
-  status: 'created' | 'approved' | 'in_progress' | 'blocked' | 'completed' | 'reviewed' | 'reopened';
+  status: 'created' | 'approved' | 'in_progress' | 'blocked' | 'completed' | 'reviewed' | 'reopened' | 'archived';
   blocked_reason: string | null;
   due_date: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  created_by_name?: string;
+  assigned_to_role?: string;
 }
 
 export const tasksApi = {
@@ -37,8 +39,13 @@ export const tasksApi = {
     return response.data;
   },
 
-  updateTask: async (id: string, data: Partial<Task>) => {
+  updateTask: async (id: string, data: Partial<Task> & { project_id?: string; assigned_to?: string }) => {
     const response = await apiClient.patch<Task>(`/tasks/${id}`, data);
+    return response.data;
+  },
+
+  archiveTask: async (id: string) => {
+    const response = await apiClient.patch<Task>(`/tasks/${id}/archive`);
     return response.data;
   },
 

@@ -61,6 +61,30 @@ class ProjectAuthorizationService:
                 detail="Access denied",
             )
 
+    def can_update_project(self, actor: User, project: Project) -> bool:
+        if actor.role in PROJECT_FULL_ACCESS_ROLES:
+            return True
+        if actor.role in PROJECT_MANAGEMENT_ROLES:
+            return project.manager_id == actor.id or project.owner_id == actor.id
+        return False
+
+    def assert_can_update(self, actor: User, project: Project) -> None:
+        if not self.can_update_project(actor, project):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to edit this project.",
+            )
+
+    def can_archive_project(self, actor: User, project: Project) -> bool:
+        return self.can_update_project(actor, project)
+
+    def assert_can_archive(self, actor: User, project: Project) -> None:
+        if not self.can_archive_project(actor, project):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to archive this project.",
+            )
+
     def apply_list_scope(self, query: Query, actor: User) -> Query:
         if actor.role in PROJECT_FULL_ACCESS_ROLES:
             return query

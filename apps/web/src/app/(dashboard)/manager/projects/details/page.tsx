@@ -9,13 +9,14 @@ import { getErrorMessage } from '@/lib/api/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft, MessageSquare } from 'lucide-react';
+import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft, MessageSquare, Pencil, Archive } from 'lucide-react';
 import { messagesApi } from '@/lib/api/messages';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -24,6 +25,34 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
+import { Input } from '@/components/ui/input';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
+import { safeDisplayLabel } from '@/lib/display-labels';
+import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+const editProjectSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  due_date: z.string().optional(),
+  project_status: z.enum(['draft', 'pending_approval', 'approved', 'active', 'on_hold', 'completed', 'rejected', 'archived']),
+  priority: z.enum(['low', 'medium', 'high', 'critical']),
+});
+
+type EditProjectFormValues = z.infer<typeof editProjectSchema>;
 
 export default function ProjectDetailsPage() {
   const router = useRouter();
@@ -45,6 +74,19 @@ export default function ProjectDetailsPage() {
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isDiscussionLoading, setIsDiscussionLoading] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+
+  const editForm = useForm<EditProjectFormValues>({
+    resolver: zodResolver(editProjectSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      due_date: '',
+      project_status: 'active',
+      priority: 'medium',
+    },
+  });
 
   const handleProjectDiscussion = async () => {
     if (!project) return;
@@ -125,6 +167,54 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  const openEdit = () => {
+    if (!project) return;
+    editForm.reset({
+      title: project.title,
+      description: project.description || '',
+      due_date: project.due_date ? project.due_date.split('T')[0] : '',
+      project_status: project.project_status,
+      priority: project.priority,
+    });
+    setIsEditOpen(true);
+  };
+
+  const onEditSubmit = async (data: EditProjectFormValues) => {
+    if (!project) return;
+    setIsActionLoading(true);
+    try {
+      const updated = await projectsApi.updateProject(project.id, {
+        title: data.title,
+        description: data.description,
+        due_date: data.due_date || null,
+        project_status: data.project_status,
+        priority: data.priority,
+      });
+      setProject(updated);
+      toast.success('Project updated');
+      setIsEditOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!project) return;
+    setIsActionLoading(true);
+    try {
+      await projectsApi.archiveProject(project.id);
+      toast.success('Project archived');
+      setIsArchiveOpen(false);
+      router.push('/manager/projects');
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 text-[var(--text-primary)]">
@@ -150,6 +240,7 @@ export default function ProjectDetailsPage() {
   }
 
   const isManager = currentUser?.id === project.manager_id;
+  const canManage = isManager || currentUser?.role === 'admin' || currentUser?.role === 'hr_operations';
   const isPending = project.approval_status === 'pending' || project.approval_status === 'pending_approval';
 
   return (
@@ -183,6 +274,18 @@ export default function ProjectDetailsPage() {
             )}
             Discuss Project
           </Button>
+          {canManage && project.project_status !== 'archived' && (
+            <>
+              <Button variant="outline" onClick={openEdit} className="h-10 rounded-xl font-black text-[10px] uppercase tracking-widest">
+                <Pencil className="mr-2 h-3.5 w-3.5" />
+                Edit Project
+              </Button>
+              <Button variant="outline" onClick={() => setIsArchiveOpen(true)} className="h-10 rounded-xl font-black text-[10px] uppercase tracking-widest text-amber-700 border-amber-200">
+                <Archive className="mr-2 h-3.5 w-3.5" />
+                Archive
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -253,6 +356,22 @@ export default function ProjectDetailsPage() {
             <CardContent className="p-0 space-y-5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                  <span className="text-[10px] font-black uppercase tracking-widest">Manager</span>
+                </div>
+                <span className="text-xs font-black text-[var(--text-primary)]">
+                  {safeDisplayLabel(project.manager_name, 'Unknown user', 'Project manager')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[var(--text-muted)]">
+                  <span className="text-[10px] font-black uppercase tracking-widest">Owner</span>
+                </div>
+                <span className="text-xs font-black text-[var(--text-primary)]">
+                  {safeDisplayLabel(project.owner_name, 'Unknown user', 'Project owner')}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[var(--text-muted)]">
                   <Calendar className="h-4 w-4" />
                   <span className="text-[10px] font-black uppercase tracking-widest">Created At</span>
                 </div>
@@ -289,27 +408,27 @@ export default function ProjectDetailsPage() {
       </div>
 
       <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent className="sm:max-w-[450px] rounded-[2.5rem] border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] p-10 animate-in zoom-in-95 duration-300 text-[var(--text-primary)]">
-          <DialogHeader className="space-y-3">
-            <DialogTitle className="text-2xl font-black text-rose-600 tracking-tighter">Reject Project</DialogTitle>
-            <DialogDescription className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-tight leading-relaxed">
+        <DialogContent className="sm:max-w-[450px] rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
+          <DialogHeader className="space-y-1">
+            <DialogTitle className="text-xl font-bold text-rose-600">Reject Project</DialogTitle>
+            <DialogDescription className="text-sm text-[var(--text-muted)]">
               Provide a reason for rejecting this project request.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-8">
+          <DialogBody>
             <Textarea 
               placeholder="Reason for rejection..."
-              className="min-h-[140px] resize-none rounded-2xl bg-[var(--bg-subtle)] border-[var(--border-default)] font-bold text-sm text-[var(--text-primary)] leading-relaxed p-6 focus:bg-[var(--bg-surface)] transition-all"
+              className="min-h-[140px] resize-none rounded-2xl bg-[var(--bg-subtle)] border-[var(--border-default)] text-sm text-[var(--text-primary)] leading-relaxed p-4 focus:bg-[var(--bg-surface)] transition-all"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
             />
-          </div>
-          <DialogFooter className="gap-3 sm:gap-0">
-            <Button variant="ghost" onClick={() => setIsRejectDialogOpen(false)} disabled={isActionLoading} className="h-12 rounded-xl font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1 border-none">
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsRejectDialogOpen(false)} disabled={isActionLoading} className="rounded-xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">
               Cancel
             </Button>
             <Button 
-              className="h-12 bg-rose-600 hover:bg-rose-700 text-white font-black text-[10px] uppercase tracking-[0.2em] rounded-xl shadow-lg border-none transition-all flex-1" 
+              className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold border-none" 
               onClick={handleReject}
               disabled={isActionLoading || !rejectionReason.trim()}
             >
@@ -319,6 +438,84 @@ export default function ProjectDetailsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[500px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update description, deadline, status, and priority.</DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="flex min-h-0 flex-1 flex-col">
+              <DialogBody className={modalFormClass}>
+              <FormField control={editForm.control} name="title" render={({ field }) => (
+                <FormItem className={modalFormFieldClass}><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={editForm.control} name="description" render={({ field }) => (
+                <FormItem className={modalFormFieldClass}><FormLabel>Description</FormLabel><FormControl><Textarea className="min-h-[100px] resize-none" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={editForm.control} name="due_date" render={({ field }) => (
+                <FormItem className={modalFormFieldClass}><FormLabel>Target Deadline</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className={modalFormGridClass}>
+                <FormField control={editForm.control} name="project_status" render={({ field }) => (
+                  <FormItem className={modalFormFieldClass}>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><span>{field.value.replace('_', ' ')}</span></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="on_hold">On Hold</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="approved">Approved</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="priority" render={({ field }) => (
+                  <FormItem className={modalFormFieldClass}>
+                    <FormLabel>Priority</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><span>{field.value}</span></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="critical">Critical</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setIsEditOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isActionLoading}>
+                  {isActionLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isArchiveOpen} onOpenChange={setIsArchiveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive this project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide it from active project lists but keep history and time logs.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchive}>Archive</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

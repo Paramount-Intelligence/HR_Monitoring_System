@@ -26,10 +26,17 @@ def list_tasks(
     project_id: uuid.UUID | None = Query(None),
     assigned_to: uuid.UUID | None = Query(None),
     task_status: TaskStatus | None = Query(None, alias="status"),
+    include_archived: bool = Query(False),
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> list[TaskRead]:
-    return TaskService(db).list_tasks(project_id=project_id, assigned_to=assigned_to, task_status=task_status, actor=actor)
+    return TaskService(db).list_tasks(
+        project_id=project_id,
+        assigned_to=assigned_to,
+        task_status=task_status,
+        include_archived=include_archived,
+        actor=actor,
+    )
 
 
 @router.get("/{task_id}", response_model=TaskRead, summary="Get task by ID")
@@ -40,6 +47,11 @@ def get_task(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = De
 @router.patch("/{task_id}", response_model=TaskRead, summary="Update task")
 def update_task(task_id: uuid.UUID, payload: TaskUpdate, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
     return TaskService(db).update_task(task_id, payload, actor)
+
+
+@router.patch("/{task_id}/archive", response_model=TaskRead, summary="Archive a task (soft delete)")
+def archive_task(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
+    return TaskService(db).archive_task(task_id, actor)
 
 
 @router.post("/{task_id}/complexity", response_model=TaskRead, summary="Set task complexity (manager/admin only)")

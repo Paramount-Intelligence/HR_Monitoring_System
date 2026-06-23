@@ -135,7 +135,7 @@ export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabPr
               </p>
             ) : (
               <div className="relative w-full h-[180px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={180}>
                   <PieChart>
                     <Pie
                       data={taskPie}

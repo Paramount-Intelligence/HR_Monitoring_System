@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { isDebugApi } from '@/lib/debug';
+import {
+  isAvatarUrlFailed,
+  markAvatarUrlFailed,
+} from '@/lib/profile-picture';
 
 export function getUserInitials(name: string): string {
   if (!name?.trim()) return '?';
@@ -38,13 +43,19 @@ export function UserAvatar({
   className,
   fallbackClassName,
 }: UserAvatarProps) {
-  const [imageFailed, setImageFailed] = useState(false);
+  const [imageFailed, setImageFailed] = useState(
+    () => Boolean(avatarUrl) && isAvatarUrlFailed(avatarUrl!)
+  );
   const showImage = Boolean(avatarUrl) && !imageFailed;
   const initials = getUserInitials(name);
   const imageAlt = alt || `${name} profile picture`;
 
   useEffect(() => {
-    setImageFailed(false);
+    if (!avatarUrl) {
+      setImageFailed(false);
+      return;
+    }
+    setImageFailed(isAvatarUrlFailed(avatarUrl));
   }, [avatarUrl]);
 
   return (
@@ -57,8 +68,13 @@ export function UserAvatar({
           src={avatarUrl!}
           alt={imageAlt}
           onError={() => {
-            console.warn('[UserAvatar] Failed to load profile picture:', avatarUrl);
+            if (avatarUrl) {
+              markAvatarUrlFailed(avatarUrl);
+            }
             setImageFailed(true);
+            if (isDebugApi()) {
+              console.warn('[UserAvatar] Profile image unavailable');
+            }
           }}
         />
       )}

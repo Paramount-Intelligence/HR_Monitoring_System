@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +22,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useRealtimeEvent, useRealtimeReconnect } from '@/hooks/useRealtime';
+import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
 
 const announceSchema = z.object({
   title: z.string().min(3, 'Title is required'),
@@ -107,17 +108,18 @@ export default function AdminAnnouncementsPage() {
               <Plus className="mr-2 h-4 w-4" /> New Announcement
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[550px] rounded-[2.5rem] border-none shadow-premium-lg p-10">
-            <DialogHeader className="space-y-3">
-              <DialogTitle className="text-2xl font-black text-[var(--text-primary)] tracking-tighter">Broadcast Message</DialogTitle>
+          <DialogContent className="sm:max-w-[550px] rounded-2xl border-none shadow-premium-lg">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-xl font-bold text-[var(--text-primary)] sm:text-2xl">Broadcast Message</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-6">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
+                <DialogBody className={modalFormClass}>
                 <FormField control={form.control} name="title" render={({ field }) => (
-                  <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Title</FormLabel><FormControl><Input placeholder="e.g. Annual Town Hall" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className={modalFormFieldClass}><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Title</FormLabel><FormControl><Input placeholder="e.g. Annual Town Hall" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
                 <FormField control={form.control} name="audience" render={({ field }) => (
-                  <FormItem>
+                  <FormItem className={modalFormFieldClass}>
                     <FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Target Audience</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl><SelectTrigger className="h-12 rounded-xl"><SelectValue placeholder="Select audience" /></SelectTrigger></FormControl>
@@ -131,17 +133,21 @@ export default function AdminAnnouncementsPage() {
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="content" render={({ field }) => (
-                  <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Message Content</FormLabel><FormControl><Textarea className="resize-none rounded-xl min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem className={modalFormFieldClass}><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Message Content</FormLabel><FormControl><Textarea className="resize-none rounded-xl min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
-                <div className="grid grid-cols-2 gap-4">
+                <div className={modalFormGridClass}>
                   <FormField control={form.control} name="start_date" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Start Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className={modalFormFieldClass}><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">Start Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="end_date" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">End Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem className={modalFormFieldClass}><FormLabel className="text-[10px] font-black text-[var(--text-muted)] uppercase ml-1">End Date</FormLabel><FormControl><Input type="datetime-local" className="h-12 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
-                <Button type="submit" className="w-full h-14 bg-indigo-600 text-white font-black text-[10px] uppercase rounded-2xl shadow-xl mt-4">Publish Announcement</Button>
+                </DialogBody>
+                <DialogFooter>
+                  <Button type="button" variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl">Publish Announcement</Button>
+                </DialogFooter>
               </form>
             </Form>
           </DialogContent>

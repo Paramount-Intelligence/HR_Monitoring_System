@@ -2,9 +2,15 @@
 
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import {
+  htmlToPlainText,
+  looksLikeLegacyFormattedText,
+  sanitizeMessageHtml,
+} from '@/lib/messages/message-sanitize';
 
 interface MessageBodyProps {
   text: string;
+  html?: string | null;
   isSelf?: boolean;
   className?: string;
 }
@@ -132,8 +138,7 @@ function renderInline(nodes: InlineNode[], isSelf: boolean, keyPrefix: string) {
   });
 }
 
-/** Safely render lightweight markdown-style message text. */
-export function MessageBody({ text, isSelf = false, className }: MessageBodyProps) {
+function LegacyMessageBody({ text, isSelf, className }: MessageBodyProps) {
   const lines = useMemo(() => text.split('\n'), [text]);
 
   return (
@@ -155,6 +160,51 @@ export function MessageBody({ text, isSelf = false, className }: MessageBodyProp
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Render rich HTML or legacy plain/markdown messages safely. */
+export function MessageBody({ text, html, isSelf = false, className }: MessageBodyProps) {
+  const sanitizedHtml = useMemo(() => {
+    if (!html?.trim()) return '';
+    return sanitizeMessageHtml(html);
+  }, [html]);
+
+  const plainFromHtml = useMemo(
+    () => (sanitizedHtml ? htmlToPlainText(sanitizedHtml) : ''),
+    [sanitizedHtml]
+  );
+
+  if (sanitizedHtml && plainFromHtml) {
+    return (
+      <div
+        className={cn(
+          'message-rich-body break-words text-sm leading-relaxed',
+          '[&_p]:my-0 [&_p+p]:mt-1',
+          '[&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1',
+          '[&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1',
+          '[&_li]:my-0.5',
+          '[&_strong]:font-semibold [&_em]:italic [&_u]:underline',
+          '[&_a]:underline [&_a]:underline-offset-2',
+          isSelf
+            ? '[&_a]:text-white [&_code]:bg-white/15 [&_code]:text-white'
+            : '[&_a]:text-[var(--accent-primary)] [&_code]:bg-[var(--bg-subtle)] [&_code]:text-[var(--text-primary)]',
+          '[&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]',
+          className
+        )}
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+      />
+    );
+  }
+
+  if (looksLikeLegacyFormattedText(text)) {
+    return <LegacyMessageBody text={text} isSelf={isSelf} className={className} />;
+  }
+
+  return (
+    <div className={cn('whitespace-pre-wrap break-words', className)}>
+      {text}
     </div>
   );
 }

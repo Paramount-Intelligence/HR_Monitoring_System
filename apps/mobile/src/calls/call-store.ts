@@ -41,6 +41,13 @@ import { logRecording } from './recording-utils';
 import { queueRecordingUpload, shouldQueueOnError } from '../offline/offline-sync';
 import type { MobileRecordingStopResult } from './mobile-call-recorder';
 import { secureLog } from '../utils/secure-log';
+import { logCallDebug } from './call-debug';
+import {
+  shouldDeferSignalWhileRinging,
+  shouldFireIncomingRingTimeout,
+  shouldHandleCallAcceptedEvent,
+  shouldProcessCalleeWebRtcSignal,
+} from './call-guards';
 
 const END_BRIEF_MS = 2500;
 const INCOMING_POLL_MS = 3000;
@@ -60,6 +67,7 @@ interface CallStoreState {
   callerName: string;
   remoteUserId: string | null;
   isCaller: boolean;
+  userAcceptedIncoming: boolean;
   connectionStatus: CallStatus;
   statusMessage: string | null;
   isMuted: boolean;
@@ -79,6 +87,7 @@ interface CallStoreState {
   incomingPollTimer: ReturnType<typeof setInterval> | null;
   signalPollTimer: ReturnType<typeof setInterval> | null;
   missedCallTimer: ReturnType<typeof setTimeout> | null;
+  incomingMissedTimer: ReturnType<typeof setTimeout> | null;
   connectTimeoutTimer: ReturnType<typeof setTimeout> | null;
   recordingStatus: RecordingStatus;
   recordingSupported: boolean;
@@ -127,10 +136,84 @@ interface CallStoreState {
   stopIncomingPoll: () => void;
   startSignalPoll: () => void;
   stopSignalPoll: () => void;
+  hydrateIncomingCallFromPush: (
+    payload: {
+      call_id?: string;
+      conversation_id?: string;
+      caller_id?: string;
+      call_type?: CallType;
+      caller_name?: string;
+    },
+    currentUserId?: string
+  ) => Promise<void>;
 }
 
 function logCall(message: string): void {
   secureLog('CALL_MOBILE', message);
+}
+
+function clearIncomingMissedTimer(
+  get: () => CallStoreState,
+  set: (partial: Partial<CallStoreState>) => void
+): void {
+  const timer = get().incomingMissedTimer;
+  if (timer) clearTimeout(timer);
+  set({ incomingMissedTimer: null });
+}
+
+function startIncomingMissedTimer(
+  get: () => CallStoreState,
+  set: (partial: Partial<CallStoreState>) => void,
+  sessionId: string
+): void {
+  clearIncomingMissedTimer(get, set);
+  const timer = setTimeout(() => {
+    const state = get();
+    if (
+      shouldFireIncomingRingTimeout({
+        phase: state.phase,
+        sessionId: state.session?.id,
+        expectedSessionId: sessionId,
+      })
+    ) {
+      logCall(`incoming_timeout call_id=${sessionId}`);
+      logCallDebug('incoming ring timeout', { callId: sessionId });
+      void get().declineIncomingCall();
+    }
+  }, MISSED_CALL_TIMEOUT_MS);
+  set({ incomingMissedTimer: timer });
+}
+
+function showIncomingCallState(
+  get: () => CallStoreState,
+  set: (partial: Partial<CallStoreState>) => void,
+  params: {
+    session: CallSessionResponse;
+    callerName: string;
+    remoteUserId: string;
+  }
+): void {
+  if (get().phase !== 'idle') return;
+
+  logCallDebug('incoming UI shown', {
+    callId: params.session.id,
+    type: params.session.call_type,
+  });
+
+  set({
+    phase: 'incoming',
+    connectionStatus: 'incoming',
+    session: params.session,
+    callerName: params.callerName,
+    participantName: params.callerName,
+    isCaller: false,
+    userAcceptedIncoming: false,
+    remoteUserId: params.remoteUserId,
+    isCameraOff: params.session.call_type === 'voice',
+    isBusy: false,
+    errorMessage: null,
+  });
+  startIncomingMissedTimer(get, set, params.session.id);
 }
 
 function scheduleEndBrief(
@@ -185,6 +268,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
   const teardownWebRTC = (callId?: string) => {
     get().stopSignalPoll();
     clearConnectTimeout();
+    clearIncomingMissedTimer(get, set);
     const missed = get().missedCallTimer;
     if (missed) clearTimeout(missed);
     webrtcClient.cleanup(callId);
@@ -379,6 +463,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
     callerName: '',
     remoteUserId: null,
     isCaller: false,
+    userAcceptedIncoming: false,
     connectionStatus: 'idle',
     statusMessage: null,
     isMuted: false,
@@ -398,6 +483,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
     incomingPollTimer: null,
     signalPollTimer: null,
     missedCallTimer: null,
+    incomingMissedTimer: null,
     connectTimeoutTimer: null,
     recordingStatus: 'idle',
     recordingSupported: false,
@@ -503,6 +589,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         callerName: '',
         remoteUserId: null,
         isCaller: false,
+        userAcceptedIncoming: false,
         connectionStatus: 'idle',
         statusMessage: null,
         isMuted: false,
@@ -591,6 +678,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         participantName,
         remoteUserId,
         isCaller: true,
+        userAcceptedIncoming: false,
         callerName: '',
       });
 
@@ -629,7 +717,10 @@ export const useCallStore = create<CallStoreState>((set, get) => {
     acceptIncomingCall: async () => {
       const { session, remoteUserId } = get();
       if (!session || !remoteUserId) return;
+      if (get().phase !== 'incoming') return;
 
+      logCallDebug('accept button pressed', { callId: session.id });
+      clearIncomingMissedTimer(get, set);
       set({ isBusy: true, errorMessage: null, connectionStatus: 'connecting' });
 
       let acceptedOnServer = false;
@@ -640,6 +731,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         const updated = await acceptCall(session.id);
         acceptedOnServer = true;
         logCall(`accepted call_id=${session.id}`);
+        logCallDebug('accept API success', { callId: session.id });
 
         wireWebRTC(session.id, remoteUserId);
         await webrtcClient.createPeerConnection(media.stream, buildIceServers());
@@ -648,6 +740,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
           session: updated,
           phase: 'active',
           isCaller: false,
+          userAcceptedIncoming: true,
           isBusy: false,
           connectionStatus: 'connecting',
         });
@@ -679,6 +772,8 @@ export const useCallStore = create<CallStoreState>((set, get) => {
 
     declineIncomingCall: async () => {
       const { session, remoteUserId } = get();
+      logCallDebug('decline button pressed', { callId: session?.id });
+      clearIncomingMissedTimer(get, set);
       if (!session) {
         get().clearCall();
         return;
@@ -746,7 +841,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
     },
 
     processCallSignalEvent: async (payload) => {
-      const { session, isCaller, remoteUserId, phase } = get();
+      const { session, isCaller, remoteUserId, phase, userAcceptedIncoming } = get();
       if (!session) return;
       if (payload.call_session_id && String(payload.call_session_id) !== session.id) return;
 
@@ -764,11 +859,20 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         return;
       }
 
-      // WebRTC signals before accept — peer connection not ready; poll on accept fetches from API.
-      if (phase === 'incoming') {
-        if (sig.signal_type === 'offer') {
-          logCall('offer received while ringing — will process on accept');
-        }
+      if (shouldDeferSignalWhileRinging({ phase, signalType: sig.signal_type })) {
+        logCall(`signal deferred type=${sig.signal_type} phase=${phase}`);
+        logCallDebug('signal deferred', { callId: session.id, signalType: sig.signal_type });
+        return;
+      }
+
+      if (
+        !shouldProcessCalleeWebRtcSignal({
+          isCaller,
+          userAcceptedIncoming,
+          signalType: sig.signal_type,
+        })
+      ) {
+        logCall(`signal ignored type=${sig.signal_type} reason=not_accepted_yet`);
         return;
       }
 
@@ -779,6 +883,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
         await webrtcClient.processSignal(sig, role, async (answer) => {
           if (!recipientId) return;
           logCall(`answer_sent call_id=${session.id}`);
+          logCallDebug('answer sent', { callId: session.id });
           await sendCallSignal(session.id, recipientId, 'answer', answer);
         });
       } catch (error) {
@@ -788,7 +893,7 @@ export const useCallStore = create<CallStoreState>((set, get) => {
 
       refreshStreamUrls(set);
 
-      if (get().connectionStatus !== 'connected') {
+      if (get().connectionStatus !== 'connected' && (isCaller || userAcceptedIncoming)) {
         set({ connectionStatus: 'connecting', phase: 'active' });
       }
     },
@@ -817,15 +922,9 @@ export const useCallStore = create<CallStoreState>((set, get) => {
 
           const callerName = String(payload.started_by_name || 'Someone');
           logCall(`incoming call_id=${callId} type=${callType}`);
+          logCallDebug('incoming call received', { callId, type: callType });
 
-          set({
-            phase: 'incoming',
-            connectionStatus: 'incoming',
-            callerName,
-            participantName: callerName,
-            isCaller: false,
-            isCameraOff: callType === 'voice',
-            remoteUserId: event.actor_id ? String(event.actor_id) : null,
+          showIncomingCallState(get, set, {
             session: {
               id: callId,
               conversation_id: conversationId,
@@ -837,13 +936,25 @@ export const useCallStore = create<CallStoreState>((set, get) => {
               ended_at: null,
               created_at: event.timestamp,
             },
+            callerName,
+            remoteUserId: event.actor_id ? String(event.actor_id) : '',
           });
           break;
         }
 
         case 'call_accepted': {
-          if (session?.id !== callId) return;
+          if (
+            !shouldHandleCallAcceptedEvent({
+              isCaller: get().isCaller,
+              sessionId: session?.id,
+              callId,
+            })
+          ) {
+            logCall(`call_accepted ignored call_id=${callId} reason=not_outgoing_caller`);
+            break;
+          }
           logCall(`call_accepted call_id=${callId}`);
+          logCallDebug('call accepted event (caller)', { callId });
           const missed = get().missedCallTimer;
           if (missed) clearTimeout(missed);
           set({
@@ -909,16 +1020,33 @@ export const useCallStore = create<CallStoreState>((set, get) => {
 
         const callerName = resolveCallerName?.(incoming) ?? 'Someone';
         logCall(`incoming poll call_id=${incoming.id} type=${incoming.call_type}`);
+        logCallDebug('incoming call received (poll)', { callId: incoming.id });
 
-        set({
-          phase: 'incoming',
-          connectionStatus: 'incoming',
+        showIncomingCallState(get, set, {
           session: incoming,
           callerName,
-          participantName: callerName,
-          isCaller: false,
           remoteUserId: incoming.started_by_id,
-          isCameraOff: incoming.call_type === 'voice',
+        });
+      } catch {
+        /* silent */
+      }
+    },
+
+    hydrateIncomingCallFromPush: async (payload, currentUserId) => {
+      if (get().phase !== 'idle' || !currentUserId) return;
+      try {
+        const incoming = await getIncomingCall();
+        if (!incoming || get().phase !== 'idle') return;
+        if (incoming.started_by_id === currentUserId) return;
+        if (payload.call_id && incoming.id !== payload.call_id) return;
+
+        const callerName = payload.caller_name ?? 'Someone';
+        logCallDebug('incoming call from push', { callId: incoming.id });
+
+        showIncomingCallState(get, set, {
+          session: incoming,
+          callerName,
+          remoteUserId: incoming.started_by_id,
         });
       } catch {
         /* silent */

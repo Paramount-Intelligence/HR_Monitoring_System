@@ -64,7 +64,7 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-[101] flex w-full max-w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-0 text-[var(--text-primary)] shadow-premium-xl duration-200 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "fixed top-1/2 left-1/2 z-[101] flex w-[calc(100vw-2rem)] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-0 text-[var(--text-primary)] shadow-premium-xl duration-200 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           className
         )}
         {...props}
@@ -76,7 +76,7 @@ function DialogContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-3 right-3 z-[102] h-8 w-8 shrink-0 rounded-full hover:bg-[var(--bg-subtle)]"
+                className="absolute top-4 right-4 z-[102] h-8 w-8 shrink-0 rounded-full hover:bg-[var(--bg-subtle)] sm:top-5 sm:right-5"
                 size="icon"
               />
             }
@@ -96,7 +96,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-body"
       className={cn(
-        "min-h-0 flex-1 overflow-y-auto px-5 py-4 custom-scrollbar",
+        "min-h-0 flex-1 overflow-y-auto px-4 py-4 custom-scrollbar sm:px-6 sm:py-5",
         className
       )}
       {...props}
@@ -109,7 +109,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-header"
       className={cn(
-        "shrink-0 flex flex-col gap-1.5 border-b border-[var(--border-subtle)] px-5 pb-3 pt-5 pr-12",
+        "shrink-0 flex flex-col gap-1.5 border-b border-[var(--border-subtle)] px-4 pb-4 pt-5 pr-12 sm:px-6 sm:pt-6",
         className
       )}
       {...props}
@@ -129,7 +129,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "shrink-0 flex flex-col-reverse gap-2 border-t border-[var(--border-default)] bg-[var(--bg-subtle)] p-4 sm:flex-row sm:justify-end",
+        "shrink-0 flex flex-col-reverse gap-3 border-t border-[var(--border-default)] bg-[var(--bg-subtle)] px-4 py-4 sm:flex-row sm:justify-end sm:px-6 sm:pb-6",
         className
       )}
       {...props}

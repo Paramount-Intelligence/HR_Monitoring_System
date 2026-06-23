@@ -13,8 +13,8 @@ from app.models.enums import ApprovalEntityType, ApprovalStatus, ProjectStatus, 
 from app.models.project import Project
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.project import ProjectCreate, ProjectDecision
-from app.services.project_authorization import ProjectAuthorizationService
+from app.schemas.project import ProjectCreate, ProjectDecision, ProjectUpdate
+from app.services.project_authorization import ProjectAuthorizationService, PROJECT_FULL_ACCESS_ROLES
 
 
 class ProjectService:
@@ -64,10 +64,14 @@ class ProjectService:
         project_status: ProjectStatus | None = None,
         owner_id: uuid.UUID | None = None,
         manager_id: uuid.UUID | None = None,
+        include_archived: bool = False,
         actor: User,
     ) -> list[Project]:
         q = self.db.query(Project)
         q = self._authz.apply_list_scope(q, actor)
+
+        if not include_archived or actor.role not in PROJECT_FULL_ACCESS_ROLES:
+            q = q.filter(Project.project_status != ProjectStatus.ARCHIVED)
 
         if approval_status:
             q = q.filter(Project.approval_status == approval_status)
@@ -154,6 +158,78 @@ class ProjectService:
             },
         )
 
+        self.db.commit()
+        self.db.refresh(project)
+        return project
+
+    def update_project(
+        self, project_id: uuid.UUID, payload: ProjectUpdate, actor: User
+    ) -> Project:
+        project = self.db.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        self._authz.assert_can_update(actor, project)
+
+        old_snapshot = {
+            "title": project.title,
+            "description": project.description,
+            "priority": project.priority.value if hasattr(project.priority, "value") else project.priority,
+            "due_date": str(project.due_date) if project.due_date else None,
+            "project_status": project.project_status.value if hasattr(project.project_status, "value") else project.project_status,
+            "manager_id": str(project.manager_id),
+        }
+        changes = payload.model_dump(exclude_unset=True)
+        audit_changes = payload.model_dump(exclude_unset=True, mode="json")
+        if "manager_id" in changes and changes["manager_id"] is not None:
+            if actor.role not in PROJECT_FULL_ACCESS_ROLES:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only admins can reassign project manager",
+                )
+            manager = self.db.get(User, changes["manager_id"])
+            if not manager or manager.role not in (
+                UserRole.MANAGER,
+                UserRole.ADMIN,
+                UserRole.TEAM_LEAD,
+                UserRole.HR_OPERATIONS,
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="manager_id must reference a valid manager or admin user",
+                )
+
+        for field, value in changes.items():
+            setattr(project, field, value)
+
+        self._write_audit(
+            actor=actor,
+            action="PROJECT_UPDATED",
+            entity_id=project.id,
+            old_value=old_snapshot,
+            new_value=audit_changes,
+        )
+        self.db.commit()
+        self.db.refresh(project)
+        project.progress_percentage = self._calculate_progress(project.id)
+        return project
+
+    def archive_project(self, project_id: uuid.UUID, actor: User) -> Project:
+        project = self.db.get(Project, project_id)
+        if not project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+        self._authz.assert_can_archive(actor, project)
+        if project.project_status == ProjectStatus.ARCHIVED:
+            return project
+
+        old_status = project.project_status.value if hasattr(project.project_status, "value") else project.project_status
+        project.project_status = ProjectStatus.ARCHIVED
+        self._write_audit(
+            actor=actor,
+            action="PROJECT_ARCHIVED",
+            entity_id=project.id,
+            old_value={"project_status": old_status},
+            new_value={"project_status": ProjectStatus.ARCHIVED.value},
+        )
         self.db.commit()
         self.db.refresh(project)
         return project

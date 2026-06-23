@@ -253,3 +253,194 @@ export function resolveOptionLabel(
   }
   return safeDisplayLabel(value, noneLabel, 'Select trigger');
 }
+
+export function getProjectLabel(
+  project: { title?: string | null; name?: string | null },
+  fallback = 'Unknown project'
+): string {
+  return safeDisplayLabel(project.title ?? project.name, fallback, 'Project');
+}
+
+export function getAssigneeLabel(
+  task: {
+    assigned_to_name?: string | null;
+    assignee_name?: string | null;
+    assigned_to?: string | null;
+  },
+  usersMap?: Map<string, { full_name?: string | null; name?: string | null; email?: string | null }>,
+  currentUserId?: string | null,
+  fallback = 'Unassigned'
+): string {
+  const fromApi = safeDisplayLabel(
+    task.assigned_to_name ?? task.assignee_name,
+    '',
+    'Task assignee'
+  );
+  if (fromApi) {
+    if (currentUserId && task.assigned_to === currentUserId) {
+      return 'You';
+    }
+    return fromApi;
+  }
+  if (task.assigned_to && usersMap) {
+    const user = usersMap.get(task.assigned_to);
+    if (user) {
+      const name = getUserLabel(user);
+      if (currentUserId && task.assigned_to === currentUserId) {
+        return 'You';
+      }
+      return name;
+    }
+  }
+  if (task.assigned_to && isUuidLike(task.assigned_to)) {
+    return fallback;
+  }
+  return fallback;
+}
+
+export function makeProjectOptions(
+  projects: { id: string; title?: string | null }[],
+  selected?: { id?: string | null; title?: string | null }
+): LabeledOption[] {
+  const options: LabeledOption[] = projects.map((project) => ({
+    value: project.id,
+    label: getProjectLabel(project),
+  }));
+
+  const selectedId = selected?.id && selected.id !== 'none' ? selected.id : null;
+  if (!selectedId || options.some((option) => option.value === selectedId)) {
+    return options;
+  }
+
+  options.push({
+    value: selectedId,
+    label: getProjectLabel({ title: selected.title }, 'Unknown project'),
+  });
+  return options;
+}
+
+export function makeAssigneeOptions(
+  users: {
+    id: string;
+    full_name?: string | null;
+    name?: string | null;
+    email?: string | null;
+    role?: string | null;
+    designation?: string | null;
+  }[],
+  currentUserId?: string | null,
+  selected?: { id?: string | null; name?: string | null; role?: string | null }
+): LabeledOption[] {
+  const options: LabeledOption[] = users.map((user) => {
+    const base = getUserLabel(user);
+    const roleSuffix = user.role
+      ? ` (${safeDisplayLabel(user.role, '', 'Assignee role')})`
+      : '';
+    const label =
+      currentUserId && user.id === currentUserId
+        ? `${base} (You)`
+        : `${base}${roleSuffix}`;
+    return { value: user.id, label };
+  });
+
+  const selectedId = selected?.id && selected.id !== 'none' ? selected.id : null;
+  if (!selectedId || options.some((option) => option.value === selectedId)) {
+    return options;
+  }
+
+  options.push({
+    value: selectedId,
+    label: getUserLabel({ full_name: selected.name }, 'Unknown user'),
+  });
+  return options;
+}
+
+export function buildUsersById<T extends { id: string }>(users: T[]): Map<string, T> {
+  return new Map(users.map((user) => [user.id, user]));
+}
+
+export function getEntityLabelById<T extends { id: string }>(
+  id: string | null | undefined,
+  map: Map<string, T>,
+  getLabel: (entity: T) => string,
+  fallback: string
+): string {
+  if (!id) return fallback;
+  const entity = map.get(id);
+  if (entity) return getLabel(entity);
+  if (isUuidLike(id)) return fallback;
+  return safeDisplayLabel(id, fallback, 'Entity label');
+}
+
+export function getTaskProjectLabel(
+  task: { project_title?: string | null; project_id?: string | null },
+  projectsMap?: Map<string, { title?: string | null }>,
+  fallback = 'Unknown project'
+): string {
+  const fromApi = safeDisplayLabel(task.project_title, '', 'Task project');
+  if (fromApi) return fromApi;
+  if (task.project_id && projectsMap) {
+    const project = projectsMap.get(task.project_id);
+    if (project) return getProjectLabel(project, fallback);
+  }
+  return fallback;
+}
+
+export function getTaskTimerLabel(
+  task: {
+    id?: string;
+    title?: string | null;
+    project_title?: string | null;
+    project_id?: string | null;
+  },
+  projectsMap?: Map<string, { title?: string | null }>,
+  fallback = 'Unknown task'
+): string {
+  const taskTitle = safeDisplayLabel(task.title, fallback, 'Timer task');
+  const projectTitle = getTaskProjectLabel(task, projectsMap, '');
+  if (projectTitle && projectTitle !== 'Unknown project') {
+    return `${taskTitle} — ${projectTitle}`;
+  }
+  return taskTitle;
+}
+
+export function makeTaskTimerOptions(
+  tasks: {
+    id: string;
+    title?: string | null;
+    project_title?: string | null;
+    project_id?: string | null;
+    status?: string | null;
+  }[],
+  projectsMap?: Map<string, { title?: string | null }>,
+  selected?: {
+    id?: string | null;
+    title?: string | null;
+    project_title?: string | null;
+    project_id?: string | null;
+  }
+): LabeledOption[] {
+  const eligible = tasks.filter((task) => task.status !== 'completed' && task.status !== 'archived');
+  const options: LabeledOption[] = eligible.map((task) => ({
+    value: task.id,
+    label: getTaskTimerLabel(task, projectsMap),
+  }));
+
+  const selectedId = selected?.id && selected.id !== 'none' ? selected.id : null;
+  if (!selectedId || options.some((option) => option.value === selectedId)) {
+    return options;
+  }
+
+  options.push({
+    value: selectedId,
+    label: getTaskTimerLabel(
+      {
+        title: selected.title,
+        project_title: selected.project_title,
+        project_id: selected.project_id,
+      },
+      projectsMap
+    ),
+  });
+  return options;
+}

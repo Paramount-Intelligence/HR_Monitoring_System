@@ -97,6 +97,7 @@ export interface Message {
   sender_id: string;
   sender: UserMinimal;
   body: string;
+  body_html?: string | null;
   message_type: MessageType;
   parent_message_id: string | null;
   reply_to_message_id?: string | null;
@@ -150,6 +151,7 @@ export interface ConversationCreateParams {
 
 export interface MessageCreateParams {
   body?: string;
+  body_html?: string;
   mentioned_user_ids?: string[];
   attachment_ids?: string[];
   reply_to_message_id?: string;

@@ -11,6 +11,7 @@ import { format, parseISO, formatDuration, intervalToDuration, startOfDay, start
 import { Loader2, PlayCircle, StopCircle, Clock, Plus, Zap, History, Briefcase, Calendar, CheckCircle, Play } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { modalFormClass, modalFormFieldClass } from '@/lib/modal-layout';
 import { TaskTimer } from '@/components/tasks/TaskTimer';
 import { toast } from 'sonner';
 import apiClient, { getErrorMessage } from '@/lib/api/client';
@@ -248,7 +249,7 @@ export default function TimeLogsPage() {
               </DialogHeader>
               <DialogBody>
                 <Form {...manualForm}>
-                  <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className="space-y-4" id="manual-log-form">
+                  <form onSubmit={manualForm.handleSubmit(onManualSubmit)} className={modalFormClass} id="manual-log-form">
                     <FormField control={manualForm.control} name="task_id" render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs">Task</FormLabel>

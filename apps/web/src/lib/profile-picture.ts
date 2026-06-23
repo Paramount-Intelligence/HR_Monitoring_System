@@ -1,4 +1,18 @@
-/** Backend origin derived from NEXT_PUBLIC_API_URL (never the bare frontend origin for /media paths). */
+/** URLs that failed to load — avoid repeated 404 requests across the app. */
+const failedAvatarUrls = new Set<string>();
+
+export function isAvatarUrlFailed(url: string): boolean {
+  return failedAvatarUrls.has(url);
+}
+
+export function markAvatarUrlFailed(url: string): void {
+  failedAvatarUrls.add(url);
+}
+
+export function clearFailedAvatarUrl(url: string): void {
+  failedAvatarUrls.delete(url);
+}
+
 export function getBackendOrigin(): string {
   const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/$/, '');
   if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {

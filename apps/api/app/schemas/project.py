@@ -17,6 +17,15 @@ class ProjectCreate(BaseModel):
     manager_id: uuid.UUID | None = None  # the manager who will approve (optional for admins)
 
 
+class ProjectUpdate(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=255)
+    description: str | None = None
+    priority: ProjectPriority | None = None
+    due_date: date | None = None
+    project_status: ProjectStatus | None = None
+    manager_id: uuid.UUID | None = None
+
+
 class ProjectRead(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -24,7 +33,9 @@ class ProjectRead(BaseModel):
     title: str
     description: str | None
     owner_id: uuid.UUID
+    owner_name: str | None = None
     manager_id: uuid.UUID
+    manager_name: str | None = None
     priority: ProjectPriority
     approval_status: ApprovalStatus
     project_status: ProjectStatus

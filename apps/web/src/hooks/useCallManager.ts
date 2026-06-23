@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { isDebugCalls } from '@/lib/debug';
 import { messagesApi, CallSession, CallSignal, Conversation } from '@/lib/api/messages';
 import { getErrorMessage } from '@/lib/api/client';
 import { useRealtimeEvent } from '@/hooks/useRealtime';
@@ -708,7 +709,9 @@ export function useCallManager({
     if (localVideoRef.current.srcObject !== localStream) {
       localVideoRef.current.srcObject = localStream;
       void localVideoRef.current.play().catch(() => undefined);
-      console.log('[VIDEO_UI] attached local preview stream');
+      if (isDebugCalls()) {
+        console.log('[VIDEO_UI] attached local preview stream');
+      }
     }
   }, [localStream, activeCallUi, connectionStatus, callSession?.id]);
 
@@ -717,17 +720,21 @@ export function useCallManager({
     if (remoteVideoRef.current.srcObject !== remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
       void remoteVideoRef.current.play().catch(() => undefined);
-      console.log('[VIDEO_UI] attached remote video stream');
+      if (isDebugCalls()) {
+        console.log('[VIDEO_UI] attached remote video stream');
+      }
     }
   }, [remoteStream, activeCallUi, connectionStatus, callSession?.id]);
 
   useEffect(() => {
+    if (!isDebugCalls()) return;
     console.log(
       `[VIDEO_UI] localStream present=${Boolean(localStream)} videoTracks=${localStream?.getVideoTracks().length ?? 0} audioTracks=${localStream?.getAudioTracks().length ?? 0}`
     );
   }, [localStream]);
 
   useEffect(() => {
+    if (!isDebugCalls()) return;
     console.log(
       `[VIDEO_UI] remoteStream present=${Boolean(remoteStream)} videoTracks=${remoteStream?.getVideoTracks().length ?? 0} audioTracks=${remoteStream?.getAudioTracks().length ?? 0}`
     );

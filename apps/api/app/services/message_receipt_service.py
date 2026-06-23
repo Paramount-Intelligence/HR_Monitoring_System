@@ -14,6 +14,7 @@ from app.models.communication import (
 )
 from app.models.enums import ConversationParticipantRole, UserRole
 from app.models.user import User
+from app.services.message_html_service import html_to_plain_text, sanitize_message_html
 from app.schemas.communication import (
     MessageAttachmentRead,
     MessageMentionRead,
@@ -25,7 +26,7 @@ from app.schemas.communication import (
 
 
 def _preview_text(body: str, max_len: int = 120) -> str:
-    text = (body or "").strip()
+    text = html_to_plain_text(body) if "<" in (body or "") else (body or "").strip()
     if len(text) <= max_len:
         return text
     return text[: max_len - 1] + "…"
@@ -211,11 +212,9 @@ def serialize_message(db: Session, msg: Message, viewer_id: uuid.UUID) -> Messag
     )
 
     attachments: list[MessageAttachmentRead] = []
-    body = msg.body
-    if msg.is_deleted:
-        body = ""
-        attachments = []
-    elif msg.attachments:
+    body = msg.body if not msg.is_deleted else ""
+    body_html = sanitize_message_html(msg.body_html) if (msg.body_html and not msg.is_deleted) else None
+    if not msg.is_deleted and msg.attachments:
         attachments = [MessageAttachmentRead.model_validate(a) for a in msg.attachments]
 
     sender = UserMinimal.model_validate(msg.sender) if msg.sender else None
@@ -237,6 +236,7 @@ def serialize_message(db: Session, msg: Message, viewer_id: uuid.UUID) -> Messag
         sender_id=msg.sender_id,
         sender=sender,
         body=body,
+        body_html=body_html,
         message_type=msg.message_type,
         parent_message_id=msg.parent_message_id,
         reply_to_message_id=msg.parent_message_id,

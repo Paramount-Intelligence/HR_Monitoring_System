@@ -38,6 +38,8 @@ class TimeLogRead(BaseModel):
     task_id: uuid.UUID
     task_title: str | None = None
     user_id: uuid.UUID
+    user_name: str | None = None
+    project_title: str | None = None
     started_at: datetime
     ended_at: datetime | None
     duration_minutes: int | None

@@ -19,9 +19,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from '@/components/ui/table';
 import { 
-  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, 
   DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
+import { modalFormClass } from '@/lib/modal-layout';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -339,8 +340,8 @@ export default function ManagerApprovalsPage() {
 
       {/* Resolution Dialog */}
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="sm:max-w-[500px] rounded-[2.5rem] border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] p-10 animate-in zoom-in-95 duration-300 text-[var(--text-primary)]">
-          <DialogHeader className="space-y-4">
+        <DialogContent className="sm:max-w-[500px] rounded-2xl border-none shadow-[var(--shadow-hard)] bg-[var(--bg-surface)] text-[var(--text-primary)]">
+          <DialogHeader className="space-y-2">
             <div className="flex items-center gap-4">
               <div className={cn(
                 "h-16 w-16 rounded-3xl flex items-center justify-center shadow-inner",
@@ -358,7 +359,7 @@ export default function ManagerApprovalsPage() {
               </div>
             </div>
           </DialogHeader>
-          <div className="grid gap-8 py-8">
+          <DialogBody className={modalFormClass}>
             {selectedItem?.type === 'correction' && actionType === 'approved' && (
               <div className="grid grid-cols-2 gap-6 p-6 bg-[var(--bg-subtle)] rounded-[2rem] border border-[var(--border-subtle)] shadow-inner">
                 <div className="space-y-2">
@@ -393,16 +394,16 @@ export default function ManagerApprovalsPage() {
                 className="resize-none rounded-[1.5rem] bg-[var(--bg-subtle)]/50 border-[var(--border-subtle)] text-[var(--text-primary)] min-h-[140px] font-bold text-sm leading-relaxed p-6"
               />
             </div>
-          </div>
-          <DialogFooter className="gap-4">
-            <Button variant="ghost" onClick={() => setSelectedItem(null)} className="h-14 rounded-2xl font-black text-xs uppercase tracking-widest text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all flex-1">Discard</Button>
+          </DialogBody>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setSelectedItem(null)} className="rounded-xl font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)]">Discard</Button>
             <Button 
                 onClick={handleResolve} 
                 disabled={isActionLoading}
                 className={cn(
-                    "h-14 rounded-2xl font-black text-xs uppercase tracking-widest px-10 shadow-xl border-none transition-all active:scale-95 flex-1 text-white",
-                    actionType === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' : 
-                    actionType === 'rejected' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-100' : 
+                    "rounded-xl font-semibold px-6 shadow-sm border-none text-white",
+                    actionType === 'approved' ? 'bg-emerald-600 hover:bg-emerald-700' : 
+                    actionType === 'rejected' ? 'bg-rose-600 hover:bg-rose-700' : 
                     'bg-[var(--accent-primary)] hover:opacity-90'
                 )}
             >

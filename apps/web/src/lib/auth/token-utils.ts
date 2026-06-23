@@ -1,3 +1,9 @@
+import { isDebugAuth } from '@/lib/debug';
+import {
+  canFetchProtectedData,
+  enqueueTokenRefresh,
+} from '@/lib/auth/session';
+
 const EXP_BUFFER_SEC = 60;
 
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -25,6 +31,7 @@ export function isTokenExpiringSoon(token: string, withinSeconds = EXP_BUFFER_SE
 
 export async function ensureFreshAccessToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null;
+  if (!canFetchProtectedData()) return null;
 
   let token = localStorage.getItem('access_token');
   if (!token) return null;
@@ -33,50 +40,10 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
     return token;
   }
 
-  console.log('[AUTH] token expiring, refreshing');
-
-  const refreshToken = localStorage.getItem('refresh_token');
-  if (!refreshToken) {
-    console.warn('[AUTH] refresh failed, logging out');
-    window.dispatchEvent(new Event('auth:unauthorized'));
-    return null;
+  if (isDebugAuth()) {
+    console.log('[AUTH] token expiring, refreshing');
   }
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-
-  try {
-    const res = await fetch(`${apiUrl}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    if (!res.ok) {
-      throw new Error(`refresh failed status=${res.status}`);
-    }
-
-    const data = (await res.json()) as {
-      access_token?: string;
-      refresh_token?: string;
-    };
-
-    if (!data.access_token) {
-      throw new Error('refresh response missing access_token');
-    }
-
-    localStorage.setItem('access_token', data.access_token);
-    if (data.refresh_token) {
-      localStorage.setItem('refresh_token', data.refresh_token);
-    }
-
-    console.log('[AUTH] refresh success');
-    window.dispatchEvent(
-      new CustomEvent('pims-token-refreshed', { detail: { access_token: data.access_token } })
-    );
-    return data.access_token;
-  } catch {
-    console.warn('[AUTH] refresh failed, logging out');
-    window.dispatchEvent(new Event('auth:unauthorized'));
-    return null;
-  }
+  const refreshed = await enqueueTokenRefresh();
+  return refreshed;
 }
