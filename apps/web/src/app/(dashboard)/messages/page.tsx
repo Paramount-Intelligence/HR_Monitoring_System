@@ -67,6 +67,7 @@ import {
   getConversationLoadError,
   type ConversationLoadError,
 } from '@/components/messages/messages-utils';
+import { StartConversationModal } from '@/components/messages/StartConversationModal';
 import { VoiceMessageRecorder } from '@/components/messages/VoiceMessageRecorder';
 import { VoiceMessageBubble } from '@/components/messages/VoiceMessageBubble';
 import { isVoiceNoteAttachment, isVoiceNoteMessage } from '@/lib/messages/voice-messages';
@@ -320,10 +321,6 @@ function MessagesContent() {
 
   // Create conversation modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newConvType, setNewConvType] = useState<ConversationType>('direct');
-  const [newConvTitle, setNewConvTitle] = useState('');
-  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
-  const [submittingConv, setSubmittingConv] = useState(false);
   const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>('home');
   const [conversationPanelTab, setConversationPanelTab] = useState<ConversationPanelTab>('messages');
 
@@ -711,29 +708,10 @@ function MessagesContent() {
     }
   };
 
-  const handleCreateConversation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newConvType !== 'direct' && !newConvTitle.trim()) return;
-    if (selectedParticipants.length === 0) return;
-    try {
-      setSubmittingConv(true); setError(null);
-      const newConv = await messagesApi.createConversation({
-        type: newConvType,
-        title: newConvType === 'direct' ? undefined : newConvTitle,
-        participant_ids: selectedParticipants,
-      });
-      setConversations(prev => [newConv, ...prev]);
-      setShowCreateModal(false); setNewConvTitle(''); setSelectedParticipants([]);
-      handleSelectConversation(newConv.id);
-    } catch (err) { setError(getErrorMessage(err)); }
-    finally { setSubmittingConv(false); }
-  };
-
-  const toggleParticipant = (userId: string) => {
-    setSelectedParticipants(prev => {
-      if (newConvType === 'direct') return [userId];
-      return prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId];
-    });
+  const handleCreateConversationSuccess = (newConv: Conversation) => {
+    setConversations((prev) => [newConv, ...prev]);
+    setShowCreateModal(false);
+    handleSelectConversation(newConv.id);
   };
 
   const handleDeleteMessage = async () => {
@@ -1525,95 +1503,13 @@ function MessagesContent() {
         )}
       </div>
 
-      {/* ═══ Create Conversation Modal ═══ */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)] p-6 shadow-[var(--shadow-card)] text-[var(--text-primary)] space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black uppercase tracking-wider text-[var(--text-primary)] flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-[var(--accent-primary)]" /> Start Conversation
-              </h3>
-              <button
-                onClick={() => { setShowCreateModal(false); setSelectedParticipants([]); setNewConvTitle(''); }}
-                className="p-1 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-sidebar-hover)]"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex gap-2">
-              {(['direct', 'group', 'channel'] as const).map(type => (
-                <button
-                  key={type}
-                  className={`flex-1 py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-wider flex flex-col items-center gap-2 transition-all ${
-                    newConvType === type
-                      ? 'bg-[var(--accent-primary)]/10 border-[var(--accent-primary)] text-[var(--accent-primary)]'
-                      : 'bg-transparent border-[var(--border-default)] text-[var(--text-secondary)] hover:bg-[var(--bg-sidebar-hover)]'
-                  }`}
-                  onClick={() => { setNewConvType(type); setSelectedParticipants([]); }}
-                >
-                  {getConvIcon(type)}
-                  {type}
-                </button>
-              ))}
-            </div>
-
-            <form onSubmit={handleCreateConversation} className="space-y-4">
-              {newConvType !== 'direct' && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Discussion Title</label>
-                  <input
-                    type="text"
-                    placeholder="Enter discussion title..."
-                    required
-                    className="w-full p-3 text-xs rounded-xl bg-[var(--bg-surface)] border border-[var(--border-strong)]/40 focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)]"
-                    value={newConvTitle}
-                    onChange={e => setNewConvTitle(e.target.value)}
-                  />
-                </div>
-              )}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">
-                  {newConvType === 'direct' ? 'Select Participant' : 'Add Group Participants'}
-                </label>
-                <div className="max-h-48 overflow-y-auto border border-[var(--border-default)] rounded-xl p-2 space-y-1 custom-scrollbar">
-                  {usersList.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-[var(--text-muted)] italic font-semibold">No other team members found.</div>
-                  ) : (
-                    usersList.map((u: any) => {
-                      const isSelected = selectedParticipants.includes(u.id);
-                      return (
-                        <button
-                          key={u.id}
-                          type="button"
-                          onClick={() => toggleParticipant(u.id)}
-                          className={`w-full flex items-center justify-between p-2 hover:bg-[var(--bg-sidebar-hover)] rounded-xl text-left transition-all ${isSelected ? 'bg-[var(--bg-sidebar-active)]/50' : ''}`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <UserProfilePicture user={u} name={u.full_name} size="default" className="h-8 w-8 ring-1 ring-[var(--border-default)]" />
-                            <div>
-                              <p className="text-xs font-black text-[var(--text-primary)]">{u.full_name}</p>
-                              <p className="text-[9px] text-[var(--text-muted)] uppercase font-semibold">{u.role}</p>
-                            </div>
-                          </div>
-                          {isSelected && <UserCheck className="h-4 w-4 text-[var(--accent-primary)]" />}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-              <Button
-                type="submit"
-                disabled={submittingConv || selectedParticipants.length === 0}
-                className="w-full py-3 bg-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/80 text-white rounded-xl shadow-md text-xs font-black uppercase tracking-wider"
-              >
-                {submittingConv ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : 'Launch Discussion'}
-              </Button>
-            </form>
-          </div>
-        </div>
-      )}
+      <StartConversationModal
+        open={showCreateModal}
+        currentUserId={user?.id}
+        onClose={() => setShowCreateModal(false)}
+        onCreated={handleCreateConversationSuccess}
+        getConvIcon={getConvIcon}
+      />
 
       {/* ═══ Manage Members Modal ═══ */}
       {showManageModal && activeConv && (

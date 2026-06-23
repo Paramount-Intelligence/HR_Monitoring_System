@@ -15,6 +15,20 @@ class UserMinimal(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MessagingDirectoryEntryRead(BaseModel):
+    """Safe company-wide directory entry for the Start Conversation modal."""
+
+    id: UUID
+    full_name: str
+    role: str
+    department_name: str | None = None
+    designation: str | None = None
+    profile_picture_url: str | None = None
+    is_active: bool = True
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MessageReactionRead(BaseModel):
     id: UUID
     message_id: UUID

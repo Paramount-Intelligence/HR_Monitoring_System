@@ -16,15 +16,14 @@ import { Extension } from '@tiptap/core';
 import { cn } from '@/lib/utils';
 import { ComposerFormattingToolbar } from '@/components/messages/ComposerFormattingToolbar';
 import { sanitizeMessageHtml } from '@/lib/messages/message-sanitize';
+import {
+  getComposerActiveState,
+  runComposerFormatAction,
+  shouldSubmitComposerOnEnter,
+  type ComposerFormatAction,
+} from '@/lib/messages/composer-formatting';
 
-export type ComposerFormatAction =
-  | 'bold'
-  | 'italic'
-  | 'underline'
-  | 'link'
-  | 'bulletList'
-  | 'orderedList'
-  | 'code';
+export type { ComposerFormatAction };
 
 export interface RichTextComposerHandle {
   focus: () => void;
@@ -69,6 +68,14 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
           codeBlock: false,
           link: false,
           underline: false,
+          bulletList: {
+            keepMarks: true,
+            keepAttributes: false,
+          },
+          orderedList: {
+            keepMarks: true,
+            keepAttributes: false,
+          },
         }),
         Underline,
         Link.configure({
@@ -89,13 +96,16 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
       editorProps: {
         attributes: {
           class:
-            'prose prose-sm max-w-none focus:outline-none min-h-[72px] px-3 py-2 text-sm text-[var(--text-primary)]',
+            'message-rich-body focus:outline-none min-h-[72px] px-3 py-2 text-sm text-[var(--text-primary)]',
         },
         transformPastedHTML(html) {
           return sanitizeMessageHtml(html);
         },
-        handleKeyDown(_view, event) {
+        handleKeyDown(view, event) {
           if (event.key === 'Enter' && !event.shiftKey && onSubmit) {
+            if (!shouldSubmitComposerOnEnter(view)) {
+              return false;
+            }
             event.preventDefault();
             onSubmit();
             return true;
@@ -146,53 +156,19 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
         };
       }
       void toolbarVersion;
-      return {
-        bold: editor.isActive('bold'),
-        italic: editor.isActive('italic'),
-        underline: editor.isActive('underline'),
-        bulletList: editor.isActive('bulletList'),
-        orderedList: editor.isActive('orderedList'),
-        code: editor.isActive('code'),
-        link: editor.isActive('link'),
-      };
+      return getComposerActiveState(editor);
     }, [editor, toolbarVersion]);
 
     const handleAction = (action: ComposerFormatAction) => {
       if (!editor || disabled) return;
 
-      switch (action) {
-        case 'bold':
-          editor.chain().focus().toggleBold().run();
-          break;
-        case 'italic':
-          editor.chain().focus().toggleItalic().run();
-          break;
-        case 'underline':
-          editor.chain().focus().toggleUnderline().run();
-          break;
-        case 'link': {
-          const previousUrl = editor.getAttributes('link').href as string | undefined;
-          const url = window.prompt('Enter link URL', previousUrl || 'https://');
-          if (url === null) return;
-          const trimmed = url.trim();
-          if (!trimmed) {
-            editor.chain().focus().extendMarkRange('link').unsetLink().run();
-            return;
-          }
-          editor.chain().focus().extendMarkRange('link').setLink({ href: trimmed }).run();
-          break;
-        }
-        case 'bulletList':
-          editor.chain().focus().toggleBulletList().run();
-          break;
-        case 'orderedList':
-          editor.chain().focus().toggleOrderedList().run();
-          break;
-        case 'code':
-          editor.chain().focus().toggleCode().run();
-          break;
-        default:
-          break;
+      if (action === 'link') {
+        const previousUrl = editor.getAttributes('link').href as string | undefined;
+        const url = window.prompt('Enter link URL', previousUrl || 'https://');
+        if (url === null) return;
+        runComposerFormatAction(editor, action, { linkUrl: url });
+      } else {
+        runComposerFormatAction(editor, action);
       }
       setToolbarVersion(v => v + 1);
     };

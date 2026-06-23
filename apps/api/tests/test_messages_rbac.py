@@ -65,7 +65,7 @@ def _login(email: str) -> str:
     return response.json()["access_token"]
 
 
-def test_employee_cannot_dm_unrelated_user(message_users):
+def test_employee_can_dm_any_active_user(message_users):
     users = message_users
     token = _login(users["employee"].email)
     response = client.post(
@@ -73,7 +73,7 @@ def test_employee_cannot_dm_unrelated_user(message_users):
         headers={"Authorization": f"Bearer {token}"},
         json={"type": "direct", "participant_ids": [str(users["outsider"].id)]},
     )
-    assert response.status_code == 403
+    assert response.status_code == 201, response.text
 
 
 def test_employee_can_dm_manager(message_users):

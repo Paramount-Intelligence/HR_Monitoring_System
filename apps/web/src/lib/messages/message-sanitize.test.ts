@@ -20,6 +20,40 @@ describe('sanitizeMessageHtml', () => {
     const out = sanitizeMessageHtml('<p><strong>hello</strong></p>');
     assert.equal(out.includes('**'), false);
   });
+
+  it('preserves bullet list html', () => {
+    const input = '<ul><li>one</li><li>two</li></ul>';
+    const out = sanitizeMessageHtml(input);
+    assert.match(out, /<ul>/);
+    assert.match(out, /<li>one<\/li>/);
+    assert.match(out, /<li>two<\/li>/);
+    assert.equal(out.includes('- '), false);
+  });
+
+  it('preserves ordered list html', () => {
+    const input = '<ol><li>first</li><li>second</li></ol>';
+    const out = sanitizeMessageHtml(input);
+    assert.match(out, /<ol>/);
+    assert.match(out, /<li>first<\/li>/);
+    assert.match(out, /<li>second<\/li>/);
+    assert.equal(out.includes('1.'), false);
+  });
+
+  it('preserves inline code html', () => {
+    const input = '<p>Use <code>npm test</code> locally</p>';
+    const out = sanitizeMessageHtml(input);
+    assert.match(out, /<code>npm test<\/code>/);
+    assert.equal(out.includes('`'), false);
+  });
+
+  it('strips script tags from list and code html', () => {
+    const input =
+      '<ul><li><script>alert(1)</script>safe</li></ul><p><code>ok</code></p>';
+    const out = sanitizeMessageHtml(input);
+    assert.equal(out.includes('script'), false);
+    assert.match(out, /<li>safe<\/li>/);
+    assert.match(out, /<code>ok<\/code>/);
+  });
 });
 
 describe('hasRichFormatting', () => {
@@ -32,6 +66,20 @@ describe('hasRichFormatting', () => {
 
   it('treats plain paragraph as not rich', () => {
     assert.equal(hasRichFormatting('<p>hello</p>', 'hello'), false);
+  });
+
+  it('detects list html as rich', () => {
+    assert.equal(
+      hasRichFormatting('<ul><li>one</li></ul>', 'one'),
+      true
+    );
+  });
+
+  it('detects inline code html as rich', () => {
+    assert.equal(
+      hasRichFormatting('<p><code>npm test</code></p>', 'npm test'),
+      true
+    );
   });
 });
 

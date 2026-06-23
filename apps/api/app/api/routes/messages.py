@@ -4,7 +4,7 @@ import shutil
 import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, or_, func, cast, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, get_db
@@ -41,6 +41,7 @@ from app.schemas.communication import (
     ConversationParticipantRead,
     MessageAttachmentRead,
     MessageInfoRead,
+    MessagingDirectoryEntryRead,
     CallSessionRead,
     CallStartRequest,
     CallSignalCreate,
@@ -255,6 +256,25 @@ def get_mentionable_users_helper(db: Session, conversation: Conversation) -> lis
     )
 
 
+@router.get("/directory", response_model=list[MessagingDirectoryEntryRead])
+def list_messaging_directory(
+    search: str | None = Query(None, max_length=120),
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MessagingDirectoryEntryRead]:
+    """Company-wide active user directory for Start Conversation modal."""
+    from app.services.directory_service import DirectoryService
+
+    entries = DirectoryService(db).list_messaging_directory(
+        search=search,
+        limit=limit,
+        offset=offset,
+    )
+    return [MessagingDirectoryEntryRead.model_validate(entry) for entry in entries]
+
+
 @router.get("/conversations/{conversation_id}/mentionable-users", response_model=list[UserMinimal])
 def get_mentionable_users(
     conversation_id: uuid.UUID,
@@ -386,7 +406,12 @@ def create_conversation(
                 detail="Please specify at least one other participant for a direct message."
             )
         other_user_id = payload.participant_ids[0]
-        other_user = directory.assert_can_message_user(current_user, other_user_id)
+        if other_user_id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You cannot start a direct message with yourself.",
+            )
+        directory.assert_active_user(other_user_id)
 
         # Check if direct message conversation already exists between these two users
         existing = (
@@ -406,15 +431,15 @@ def create_conversation(
         title = None
 
     else:
-        allowed_ids = directory.get_messageable_user_ids(current_user)
         for pid in payload.participant_ids:
-            if pid not in allowed_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You are not allowed to add one or more selected participants.",
-                )
+            if pid == current_user.id:
+                continue
+            directory.assert_active_user(pid)
         participant_ids = list(set([current_user.id] + payload.participant_ids))
-        title = payload.title or f"Group Discussion {datetime.now().strftime('%Y-%m-%d')}"
+        if payload.type == ConversationType.CHANNEL:
+            title = payload.title or f"Channel {datetime.now().strftime('%Y-%m-%d')}"
+        else:
+            title = payload.title or f"Group Discussion {datetime.now().strftime('%Y-%m-%d')}"
 
     new_conv = Conversation(
         type=payload.type,

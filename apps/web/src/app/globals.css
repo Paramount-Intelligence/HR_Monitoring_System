@@ -15,6 +15,35 @@
     height: 0;
     pointer-events: none;
   }
+
+  .message-rich-body ul {
+    list-style: disc;
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .message-rich-body ol {
+    list-style: decimal;
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+
+  .message-rich-body li {
+    margin: 0.125rem 0;
+  }
+
+  .message-rich-body li p {
+    margin: 0;
+  }
+
+  .message-rich-body code {
+    background: var(--bg-subtle);
+    border-radius: 0.25rem;
+    color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.875em;
+    padding: 0.1rem 0.25rem;
+  }
 }
 
 @layer base {

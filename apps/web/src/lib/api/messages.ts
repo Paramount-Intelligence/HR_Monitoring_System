@@ -74,6 +74,16 @@ export interface MessageInfo {
   is_deleted: boolean;
 }
 
+export interface MessagingDirectoryUser {
+  id: string;
+  full_name: string;
+  role: string;
+  department_name?: string | null;
+  designation?: string | null;
+  profile_picture_url?: string | null;
+  is_active: boolean;
+}
+
 export interface MessageMention {
   id: string;
   message_id: string;
@@ -208,6 +218,15 @@ export interface CallSignal {
 }
 
 export const messagesApi = {
+  getMessagingDirectory: async (params?: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<MessagingDirectoryUser[]> => {
+    const response = await apiClient.get<MessagingDirectoryUser[]>('/messages/directory', { params });
+    return response.data;
+  },
+
   getConversations: async (params?: {
     type?: ConversationType;
     search?: string;

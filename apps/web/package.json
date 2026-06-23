@@ -10,7 +10,7 @@
     "cap:open": "npx cap open android",
     "start": "next start -H 0.0.0.0",
     "lint": "next lint",
-    "test": "node --import tsx --test src/lib/calls/call-ui-utils.test.ts src/lib/calls/media-errors.test.ts src/lib/calls/call-timer-utils.test.ts src/lib/time-logs/timer-utils.test.ts src/lib/tasks/task-filters.test.ts src/lib/task-routes.test.ts src/lib/messages/message-sanitize.test.ts src/components/messages/messages-utils.test.ts src/lib/auth/session.test.ts"
+    "test": "node --import tsx --test src/lib/calls/call-ui-utils.test.ts src/lib/calls/media-errors.test.ts src/lib/calls/call-timer-utils.test.ts src/lib/time-logs/timer-utils.test.ts src/lib/tasks/task-filters.test.ts src/lib/task-routes.test.ts src/lib/messages/message-sanitize.test.ts src/lib/messages/composer-formatting.test.ts src/components/messages/messages-utils.test.ts src/components/messages/start-conversation-utils.test.ts src/lib/auth/session.test.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
