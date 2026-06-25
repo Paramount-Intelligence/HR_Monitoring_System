@@ -41,6 +41,35 @@ def _read_work_mode(report: EODReport) -> str:
     return "office"
 
 
+def format_eod_report_read(report: EODReport, user_name: str) -> "EODReportRead":
+    from app.schemas.ops import EODReportRead
+
+    return EODReportRead(
+        id=report.id,
+        user_id=report.user_id,
+        user_name=user_name,
+        date=report.report_date,
+        login_time=ensure_pk_datetime(report.login_time),
+        logout_time=ensure_pk_datetime(report.logout_time),
+        work_mode=_read_work_mode(report),
+        total_hours=float(report.total_hours),
+        tasks_worked_on=report.tasks_worked_on,
+        completed_tasks=report.completed_tasks,
+        pending_tasks=report.pending_tasks,
+        blocked_tasks=report.blocked_tasks,
+        duties_performed=report.duties_performed,
+        status=report.status,
+        manager_comments=report.manager_comments,
+        productivity_score=report.productivity_score,
+        work_summary=report.work_summary,
+        blockers=report.blockers,
+        next_day_plan=report.next_day_plan,
+        submitted_at=ensure_pk_datetime(report.submitted_at) if report.submitted_at else None,
+        created_at=ensure_pk_datetime(report.created_at),
+        updated_at=ensure_pk_datetime(report.updated_at),
+    )
+
+
 def populate_eod_metrics(db: Session, report: EODReport, actor: User) -> None:
     today = report.report_date
     start_dt = pk_day_start(today)

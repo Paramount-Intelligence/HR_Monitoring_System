@@ -5,6 +5,9 @@
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isDevelopment = process.env.NODE_ENV === 'development';
+const isDeployedProduction =
+  process.env.APP_ENV === 'production' ||
+  process.env.RAILWAY_ENVIRONMENT_NAME === 'production';
 
 function stripTrailingSlash(value: string): string {
   return value.replace(/\/$/, '');
@@ -14,16 +17,30 @@ function stripTrailingSlash(value: string): string {
  * API base URL for browser requests.
  * Development defaults to same-origin `/api/v1` (Next.js rewrite proxy).
  */
+export function isApiConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_API_URL?.trim());
+}
+
 export function getApiBaseUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (fromEnv) {
-    return stripTrailingSlash(fromEnv);
+    const normalized = stripTrailingSlash(fromEnv);
+    if (
+      isDeployedProduction &&
+      !normalized.startsWith('http://') &&
+      !normalized.startsWith('https://')
+    ) {
+      throw new Error(
+        'NEXT_PUBLIC_API_URL must be an absolute URL when APP_ENV=production (https://<api-host>/api/v1).'
+      );
+    }
+    return normalized;
   }
   if (isDevelopment) {
     return '/api/v1';
   }
-  if (isProduction) {
-    throw new Error('NEXT_PUBLIC_API_URL is required in production');
+  if (isDeployedProduction) {
+    throw new Error('NEXT_PUBLIC_API_URL is required when APP_ENV=production');
   }
   return '/api/v1';
 }
@@ -54,9 +71,9 @@ export function getWebSocketUrl(): string {
     return `${wsBase}/ws`;
   }
 
-  if (isProduction) {
+  if (isDeployedProduction) {
     throw new Error(
-      'NEXT_PUBLIC_WS_URL is required in production when NEXT_PUBLIC_API_URL is relative'
+      'NEXT_PUBLIC_WS_URL is required when APP_ENV=production and NEXT_PUBLIC_API_URL is relative'
     );
   }
 

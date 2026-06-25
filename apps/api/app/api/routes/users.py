@@ -353,7 +353,7 @@ def get_admin_user_profile(
     limit: int = Query(50),
     db: Session = Depends(get_db),
     actor: User = Depends(require_admin),
-) -> dict:
+) -> AdminUserProfileAggregate:
     return UserService(db).get_admin_user_profile(
         user_id=user_id, 
         actor=actor, 

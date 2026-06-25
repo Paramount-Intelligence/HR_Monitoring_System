@@ -1,6 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { isDebugApi } from '@/lib/debug';
-import { getApiBaseUrl } from '@/lib/config';
+import { getApiBaseUrl, isApiConfigured } from '@/lib/config';
 import {
   canFetchProtectedData,
   enqueueTokenRefresh,
@@ -14,6 +14,8 @@ export const API_URL = getApiBaseUrl();
 
 if (isDebugApi()) {
   console.log('[API Client] Base URL:', API_URL);
+} else if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+  console.info('[CONFIG] API base URL configured:', isApiConfigured());
 }
 
 const apiClient = axios.create({
@@ -45,6 +47,9 @@ export const getErrorMessage = (error: unknown): string => {
 
   if (status === 403) {
     return (typeof errorData?.message === 'string' && errorData.message) || 'You do not have permission to update this item.';
+  }
+  if (status === 401) {
+    return (typeof errorData?.message === 'string' && errorData.message) || 'Your session has expired. Please sign in again.';
   }
   if (status === 404) {
     return (typeof errorData?.message === 'string' && errorData.message) || 'This item was not found or has been archived.';

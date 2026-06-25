@@ -34,14 +34,30 @@ describe('runtime config', () => {
     delete process.env.NEXT_PUBLIC_WS_URL;
   });
 
-  it('throws in production when NEXT_PUBLIC_API_URL is missing', async () => {
+  it('throws when APP_ENV is production and NEXT_PUBLIC_API_URL is missing', async () => {
     delete process.env.NEXT_PUBLIC_API_URL;
+    process.env.APP_ENV = 'production';
     process.env.NODE_ENV = 'production';
     const { getApiBaseUrl } = await import(`./config.ts?prod=${Date.now()}`);
     assert.throws(
       () => getApiBaseUrl(),
-      /NEXT_PUBLIC_API_URL is required in production/
+      /NEXT_PUBLIC_API_URL is required when APP_ENV=production/
     );
+    delete process.env.APP_ENV;
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('rejects relative NEXT_PUBLIC_API_URL when APP_ENV is production', async () => {
+    process.env.NEXT_PUBLIC_API_URL = '/api/v1';
+    process.env.APP_ENV = 'production';
+    process.env.NODE_ENV = 'production';
+    const { getApiBaseUrl } = await import(`./config.ts?relative=${Date.now()}`);
+    assert.throws(
+      () => getApiBaseUrl(),
+      /absolute URL when APP_ENV=production/
+    );
+    delete process.env.NEXT_PUBLIC_API_URL;
+    delete process.env.APP_ENV;
     process.env.NODE_ENV = 'test';
   });
 });

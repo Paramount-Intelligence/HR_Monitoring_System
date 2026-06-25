@@ -17,7 +17,12 @@ const nextConfig = {
     ];
   },
   async rewrites() {
-    const apiProxy = process.env.API_PROXY_URL || 'http://localhost:8000/api/v1';
+    const apiProxy =
+      process.env.API_PROXY_URL?.trim() ||
+      (process.env.NEXT_PUBLIC_API_URL?.startsWith('http')
+        ? process.env.NEXT_PUBLIC_API_URL.trim()
+        : '') ||
+      'http://localhost:8000/api/v1';
     const apiOrigin = apiProxy.replace(/\/api\/v1\/?$/, '');
     return [
       {

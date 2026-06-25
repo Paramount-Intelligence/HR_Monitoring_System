@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db, require_admin_or_manager
 from app.core.time_utils import ensure_pk_datetime, pk_today
+from app.services.eod_service import format_eod_report_read
 from app.models.attendance_session import AttendanceSession
 from app.models.eod_report import EODReport
 from app.models.eod_revision import EODRevision
@@ -43,40 +44,8 @@ MANAGER_VISIBLE_EOD_STATUSES = (
 )
 
 
-def _read_work_mode(report: EODReport) -> str:
-    if report.work_mode in {"office", "wfh"}:
-        return report.work_mode
-    legacy = report.highlights_summary or ""
-    if legacy in {"office", "wfh"}:
-        return legacy
-    return "office"
-
-
 def _format_eod(report: EODReport, user_name: str) -> EODReportRead:
-    return EODReportRead(
-        id=report.id,
-        user_id=report.user_id,
-        user_name=user_name,
-        date=report.report_date,
-        login_time=ensure_pk_datetime(report.login_time),
-        logout_time=ensure_pk_datetime(report.logout_time),
-        work_mode=_read_work_mode(report),
-        total_hours=float(report.total_hours),
-        tasks_worked_on=report.tasks_worked_on,
-        completed_tasks=report.completed_tasks,
-        pending_tasks=report.pending_tasks,
-        blocked_tasks=report.blocked_tasks,
-        duties_performed=report.duties_performed,
-        status=report.status,
-        manager_comments=report.manager_comments,
-        productivity_score=report.productivity_score,
-        work_summary=report.work_summary,
-        blockers=report.blockers,
-        next_day_plan=report.next_day_plan,
-        submitted_at=ensure_pk_datetime(report.submitted_at) if report.submitted_at else None,
-        created_at=ensure_pk_datetime(report.created_at),
-        updated_at=ensure_pk_datetime(report.updated_at),
-    )
+    return format_eod_report_read(report, user_name)
 
 
 @router.get("/duties", response_model=list[DutyRead], summary="Get my duties")

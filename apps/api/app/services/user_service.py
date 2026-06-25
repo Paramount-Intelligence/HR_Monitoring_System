@@ -11,7 +11,7 @@ from app.models.audit_log import AuditLog
 from app.models.enums import UserRole, UserStatus
 from app.models.user import User
 from app.models.account_invitation import AccountInvitation
-from app.schemas.user import UserCreate, UserRead, UserUpdate
+from app.schemas.user import AdminUserProfileAggregate, UserCreate, UserRead, UserUpdate
 from app.services.email_service import EmailService
 
 
@@ -448,8 +448,8 @@ class UserService:
         actor: User,
         start_date: str | None = None,
         end_date: str | None = None,
-        limit: int = 50,
-    ) -> dict:
+    limit: int = 50,
+) -> AdminUserProfileAggregate:
         if actor.role != UserRole.ADMIN:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can view full profile")
 
@@ -506,7 +506,12 @@ class UserService:
             "early_checkouts": sum(1 for s in att_sessions if s.is_early_logout),
             "absences": 0,
             "total_worked_hours": sum((s.worked_minutes or 0) for s in att_sessions) / 60.0,
-            "current_attendance_status": att_sessions[0].session_status.value if att_sessions else "inactive"
+            "current_attendance_status": (
+                att_sessions[0].session_status.value
+                if att_sessions
+                and att_sessions[0].session_status is not None
+                else "inactive"
+            ),
         }
 
         # Leaves
@@ -544,7 +549,16 @@ class UserService:
         
         timeline = []
         for a in att_sessions[:10]:
-            timeline.append({"type": "attendance", "date": a.check_in_at.isoformat(), "title": f"Checked in ({a.work_mode.value})"})
+            work_mode = (
+                a.work_mode.value if hasattr(a.work_mode, "value") else str(a.work_mode or "office")
+            )
+            timeline.append(
+                {
+                    "type": "attendance",
+                    "date": a.check_in_at.isoformat(),
+                    "title": f"Checked in ({work_mode})",
+                }
+            )
             if a.check_out_at:
                 timeline.append({"type": "attendance", "date": a.check_out_at.isoformat(), "title": "Checked out"})
         for b in breaks[:5]:
@@ -560,17 +574,30 @@ class UserService:
             
         timeline.sort(key=lambda x: x["date"], reverse=True)
 
-        return {
-            "profile": user,
-            "attendance_summary": summary,
-            "attendance_sessions": att_sessions,
-            "breaks": breaks,
-            "leave_requests": leaves,
-            "eod_submissions": eods,
-            "tasks": tasks,
-            "time_logs": time_logs,
-            "projects": projects,
-            "goals": goals,
-            "notes": notes,
-            "activity_timeline": timeline[:limit]
-        }
+        from app.schemas.attendance import AttendanceBreakRead, AttendanceSessionRead
+        from app.schemas.growth import GoalRead, PersonalNoteRead
+        from app.schemas.leave import LeaveRequestRead
+        from app.schemas.project import ProjectRead
+        from app.schemas.task import TaskRead
+        from app.schemas.time_log import TimeLogRead
+        from app.schemas.user import AdminUserProfileAggregate, UserRead
+        from app.services.eod_service import format_eod_report_read
+
+        return AdminUserProfileAggregate(
+            profile=UserRead.model_validate(user),
+            attendance_summary=summary,
+            attendance_sessions=[
+                AttendanceSessionRead.model_validate(session) for session in att_sessions
+            ],
+            breaks=[AttendanceBreakRead.model_validate(row) for row in breaks],
+            leave_requests=[LeaveRequestRead.model_validate(row) for row in leaves],
+            eod_submissions=[
+                format_eod_report_read(row, user.full_name) for row in eods
+            ],
+            tasks=[TaskRead.model_validate(row) for row in tasks],
+            time_logs=[TimeLogRead.model_validate(row) for row in time_logs],
+            projects=[ProjectRead.model_validate(row) for row in projects],
+            goals=[GoalRead.model_validate(row) for row in goals],
+            notes=[PersonalNoteRead.model_validate(row) for row in notes],
+            activity_timeline=timeline[:limit],
+        )

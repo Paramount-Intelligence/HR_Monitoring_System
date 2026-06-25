@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { usersApi } from '@/lib/api/users';
-import { getErrorMessage } from '@/lib/api/client';
+import { classifyProfileLoadError } from '@/lib/api/profile-errors';
 import { User } from '@/types';
 import { toast } from 'sonner';
 import { 
@@ -53,7 +53,7 @@ export default function AdminEmployeeProfilePage() {
   const [id, setId] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<ReturnType<typeof classifyProfileLoadError> | null>(null);
   const [dateFilter, setDateFilter] = useState('30days'); // '7days', '30days', 'month'
 
   useEffect(() => {
@@ -62,6 +62,13 @@ export default function AdminEmployeeProfilePage() {
       const queryId = params.get('id');
       if (queryId) {
         setId(queryId);
+      } else {
+        setIsLoading(false);
+        setLoadError({
+          kind: 'not_found',
+          title: 'Profile Not Found',
+          message: 'No employee was selected. Open a profile from Admin → Users.',
+        });
       }
     }
   }, []);
@@ -102,10 +109,10 @@ export default function AdminEmployeeProfilePage() {
       });
       setData(response);
     } catch (error: unknown) {
-      const message = getErrorMessage(error) || 'Failed to load employee profile.';
-      setLoadError(message);
+      const presentation = classifyProfileLoadError(error);
+      setLoadError(presentation);
       setData(null);
-      toast.error(message);
+      toast.error(presentation.message);
     } finally {
       setIsLoading(false);
     }
@@ -123,22 +130,20 @@ export default function AdminEmployeeProfilePage() {
   }
 
   if (!data) {
-    const isConnectionError =
-      Boolean(loadError) &&
-      (loadError.includes('Unable to reach the API') ||
-        loadError.includes('CORS') ||
-        loadError.includes('Network Error'));
+    const presentation =
+      loadError ||
+      ({
+        kind: 'not_found',
+        title: 'Profile Not Found',
+        message:
+          'The requested user profile does not exist or you lack permission to view it.',
+      } as const);
 
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 px-6 text-center">
         <AlertOctagon className="h-16 w-16 text-[var(--status-danger-text)]" />
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">
-          {isConnectionError ? 'Unable to Load Profile' : 'Profile Not Found'}
-        </h2>
-        <p className="text-[var(--text-secondary)] text-sm max-w-md">
-          {loadError ||
-            'The requested user profile does not exist or you lack permission to view it.'}
-        </p>
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">{presentation.title}</h2>
+        <p className="text-[var(--text-secondary)] text-sm max-w-md">{presentation.message}</p>
         <Button onClick={() => router.push('/admin/users')} className="btn-primary">
           Back to Users
         </Button>
@@ -537,7 +542,7 @@ export default function AdminEmployeeProfilePage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                           <div>
                             <h4 className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Today's Summary</h4>
-                            <p className="text-xs text-[var(--text-primary)] bg-[var(--bg-subtle)] p-3 rounded-lg whitespace-pre-wrap leading-relaxed font-medium">{eod.summary}</p>
+                            <p className="text-xs text-[var(--text-primary)] bg-[var(--bg-subtle)] p-3 rounded-lg whitespace-pre-wrap leading-relaxed font-medium">{eod.work_summary || eod.highlights_summary || '—'}</p>
                           </div>
                           <div className="space-y-3.5">
                             <div>
