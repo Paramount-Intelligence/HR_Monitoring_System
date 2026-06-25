@@ -1,3 +1,5 @@
+import { getApiBaseUrl, isAbsoluteApiUrl } from '@/lib/config';
+
 /** URLs that failed to load — avoid repeated 404 requests across the app. */
 const failedAvatarUrls = new Set<string>();
 
@@ -14,8 +16,8 @@ export function clearFailedAvatarUrl(url: string): void {
 }
 
 export function getBackendOrigin(): string {
-  const apiUrl = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/$/, '');
-  if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
+  const apiUrl = getApiBaseUrl();
+  if (isAbsoluteApiUrl()) {
     return apiUrl.replace(/\/api\/v1$/i, '') || apiUrl;
   }
   if (typeof window !== 'undefined') {

@@ -1,6 +1,7 @@
 import type { ConnectionStatus, RealtimeEvent } from './events';
 import { ensureFreshAccessToken, isTokenExpiringSoon } from '@/lib/auth/token-utils';
 import { isDebugWs } from '@/lib/debug';
+import { getApiBaseUrl, getWebSocketUrl } from '@/lib/config';
 
 const MAX_DEDUPE = 2000;
 const INITIAL_BACKOFF_MS = 1000;
@@ -30,20 +31,7 @@ function logRealtime(message: string, detail?: string) {
 
 export function resolveWebSocketUrl(): string {
   if (typeof window === 'undefined') return '';
-
-  const explicit = process.env.NEXT_PUBLIC_WS_URL;
-  if (explicit) {
-    return explicit.replace(/\/$/, '');
-  }
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
-  if (apiUrl.startsWith('http://') || apiUrl.startsWith('https://')) {
-    const wsBase = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
-    return `${wsBase}/ws`;
-  }
-
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/api/v1/ws`;
+  return getWebSocketUrl();
 }
 
 type EventHandler = (event: RealtimeEvent) => void;
@@ -73,7 +61,7 @@ export class RealtimeWebSocketClient {
   }
 
   private async fetchWsTicket(accessToken: string): Promise<WsTicketResult> {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+    const apiUrl = getApiBaseUrl();
     try {
       const response = await fetch(`${apiUrl}/auth/ws-ticket`, {
         method: 'POST',

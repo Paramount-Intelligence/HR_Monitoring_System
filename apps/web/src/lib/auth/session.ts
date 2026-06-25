@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { isDebugAuth } from '@/lib/debug';
+import { getApiBaseUrl } from '@/lib/config';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+const API_URL = getApiBaseUrl();
 
 export const AUTH_EXPIRED_EVENT = 'pims:auth-expired';
 

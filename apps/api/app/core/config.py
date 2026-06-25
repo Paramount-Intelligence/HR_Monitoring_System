@@ -253,7 +253,7 @@ class Settings(BaseSettings):
                     return [normalize_origin(str(item).strip()) for item in parsed if str(item).strip()]
             except json.JSONDecodeError:
                 pass
-        return [normalize_origin(item) for item in raw.split(",") if item.strip()]
+        return [normalize_origin(item.strip()) for item in raw.split(",") if item.strip()]
 
     @field_validator("database_url", mode="before")
     @classmethod
@@ -298,23 +298,30 @@ def normalize_origin(origin: str) -> str:
 
 
 def resolve_cors_origins(settings_obj: Settings) -> list[str]:
-    """Build deduplicated CORS allowlist for production + local dev."""
-    defaults = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "https://diligent-elegance-production-52de.up.railway.app",
-        "https://aware-harmony-production-b1c1.up.railway.app",
-        "https://workforce-intelligence-os.up.railway.app",
-        "https://pims-os.up.railway.app",
-    ]
-    extra: list[str] = []
+    """Build deduplicated CORS allowlist from environment configuration."""
+    origins: list[str] = []
+
     if settings_obj.frontend_base_url:
-        extra.append(settings_obj.frontend_base_url)
+        origins.append(settings_obj.frontend_base_url)
+
     for origin in settings_obj.cors_origins or []:
         if origin and origin != "*":
-            extra.append(origin)
-    merged = [normalize_origin(o) for o in [*defaults, *extra] if o]
+            origins.append(origin)
+
+    env = (settings_obj.app_env or "").lower().strip()
+    if env in ("development", "dev", "local", "test"):
+        origins.extend(
+            [
+                "http://localhost:3000",
+                "http://localhost:3001",
+                "http://localhost:3002",
+                "http://127.0.0.1:3000",
+                "http://127.0.0.1:3001",
+                "http://127.0.0.1:3002",
+            ]
+        )
+
+    merged = [normalize_origin(o) for o in origins if o and not is_unresolved_template(o)]
     return list(dict.fromkeys(merged))
 
 
@@ -325,15 +332,50 @@ def validate_production_settings(settings_obj: Settings) -> None:
     """Fail fast when production is deployed with known-insecure defaults."""
     if settings_obj.app_env == "development":
         return
+
     secret = (settings_obj.app_secret_key or "").strip()
     if not secret or secret in INSECURE_SECRET_DEFAULTS:
         raise RuntimeError(
             "APP_SECRET_KEY must be set to a strong value in non-development environments."
         )
+
     bootstrap_pw = (settings_obj.bootstrap_admin_password or "").strip()
     if bootstrap_pw in {"change-this-password", "changeme", "password"}:
         raise RuntimeError(
             "BOOTSTRAP_ADMIN_PASSWORD must be changed in non-development environments."
+        )
+
+    frontend = (settings_obj.frontend_base_url or "").strip()
+    if (
+        not frontend
+        or is_unresolved_template(frontend)
+        or frontend.startswith("http://localhost")
+        or frontend.startswith("http://127.0.0.1")
+    ):
+        raise RuntimeError(
+            "FRONTEND_BASE_URL must be set to your production web URL in non-development environments."
+        )
+
+    allowed_origins = resolve_cors_origins(settings_obj)
+    if not allowed_origins:
+        raise RuntimeError(
+            "CORS_ORIGINS must include at least one allowed frontend origin in non-development environments."
+        )
+
+    explicit_cors = [
+        normalize_origin(str(origin).strip())
+        for origin in (settings_obj.cors_origins or [])
+        if str(origin).strip() and str(origin).strip() != "*"
+    ]
+    if not explicit_cors:
+        raise RuntimeError(
+            "CORS_ORIGINS must be set explicitly in non-development environments."
+        )
+
+    normalized_frontend = normalize_origin(frontend)
+    if normalized_frontend not in explicit_cors:
+        raise RuntimeError(
+            "CORS_ORIGINS must include FRONTEND_BASE_URL so browser requests from the web app are allowed."
         )
 
 

@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { isDebugApi } from '@/lib/debug';
+import { getApiBaseUrl } from '@/lib/config';
 import {
   canFetchProtectedData,
   enqueueTokenRefresh,
@@ -8,8 +9,8 @@ import {
   markSessionExpired,
 } from '@/lib/auth/session';
 
-// Always use Next.js local proxy from browser
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
+// Browser API base — from NEXT_PUBLIC_API_URL (required in production builds).
+export const API_URL = getApiBaseUrl();
 
 if (isDebugApi()) {
   console.log('[API Client] Base URL:', API_URL);
@@ -25,7 +26,20 @@ const apiClient = axios.create({
 
 // Helper to extract a readable error message from standardized backend responses
 export const getErrorMessage = (error: unknown): string => {
-  const err = error as { response?: { status?: number; data?: Record<string, unknown> }; message?: string };
+  const err = error as AxiosError & { code?: string; message?: string };
+
+  if (!err.response) {
+    if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+      return 'Unable to reach the API server. Verify NEXT_PUBLIC_API_URL and CORS settings, then try again.';
+    }
+    if (err.code === 'ERR_SESSION_EXPIRED') {
+      return 'Your session has expired. Please sign in again.';
+    }
+    if (err.code === 'ERR_NOT_AUTHENTICATED') {
+      return 'Please sign in to continue.';
+    }
+  }
+
   const status = err.response?.status;
   const errorData = err.response?.data?.error as { code?: string; message?: string; details?: unknown[] } | undefined;
 

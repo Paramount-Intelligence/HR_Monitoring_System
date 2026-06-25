@@ -53,6 +53,7 @@ export default function AdminEmployeeProfilePage() {
   const [id, setId] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState('30days'); // '7days', '30days', 'month'
 
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function AdminEmployeeProfilePage() {
   const loadProfileData = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       
       const now = new Date();
       let startDate = new Date();
@@ -99,8 +101,11 @@ export default function AdminEmployeeProfilePage() {
         end_date: now.toISOString(),
       });
       setData(response);
-    } catch (error: any) {
-      toast.error(getErrorMessage(error) || 'Failed to load employee profile.');
+    } catch (error: unknown) {
+      const message = getErrorMessage(error) || 'Failed to load employee profile.';
+      setLoadError(message);
+      setData(null);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -118,12 +123,25 @@ export default function AdminEmployeeProfilePage() {
   }
 
   if (!data) {
+    const isConnectionError =
+      Boolean(loadError) &&
+      (loadError.includes('Unable to reach the API') ||
+        loadError.includes('CORS') ||
+        loadError.includes('Network Error'));
+
     return (
-      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+      <div className="flex flex-col items-center justify-center h-[60vh] space-y-4 px-6 text-center">
         <AlertOctagon className="h-16 w-16 text-[var(--status-danger-text)]" />
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">Profile Not Found</h2>
-        <p className="text-[var(--text-secondary)] text-sm">The requested user profile does not exist or you lack permission to view it.</p>
-        <Button onClick={() => router.push('/admin/users')} className="btn-primary">Back to Users</Button>
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">
+          {isConnectionError ? 'Unable to Load Profile' : 'Profile Not Found'}
+        </h2>
+        <p className="text-[var(--text-secondary)] text-sm max-w-md">
+          {loadError ||
+            'The requested user profile does not exist or you lack permission to view it.'}
+        </p>
+        <Button onClick={() => router.push('/admin/users')} className="btn-primary">
+          Back to Users
+        </Button>
       </div>
     );
   }
