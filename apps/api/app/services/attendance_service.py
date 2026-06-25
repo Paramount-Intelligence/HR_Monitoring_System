@@ -531,26 +531,23 @@ class AttendanceService:
             session.checkout_after_shift_note = stale_reason
                 
             self.db.commit()
-                
-            from app.models.notifications import Notification
+
             from app.models.enums import NotificationType
-            notif = Notification(
-                user_id=user_id,
+            from app.services.notification_service import create_notification
+
+            create_notification(
+                self.db,
+                recipient_id=user_id,
+                notification_type=NotificationType.SYSTEM,
                 title="Attendance Auto-Checkout",
-                message=(
+                body=(
                     f"Your attendance session started on {check_in.strftime('%Y-%m-%d')} "
                     f"was automatically closed: {stale_reason}."
                 ),
-                notification_type=NotificationType.SYSTEM,
                 related_entity_type="attendance_session",
-                related_entity_id=session.id
+                related_entity_id=session.id,
             )
-            self.db.add(notif)
             self.db.commit()
-            self.db.refresh(notif)
-            from app.services.realtime_service import RealtimeService
-
-            RealtimeService.emit_notification_created(notif)
 
     def _get_active_session(self, user_id: uuid.UUID) -> AttendanceSession | None:
         self._check_and_auto_close_stale_sessions(user_id)

@@ -64,6 +64,21 @@ class TaskService:
             actor_id=actor.id,
             status=task.status.value if hasattr(task.status, "value") else str(task.status),
         )
+        if task.assigned_to != actor.id:
+            from app.models.enums import NotificationType
+            from app.services.notification_service import create_notification
+
+            create_notification(
+                self.db,
+                recipient_id=task.assigned_to,
+                notification_type=NotificationType.SYSTEM,
+                title="Task assigned",
+                body=f"{actor.full_name} assigned you: {task.title}",
+                related_entity_type="task",
+                related_entity_id=task.id,
+                actor_id=actor.id,
+            )
+            self.db.commit()
         return task
 
     def list_tasks(
@@ -131,8 +146,13 @@ class TaskService:
                 )
         for field, value in changes.items():
             setattr(task, field, value)
-        if task.status == TaskStatus.COMPLETED and not task.completed_at:
+        becoming_completed = task.status == TaskStatus.COMPLETED
+        if becoming_completed and not task.completed_at:
             task.completed_at = datetime.now(timezone.utc)
+        if becoming_completed and old_snapshot["status"] != TaskStatus.COMPLETED.value:
+            from app.services.task_completion_request_service import TaskCompletionRequestService
+
+            TaskCompletionRequestService(self.db).supersede_pending_for_task(task.id, actor=actor)
         self._write_audit(actor, "TASK_UPDATED", task.id, old_value=old_snapshot, new_value=audit_changes)
         self.db.commit()
         self.db.refresh(task)

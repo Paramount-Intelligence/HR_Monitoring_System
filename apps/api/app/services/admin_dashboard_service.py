@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import timedelta
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.time_utils import ensure_pk_datetime, pk_day_start, pk_now, pk_today
+from app.core.time_utils import ensure_pk_datetime, pk_day_end, pk_day_start, pk_now, pk_today, PK_TIMEZONE_NAME
 from app.models.announcement import Announcement
 from app.models.attendance_session import AttendanceSession
 from app.models.communication import Conversation, ConversationParticipant, Message
@@ -19,6 +20,7 @@ from app.models.enums import (
     ProjectStatus,
     TaskStatus,
     TicketStatus,
+    TimeLogStatus,
     UserRole,
     UserStatus,
     WorkMode,
@@ -35,6 +37,7 @@ from app.schemas.dashboard import (
     AdminAnalyticsRecentActivity,
     CommunicationAnalyticsDashboard,
     CommunicationAnalyticsSummary,
+    DepartmentAttendanceItem,
     DistributionItem,
     EmployeePerformanceItem,
     EmployeeRosterItem,
@@ -48,6 +51,15 @@ from app.schemas.dashboard import (
     UpcomingMeetingItem,
     UsersAnalyticsDashboard,
     UsersAnalyticsSummary,
+)
+from app.services.admin_user_management_service import (
+    approved_leaves_for_date,
+    is_present_status,
+    logged_hours_by_user,
+    resolve_today_attendance_status,
+    serialize_dt,
+    sessions_for_business_date,
+    task_counts_by_user,
 )
 
 
@@ -87,41 +99,6 @@ class AdminDashboardService:
     def __init__(self, db: Session):
         self.db = db
 
-    def _task_counts_by_user(self) -> dict:
-        """Aggregate active/completed task counts per assignee."""
-        open_statuses = [
-            TaskStatus.CREATED,
-            TaskStatus.APPROVED,
-            TaskStatus.IN_PROGRESS,
-            TaskStatus.BLOCKED,
-            TaskStatus.REOPENED,
-        ]
-        rows = (
-            self.db.query(
-                Task.assigned_to,
-                func.sum(case((Task.status == TaskStatus.COMPLETED, 1), else_=0)).label("completed"),
-                func.sum(case((Task.status.in_(open_statuses), 1), else_=0)).label("active"),
-            )
-            .filter(Task.assigned_to.isnot(None))
-            .group_by(Task.assigned_to)
-            .all()
-        )
-        return {
-            uid: {"active": int(active or 0), "completed": int(completed or 0)}
-            for uid, completed, active in rows
-        }
-
-    def _logged_hours_by_user(self) -> dict:
-        rows = (
-            self.db.query(
-                TimeLog.user_id,
-                func.coalesce(func.sum(TimeLog.duration_minutes), 0).label("minutes"),
-            )
-            .group_by(TimeLog.user_id)
-            .all()
-        )
-        return {uid: round((minutes or 0) / 60.0, 1) for uid, minutes in rows}
-
     def users_analytics(self) -> UsersAnalyticsDashboard:
         try:
             return self._users_analytics_impl()
@@ -130,9 +107,8 @@ class AdminDashboardService:
             raise
 
     def _users_analytics_impl(self) -> UsersAnalyticsDashboard:
-        today_start = pk_day_start()
-        today = pk_today()
-        month_start = today.replace(day=1)
+        business_date = pk_today()
+        month_start = business_date.replace(day=1)
 
         active_users = (
             self.db.query(User)
@@ -144,27 +120,32 @@ class AdminDashboardService:
             self.db.query(User).filter(User.status != UserStatus.INACTIVE).all()
         )
 
-        today_sessions = (
-            self.db.query(AttendanceSession)
-            .filter(AttendanceSession.check_in_at >= today_start)
-            .all()
-        )
-        session_by_user = {s.user_id: s for s in today_sessions}
-        checked_in_ids = set(session_by_user.keys())
+        session_by_user = sessions_for_business_date(self.db, business_date)
+        leave_by_user = approved_leaves_for_date(self.db, business_date)
 
-        on_leave = (
-            self.db.query(LeaveRequest)
-            .filter(
-                LeaveRequest.status == LeaveStatus.APPROVED,
-                LeaveRequest.start_date <= today,
-                LeaveRequest.end_date >= today,
+        roster_statuses: dict[uuid.UUID, str] = {}
+        for user in active_users:
+            roster_statuses[user.id] = resolve_today_attendance_status(
+                session=session_by_user.get(user.id),
+                leave=leave_by_user.get(user.id),
             )
-            .count()
+
+        present_today = sum(
+            1 for user in active_users if is_present_status(roster_statuses[user.id])
+        )
+        late_today = sum(
+            1 for user in active_users if roster_statuses[user.id] == "Late"
+        )
+        on_leave_today = sum(
+            1 for user in active_users if roster_statuses[user.id] == "On Leave"
+        )
+        wfh_today = sum(
+            1 for user in active_users if roster_statuses[user.id] == "WFH"
         )
 
         role_counts = {r.value: 0 for r in UserRole}
-        for u in active_users:
-            role_counts[u.role.value] = role_counts.get(u.role.value, 0) + 1
+        for user in active_users:
+            role_counts[user.role.value] = role_counts.get(user.role.value, 0) + 1
 
         new_this_month = (
             self.db.query(User)
@@ -182,12 +163,10 @@ class AdminDashboardService:
             employees=role_counts.get(UserRole.EMPLOYEE.value, 0)
             + role_counts.get(UserRole.JUNIOR_EMPLOYEE.value, 0),
             interns=role_counts.get(UserRole.INTERN.value, 0),
-            present_today=len(checked_in_ids),
-            late_today=sum(1 for s in today_sessions if s.is_late_login),
-            on_leave=on_leave,
-            wfh_today=sum(
-                1 for s in today_sessions if s.work_mode == WorkMode.WFH
-            ),
+            present_today=present_today,
+            late_today=late_today,
+            on_leave=on_leave_today,
+            wfh_today=wfh_today,
             new_users_this_month=new_this_month,
         )
 
@@ -198,43 +177,54 @@ class AdminDashboardService:
         ]
 
         dept_map: dict[str, int] = {}
-        for u in active_users:
-            dept = u.department_name or "Unassigned"
+        for user in active_users:
+            dept = user.department_name or "Unassigned"
             dept_map[dept] = dept_map.get(dept, 0) + 1
         department_distribution = [
             DistributionItem(label=k, count=v) for k, v in sorted(dept_map.items())
         ]
 
-        attendance_rate_by_department = []
+        attendance_rate_by_department: list[DistributionItem] = []
+        attendance_by_department: list[DepartmentAttendanceItem] = []
         departments = self.db.query(Department).filter(Department.is_active == True).all()
         for dept in departments:
-            dept_users = [u for u in active_users if u.department_id == dept.id]
+            dept_users = [user for user in active_users if user.department_id == dept.id]
             if not dept_users:
                 continue
-            present = sum(1 for u in dept_users if u.id in checked_in_ids)
+            present = sum(
+                1
+                for user in dept_users
+                if is_present_status(roster_statuses[user.id])
+            )
+            late = sum(1 for user in dept_users if roster_statuses[user.id] == "Late")
             rate = round(present / len(dept_users) * 100) if dept_users else 0
-            attendance_rate_by_department.append(
-                DistributionItem(label=dept.name, count=rate)
+            attendance_rate_by_department.append(DistributionItem(label=dept.name, count=rate))
+            attendance_by_department.append(
+                DepartmentAttendanceItem(
+                    department=dept.name,
+                    active_users=len(dept_users),
+                    present_today=present,
+                    late_today=late,
+                    attendance_rate=rate,
+                )
             )
 
         employee_activity_trend = []
-        total_emp = len(all_non_inactive) or 1
         try:
-            for i in range(6, -1, -1):
-                target_date = today - timedelta(days=i)
-                target_start = pk_day_start(target_date)
-                target_end = target_start + timedelta(days=1)
-                sessions = (
-                    self.db.query(AttendanceSession)
-                    .filter(
-                        AttendanceSession.check_in_at >= target_start,
-                        AttendanceSession.check_in_at < target_end,
+            for offset in range(6, -1, -1):
+                target_date = business_date - timedelta(days=offset)
+                day_sessions = sessions_for_business_date(self.db, target_date)
+                day_leaves = approved_leaves_for_date(self.db, target_date)
+                day_statuses = [
+                    resolve_today_attendance_status(
+                        session=day_sessions.get(user.id),
+                        leave=day_leaves.get(user.id),
                     )
-                    .all()
-                )
-                checked = len(sessions)
-                late = sum(1 for s in sessions if s.is_late_login)
-                absent = max(0, total_emp - checked)
+                    for user in active_users
+                ]
+                checked = sum(1 for status in day_statuses if is_present_status(status))
+                late = sum(1 for status in day_statuses if status == "Late")
+                absent = sum(1 for status in day_statuses if status == "Absent")
                 employee_activity_trend.append(
                     AdminAnalyticsAttendanceTrend(
                         date=target_date.strftime("%Y-%m-%d"),
@@ -246,37 +236,35 @@ class AdminDashboardService:
         except Exception:
             logger.exception("employee_activity_trend failed")
 
-        tasks_by_user = self._task_counts_by_user()
-        hours_by_user = self._logged_hours_by_user()
+        tasks_by_user = task_counts_by_user(self.db)
+        hours_by_user = logged_hours_by_user(self.db)
 
         roster = []
-        for u in active_users:
-            sess = session_by_user.get(u.id)
-            if u.id in checked_in_ids:
-                att = "Present"
-                if sess and sess.is_late_login:
-                    att = "Late"
-                if sess and sess.work_mode == WorkMode.WFH:
-                    att = "WFH"
-            else:
-                att = "Absent"
-            tc = tasks_by_user.get(u.id, {"active": 0, "completed": 0})
+        for user in sorted(
+            active_users,
+            key=lambda item: ((item.department_name or "Unassigned").lower(), item.full_name.lower()),
+        ):
+            session = session_by_user.get(user.id)
+            attendance = roster_statuses[user.id]
+            task_counts = tasks_by_user.get(user.id, {"active": 0, "completed": 0})
             roster.append(
                 EmployeeRosterItem(
-                    id=u.id,
-                    full_name=u.full_name,
-                    email=u.email,
-                    avatar_url=u.avatar_url or None,
-                    role=u.role.value,
-                    department=u.department_name,
-                    designation=u.designation,
-                    status=u.status.value,
-                    today_attendance=att,
-                    active_tasks=tc["active"],
-                    completed_tasks=tc["completed"],
-                    logged_hours=hours_by_user.get(u.id, 0.0),
+                    id=user.id,
+                    full_name=user.full_name,
+                    email=user.email,
+                    avatar_url=user.avatar_url or None,
+                    role=user.role.value,
+                    department=user.department_name,
+                    designation=user.designation,
+                    status=user.status.value,
+                    today_attendance=attendance,
+                    check_in_at=serialize_dt(session.check_in_at) if session else None,
+                    check_out_at=serialize_dt(session.check_out_at) if session else None,
+                    active_tasks=task_counts["active"],
+                    completed_tasks=task_counts["completed"],
+                    logged_hours=hours_by_user.get(user.id, 0.0),
                     productivity_score=None,
-                    last_active=_serialize_dt(u.updated_at),
+                    last_active=serialize_dt(user.updated_at),
                 )
             )
 
@@ -293,10 +281,13 @@ class AdminDashboardService:
             recent = []
 
         return UsersAnalyticsDashboard(
+            business_date=business_date,
+            timezone=PK_TIMEZONE_NAME,
             summary=summary,
             role_distribution=role_distribution,
             department_distribution=department_distribution,
             attendance_rate_by_department=attendance_rate_by_department,
+            attendance_by_department=attendance_by_department,
             employee_activity_trend=employee_activity_trend,
             employee_roster=roster,
             employee_performance=performance,
@@ -365,7 +356,7 @@ class AdminDashboardService:
                 func.coalesce(func.sum(TimeLog.duration_minutes), 0).label("minutes"),
                 func.count(TimeLog.id).label("cnt"),
             )
-            .filter(TimeLog.user_id.isnot(None))
+            .filter(TimeLog.user_id.isnot(None), TimeLog.status != TimeLogStatus.INVALID)
             .group_by(TimeLog.user_id)
             .all()
         )

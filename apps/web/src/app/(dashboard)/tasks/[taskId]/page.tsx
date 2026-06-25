@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TaskTimer } from '@/components/tasks/TaskTimer';
+import { TaskCompleteRequestButton } from '@/components/tasks/TaskCompleteRequestButton';
 
 export default function TaskDetailPage() {
   const params = useParams<{ taskId: string }>();
@@ -286,6 +287,14 @@ export default function TaskDetailPage() {
               .
             </p>
           )}
+
+          <TaskCompleteRequestButton
+            task={task}
+            role={user?.role}
+            currentUserId={user?.id}
+            activeTimer={activeTimer}
+            onSuccess={loadTask}
+          />
         </CardContent>
       </Card>
     </div>

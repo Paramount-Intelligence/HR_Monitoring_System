@@ -9,11 +9,9 @@ from app.models.announcement import Announcement
 from app.schemas.announcement import AnnouncementRead, AnnouncementCreate, AnnouncementUpdate
 
 from app.services.realtime_service import RealtimeService
+from app.services.announcement_service import list_visible_announcements
 
 router = APIRouter()
-
-from datetime import datetime, timezone
-from sqlalchemy import or_, and_
 
 VALID_ANNOUNCEMENT_AUDIENCES = frozenset(
     {
@@ -77,29 +75,22 @@ def list_announcements(
     db: Session = Depends(get_db), 
     actor: User = Depends(get_current_user)
 ) -> list[AnnouncementRead]:
-    now = datetime.now(timezone.utc)
-    
-    filters = [Announcement.is_active == True]
-    
-    target_roles = [actor.role.value]
-    if actor.role in (UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE, UserRole.EMPLOYEE):
-        target_roles.append("employee")
-    
-    filters.append(or_(
-        Announcement.audience == "all",
-        Announcement.audience.in_(target_roles)
-    ))
-    
-    filters.append(or_(
-        Announcement.start_date == None,
-        Announcement.start_date <= datetime.now()
-    ))
-    filters.append(or_(
-        Announcement.end_date == None,
-        Announcement.end_date >= datetime.now()
-    ))
-    
-    return db.query(Announcement).filter(*filters).order_by(Announcement.created_at.desc()).all()
+    return list_visible_announcements(db, actor)
+
+
+@router.get("/visible", response_model=list[AnnouncementRead], summary="Dashboard-visible announcements")
+def list_visible_announcements_for_dashboard(
+    limit: int = 5,
+    include_expired: bool = False,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> list[AnnouncementRead]:
+    return list_visible_announcements(
+        db,
+        actor,
+        limit=limit,
+        include_expired=include_expired,
+    )
 
 @router.get("/all", response_model=list[AnnouncementRead], summary="List all announcements (Admin/HR only)")
 def list_all_announcements(

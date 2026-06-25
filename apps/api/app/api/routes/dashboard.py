@@ -414,6 +414,18 @@ def admin_users_analytics(
         ) from exc
 
 
+@router.get(
+    "/admin/user-management-overview",
+    response_model=UsersAnalyticsDashboard,
+    summary="Admin user management overview",
+)
+def admin_user_management_overview(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_hr),
+) -> UsersAnalyticsDashboard:
+    return admin_users_analytics(db=db, actor=actor)
+
+
 @router.get("/admin/communication-analytics", response_model=CommunicationAnalyticsDashboard, summary="Admin communication tab analytics")
 def admin_communication_analytics(
     db: Session = Depends(get_db),

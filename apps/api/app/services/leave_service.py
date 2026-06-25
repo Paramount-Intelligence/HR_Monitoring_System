@@ -85,6 +85,22 @@ class LeaveService:
         self.db.commit()
         self.db.refresh(req)
 
+        from app.models.enums import NotificationType
+        from app.services.notification_service import create_notification
+
+        requester_name = actor.full_name
+        create_notification(
+            self.db,
+            recipient_id=approver_id,
+            notification_type=NotificationType.SYSTEM,
+            title="Leave request submitted",
+            body=f"{requester_name} submitted a leave request for your approval.",
+            related_entity_type="leave_request",
+            related_entity_id=req.id,
+            actor_id=actor.id,
+        )
+        self.db.commit()
+
         return req
 
     def cancel_request(self, request_id: uuid.UUID, actor: User) -> LeaveRequest:

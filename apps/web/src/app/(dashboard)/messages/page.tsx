@@ -8,6 +8,7 @@ import { logProtectedFetchError } from '@/lib/api/fetch-errors';
 import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
 import { useCall } from '@/providers/CallProvider';
 import { unlockSounds } from '@/lib/calls/sounds';
+import { playOutgoingMessageSound } from '@/lib/notifications/sounds';
 import { usersApi } from '@/lib/api/users';
 import {
   messagesApi,
@@ -36,6 +37,12 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { MessagesWorkspaceSidebar } from '@/components/messages/MessagesWorkspaceSidebar';
+import {
+  MessagesSettingsPanel,
+  type MessagesLeftPanelMode,
+} from '@/components/messages/MessagesSettingsPanel';
+import { MessagesConversationHeader } from '@/components/messages/MessagesConversationHeader';
+import { MessagesChatStream } from '@/components/messages/MessagesChatStream';
 import { MessageActionsMenu } from '@/components/messages/MessageActionsMenu';
 import { MessageReplyComposerPreview } from '@/components/messages/MessageReplyComposerPreview';
 import { MessageQuotedReply } from '@/components/messages/MessageQuotedReply';
@@ -57,7 +64,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
-  SidebarFilter,
+  ChatListFilter,
   ConversationPanelTab,
   getConversationDisplayName,
   groupMessagesByDateWithSlack,
@@ -125,63 +132,6 @@ function roleBadge(role: ConversationParticipantRole) {
     case 'member': return { label: 'Member', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400' };
     case 'viewer': return { label: 'Viewer', cls: 'bg-[var(--bg-elevated)] text-[var(--text-muted)] border-[var(--border-default)]' };
   }
-}
-
-function SecureImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const loadImage = async () => {
-      try {
-        setLoading(true);
-        const relativeUrl = src.startsWith('/api/v1') ? src.slice(7) : src;
-        const response = await apiClient.get(relativeUrl, { responseType: 'blob' });
-        if (active) {
-          const url = URL.createObjectURL(response.data);
-          setObjectUrl(url);
-        }
-      } catch (err) {
-        if (active) setError(true);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-
-    loadImage();
-    return () => {
-      active = false;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [src]);
-
-  if (loading) {
-    return (
-      <div className={cn("flex items-center justify-center bg-black/5 dark:bg-white/5", className)}>
-        <Loader2 className="h-4 w-4 animate-spin text-[var(--accent-primary)]/40" />
-      </div>
-    );
-  }
-
-  if (error || !objectUrl) {
-    return (
-      <div className={cn("flex items-center justify-center bg-black/5 dark:bg-white/5 text-[var(--text-muted)] text-[10px]", className)}>
-        <span>Failed to load image</span>
-      </div>
-    );
-  }
-
-  return (
-    <img
-      src={objectUrl}
-      alt={alt}
-      className={className}
-    />
-  );
 }
 
 function FilePreviewCard({ file, onRemove }: { file: File; onRemove: () => void }) {
@@ -260,6 +210,7 @@ function MessagesContent() {
   // Attachment upload states
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<RichTextComposerHandle>(null);
+  const pendingComposerFocusRef = useRef<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -321,7 +272,9 @@ function MessagesContent() {
 
   // Create conversation modal
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>('home');
+  const [chatListFilter, setChatListFilter] = useState<ChatListFilter>('all');
+  const [leftPanelMode, setLeftPanelMode] = useState<MessagesLeftPanelMode>('chats');
+  const [settingsSearch, setSettingsSearch] = useState('');
   const [conversationPanelTab, setConversationPanelTab] = useState<ConversationPanelTab>('messages');
 
   // Mention system
@@ -375,7 +328,26 @@ function MessagesContent() {
   useEffect(() => {
     latestSelectedConvId.current = selectedConversationId;
     stopActiveVoicePlayback();
+    pendingComposerFocusRef.current = null;
   }, [selectedConversationId]);
+
+  useEffect(() => {
+    if (isSending) return;
+
+    const conversationId = pendingComposerFocusRef.current;
+    if (!conversationId) return;
+    pendingComposerFocusRef.current = null;
+
+    if (latestSelectedConvId.current !== conversationId) return;
+    if (!canISend) return;
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (latestSelectedConvId.current !== conversationId) return;
+        composerRef.current?.focus();
+      });
+    });
+  }, [isSending, canISend]);
 
   const { isConnected } = useRealtimeStatus();
   const dmCallButtonState = useMemo(
@@ -436,24 +408,51 @@ function MessagesContent() {
       return;
     }
     if (!canFetchProtectedData()) return;
+    const convId = selectedConversationId;
     let active = true;
 
     const fetchThread = async () => {
-      if (!canFetchProtectedData()) return;
+      if (!canFetchProtectedData() || !convId) return;
       try {
-        setLoadingMsgs(true); setThreadLoadError(null); setMessages([]);
-        const data = await messagesApi.getMessages(selectedConversationId, { limit: 50 });
-        if (active) setMessages(data);
-      } catch (err) { if (active) setThreadLoadError(getConversationLoadError(err)); }
-      finally { if (active) setLoadingMsgs(false); }
+        setLoadingMsgs(true);
+        setThreadLoadError(null);
+        setMessages([]);
+
+        let data: Message[] = [];
+        let lastError: unknown;
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            data = await messagesApi.getMessages(convId, { limit: 50 });
+            lastError = undefined;
+            break;
+          } catch (err) {
+            lastError = err;
+            const status = (err as { response?: { status?: number } }).response?.status;
+            if (status === 403 || status === 404) throw err;
+            if (attempt < 1) {
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              continue;
+            }
+            throw err;
+          }
+        }
+
+        if (!active || latestSelectedConvId.current !== convId) return;
+        setMessages(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (!active || latestSelectedConvId.current !== convId) return;
+        setThreadLoadError(getConversationLoadError(err));
+      } finally {
+        if (active) setLoadingMsgs(false);
+      }
     };
 
     const markRead = async () => {
       if (!canFetchProtectedData()) return;
       try {
-        await messagesApi.markConversationRead(selectedConversationId);
+        await messagesApi.markConversationRead(convId);
         if (active) {
-          setConversations(prev => prev.map(c => c.id === selectedConversationId ? { ...c, unread_count: 0 } : c));
+          setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c));
           window.dispatchEvent(new Event('pims-messages-unread-update'));
         }
       } catch (err) { logProtectedFetchError('[Messages] Mark read error', err); }
@@ -462,7 +461,7 @@ function MessagesContent() {
     const fetchMentionable = async () => {
       if (!canFetchProtectedData()) return;
       try {
-        const data = await messagesApi.getMentionableUsers(selectedConversationId);
+        const data = await messagesApi.getMentionableUsers(convId);
         if (active) setMentionableUsers(data);
       } catch (err) { logProtectedFetchError('[Messages] Mentionable users error', err); }
     };
@@ -636,6 +635,7 @@ function MessagesContent() {
             : c
         )
       );
+      playOutgoingMessageSound();
     } catch (err) {
       setSendError(getErrorMessage(err) || 'Unable to send voice message.');
       throw err;
@@ -646,7 +646,8 @@ function MessagesContent() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedConversationId || isSending || !canISend) return;
+    const conversationIdAtSend = selectedConversationId;
+    if (!conversationIdAtSend || isSending || !canISend) return;
 
     const messageText = composerRef.current?.getPlainText().trim() ?? composerPlainText.trim();
     if (!messageText && selectedFiles.length === 0) return;
@@ -662,7 +663,7 @@ function MessagesContent() {
       if (selectedFiles.length > 0) {
         try {
           const uploaded = await messagesApi.uploadConversationAttachments(
-            selectedConversationId,
+            conversationIdAtSend,
             selectedFiles
           );
           attachment_ids = uploaded.map(att => att.id);
@@ -687,20 +688,24 @@ function MessagesContent() {
         payload.reply_to_message_id = replyingTo.id;
       }
 
-      const sentMsg = await messagesApi.sendMessage(selectedConversationId, payload);
+      const sentMsg = await messagesApi.sendMessage(conversationIdAtSend, payload);
+
+      if (latestSelectedConvId.current !== conversationIdAtSend) return;
 
       setMessages(prev => [...prev, sentMsg]);
+      pendingComposerFocusRef.current = conversationIdAtSend;
       composerRef.current?.clear();
       setComposerPlainText('');
       setSelectedFiles([]);
       setReplyingTo(null);
       setConversations(prev =>
         prev.map(c =>
-          c.id === selectedConversationId
+          c.id === conversationIdAtSend
             ? { ...c, updated_at: new Date().toISOString() }
             : c
         )
       );
+      playOutgoingMessageSound();
     } catch (err) {
       setSendError(getErrorMessage(err) || "Unable to send message.");
     } finally {
@@ -711,6 +716,8 @@ function MessagesContent() {
   const handleCreateConversationSuccess = (newConv: Conversation) => {
     setConversations((prev) => [newConv, ...prev]);
     setShowCreateModal(false);
+    setThreadLoadError(null);
+    setMessages([]);
     handleSelectConversation(newConv.id);
   };
 
@@ -919,6 +926,11 @@ function MessagesContent() {
   const callEvents = useMemo(() => collectCallEvents(messages), [messages]);
   const groupedMessages = useMemo(() => groupMessagesByDateWithSlack(messages), [messages]);
   const activeConvName = activeConv ? getConversationDisplayName(activeConv, user?.id) : '';
+  const showLeftPanel =
+    leftPanelMode !== 'chats' ? true : !isMobile || !selectedConversationId;
+  const showConversationPanel =
+    leftPanelMode === 'chats' &&
+    (selectedConversationId ? true : !isMobile ? true : false);
 
   const PANEL_TABS: { id: ConversationPanelTab; label: string }[] = [
     { id: 'messages', label: 'Messages' },
@@ -930,107 +942,63 @@ function MessagesContent() {
   // ─── RENDER ─────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden bg-[var(--bg-page)]">
+    <div className="flex h-full min-h-0 overflow-hidden bg-white dark:bg-[#111b21]">
       <MessagesWorkspaceSidebar
         conversations={conversations}
         loading={loadingConvs}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        sidebarFilter={sidebarFilter}
-        onSidebarFilterChange={setSidebarFilter}
+        chatListFilter={chatListFilter}
+        onChatListFilterChange={setChatListFilter}
         selectedConversationId={selectedConversationId}
         onSelectConversation={handleSelectConversation}
         onNewMessage={() => setShowCreateModal(true)}
+        onOpenSettings={() => setLeftPanelMode('settings')}
         currentUserId={user?.id}
-        visible={!isMobile || !selectedConversationId}
+        visible={showLeftPanel && leftPanelMode === 'chats'}
       />
+
+      {showLeftPanel && leftPanelMode === 'settings' && (
+        <MessagesSettingsPanel
+          onBack={() => setLeftPanelMode('chats')}
+          settingsSearch={settingsSearch}
+          onSettingsSearchChange={setSettingsSearch}
+        />
+      )}
 
       {/* Active conversation panel */}
       <div
         className={cn(
-          'flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-[var(--bg-surface)] dark:bg-[#111827]',
-          selectedConversationId ? 'flex' : 'hidden lg:flex'
+          'flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden bg-[#efeae2] dark:bg-[#0b141a]',
+          showConversationPanel ? 'flex' : 'hidden lg:flex'
         )}
       >
         {activeConv ? (
           <>
-            {/* Fixed conversation header */}
-            <div className="shrink-0 px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/80 backdrop-blur-sm flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedConversationId(null);
-                    router.replace('/messages');
-                  }}
-                  className="lg:hidden p-1.5 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)] shrink-0"
-                  aria-label="Back to messages"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </button>
-                <div className="h-9 w-9 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--accent-primary)] flex items-center justify-center shrink-0">
-                  {getConvIcon(activeConv.type)}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h2 className="text-sm font-bold text-[var(--text-primary)] truncate">
-                      {activeConvName}
-                    </h2>
-                    <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-[var(--bg-subtle)] text-[var(--text-muted)] border border-[var(--border-subtle)]">
-                      {getConvTypeLabel(activeConv.type)}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[var(--text-muted)] flex items-center gap-1.5 truncate">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    {activeConv.participants.length} members
-                    {myRole && (
-                      <span className={`px-1 py-0.5 rounded border text-[8px] font-bold uppercase ${roleBadge(myRole).cls}`}>
-                        {roleBadge(myRole).label}
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1 shrink-0">
-                {activeConv.type === 'direct' ? (
-                  <>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!dmCallButtonState.canCall} onClick={() => handleStartCall('voice')} title={getCallButtonTitle('voice', dmCallButtonState)}>
-                      <Phone className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" disabled={!dmCallButtonState.canCall} onClick={() => handleStartCall('video')} title={getCallButtonTitle('video', dmCallButtonState)}>
-                      <Video className="h-4 w-4" />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-50" onClick={() => setShowPremiumCallModal(true)} title="Group voice call">
-                      <Phone className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg opacity-50" onClick={() => setShowPremiumCallModal(true)} title="Group video call">
-                      <Video className="h-4 w-4" />
-                    </Button>
-                  </>
-                )}
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hidden sm:flex" title="Search in conversation">
-                  <Search className="h-4 w-4" />
-                </Button>
-                {isGroupOrChannel && canIAddMembers && (
-                  <Button variant="ghost" size="sm" className="h-8 rounded-lg text-xs hidden md:flex" onClick={openManageModal}>
-                    <Users className="h-3.5 w-3.5 mr-1" />
-                    Details
-                  </Button>
-                )}
-                {isGroupOrChannel && canIManageSettings && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={openSettingsModal} title="Settings">
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                )}
-              </div>
-            </div>
+            <MessagesConversationHeader
+              activeConv={activeConv}
+              activeConvName={activeConvName}
+              currentUserId={user?.id}
+              myRole={myRole}
+              isMobile={isMobile}
+              isGroupOrChannel={isGroupOrChannel}
+              canIAddMembers={canIAddMembers}
+              canIManageSettings={canIManageSettings}
+              dmCallButtonState={dmCallButtonState}
+              onBack={() => {
+                setSelectedConversationId(null);
+                router.replace('/messages');
+              }}
+              onStartCall={handleStartCall}
+              onShowPremiumCall={() => setShowPremiumCallModal(true)}
+              onOpenManage={openManageModal}
+              onOpenSettings={openSettingsModal}
+              getCallButtonTitle={getCallButtonTitle}
+              roleBadge={roleBadge}
+            />
 
             {/* Sub-tabs */}
-            <div className="shrink-0 flex items-center gap-1 px-3 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-x-auto custom-scrollbar">
+            <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 border-b border-[var(--border-subtle)] bg-[#f0f2f5] dark:bg-[#202c33] overflow-x-auto custom-scrollbar">
               {PANEL_TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -1050,234 +1018,29 @@ function MessagesContent() {
 
             {conversationPanelTab === 'messages' && (
               <>
-            <div
-              ref={messagesContainerRef}
-              className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-4 bg-[var(--bg-surface)] dark:bg-[#111827] relative"
-            >
-              {hasNewMessagesBelow && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setHasNewMessagesBelow(false);
-                    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className="sticky top-2 left-1/2 -translate-x-1/2 z-10 mx-auto block rounded-full bg-[var(--accent-primary)] px-4 py-1.5 text-xs font-bold text-white shadow-lg"
-                >
-                  New message
-                </button>
-              )}
-              {loadingMsgs ? (
-                <div className="py-12 text-center text-xs text-[var(--text-muted)] font-semibold flex items-center justify-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-primary)]" /> Synchronizing thread...
-                </div>
-              ) : threadLoadError ? (
-                <div className="py-24 text-center text-xs text-[var(--text-muted)] font-semibold space-y-4">
-                  <div className="h-12 w-12 rounded-2xl bg-[var(--status-danger-bg)] border border-[var(--status-danger-border)] text-[var(--status-danger-text)] flex items-center justify-center mx-auto shadow-md">
-                    <AlertCircle className="h-6 w-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[var(--text-primary)] font-black uppercase tracking-wider text-xs">{threadLoadError.title}</p>
-                    <p className="text-[var(--text-secondary)] text-[10px] max-w-sm mx-auto font-semibold leading-relaxed">{threadLoadError.message}</p>
-                  </div>
-                  {threadLoadError.canRetry && (
-                    <Button
-                      variant="outline"
-                      className="rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-2"
-                      onClick={() => loadMessages(activeConv.id)}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center text-xs text-[var(--text-muted)] space-y-2 py-12">
-                  <MessageSquare className="h-8 w-8 text-[var(--text-muted)] opacity-50" />
-                  <p className="font-medium text-[var(--text-secondary)]">
-                    No messages yet. Start the conversation with {activeConvName}.
-                  </p>
-                </div>
-              ) : (
-                groupedMessages.map((group) => (
-                  <div key={group.date} className="space-y-3">
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="h-px flex-1 bg-[var(--border-subtle)]" />
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)] px-2">
-                        {group.date}
-                      </span>
-                      <div className="h-px flex-1 bg-[var(--border-subtle)]" />
-                    </div>
-                    {group.items.map((item) => {
-                  const msg = item.message;
-                  const isSelf = msg.sender_id === user?.id;
-                  const isSystem = msg.message_type === 'system';
-
-                  if (isSystem) {
-                    return (
-                      <div key={msg.id} className="flex justify-center py-1">
-                        <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-subtle)] px-3 py-1 rounded-full border border-[var(--border-subtle)]">
-                          {msg.body}
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'group/message relative flex gap-2 w-full max-w-4xl hover:bg-[var(--bg-subtle)]/60 rounded-md px-2 -mx-2',
-                        item.isContinuation ? 'mt-0.5 pt-0.5' : 'mt-3 first:mt-1'
-                      )}
-                    >
-                      <div className="w-9 shrink-0 flex justify-center">
-                        {item.showAvatar ? (
-                          <UserProfilePicture
-                            user={msg.sender}
-                            name={msg.sender.full_name}
-                            size="default"
-                            className="h-9 w-9 shrink-0"
-                          />
-                        ) : (
-                          <span className="w-9" aria-hidden />
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0">
-                        {item.showHeader && (
-                          <div className="flex items-baseline gap-2 leading-none mb-1">
-                            <span className="text-sm font-bold text-[var(--text-primary)]">{msg.sender.full_name}</span>
-                            {isSelf && (
-                              <span className="text-[10px] font-medium text-[var(--text-muted)]">(you)</span>
-                            )}
-                            <span className="text-[10px] text-[var(--text-muted)] tabular-nums">
-                              {formatMessageTime(msg.created_at)}
-                            </span>
-                            {isSelf && activeConv && (
-                              <MessageStatusIndicator
-                                status={msg.delivery_status}
-                                seenCount={msg.seen_count}
-                                deliveredCount={msg.delivered_count}
-                                totalRecipients={msg.total_recipients}
-                                conversationType={activeConv.type}
-                              />
-                            )}
-                          </div>
-                        )}
-
-                        {!item.showHeader && (
-                          <span className="absolute left-1 top-1 w-10 text-right pr-1 text-[10px] text-[var(--text-muted)] opacity-0 group-hover/message:opacity-100 tabular-nums pointer-events-none">
-                            {formatMessageTime(msg.created_at)}
-                          </span>
-                        )}
-
-                        <div className="flex items-start gap-1">
-                          <div className="min-w-0 flex-1 text-sm leading-relaxed text-[var(--text-primary)]">
-                            {msg.reply_to_message && !msg.is_deleted && (
-                              <MessageQuotedReply reply={msg.reply_to_message} isSelf={false} />
-                            )}
-                            {msg.is_deleted ? (
-                              <p className="text-sm italic text-[var(--text-muted)]">
-                                This message was deleted.
-                              </p>
-                            ) : (
-                              <>
-                                {msg.body && !isVoiceNoteMessage(msg) && (
-                                  <MessageBody text={msg.body} html={msg.body_html} />
-                                )}
-
-                                {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="space-y-2 mt-2 pt-1 border-t border-[var(--border-subtle)]">
-                              {msg.attachments
-                                .filter((att) => isVoiceNoteAttachment(att))
-                                .map((att) => (
-                                  <VoiceMessageBubble key={att.id} attachment={att} isSelf={false} />
-                                ))}
-
-                              {msg.attachments.some(att => att.mime_type.startsWith('image/')) && (
-                                <div className="grid grid-cols-2 gap-2">
-                                  {msg.attachments
-                                    .filter(att => att.mime_type.startsWith('image/'))
-                                    .map(att => (
-                                      <div key={att.id} className="relative rounded-lg overflow-hidden group border border-[var(--border-default)] aspect-video bg-black/5">
-                                        <SecureImage
-                                          src={att.download_url}
-                                          alt={att.original_file_name}
-                                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                        />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                          <button
-                                            type="button"
-                                            onClick={() => messagesApi.downloadAttachment(att.id)}
-                                            className="p-1.5 rounded-lg bg-white/20 text-white hover:bg-white/40 transition-colors"
-                                            title="Download"
-                                          >
-                                            <Download className="h-4 w-4" />
-                                          </button>
-                                        </div>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-
-                              {msg.attachments.filter(att => !att.mime_type.startsWith('image/') && !isVoiceNoteAttachment(att)).length > 0 && (
-                                <div className="space-y-1">
-                                  {msg.attachments
-                                    .filter(att => !att.mime_type.startsWith('image/') && !isVoiceNoteAttachment(att))
-                                    .map(att => (
-                                      <div
-                                        key={att.id}
-                                        className="flex items-center justify-between p-2.5 rounded-lg border text-xs gap-3 bg-[var(--bg-subtle)] border-[var(--border-subtle)] text-[var(--text-primary)]"
-                                      >
-                                        <div className="h-8 w-8 bg-blue-50 dark:bg-blue-900/30 text-blue-500 dark:text-blue-400 rounded-lg flex items-center justify-center shrink-0 border border-blue-100 dark:border-blue-800/30">
-                                          <FileText className="h-4 w-4" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="truncate font-semibold mb-0.5" title={att.original_file_name}>
-                                            {att.original_file_name}
-                                          </p>
-                                          <p className="text-[9px] font-semibold uppercase text-[var(--text-muted)]">
-                                            {(att.file_size / 1024).toFixed(0)} KB
-                                          </p>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => messagesApi.downloadAttachment(att.id)}
-                                          className="p-1.5 rounded-lg border transition-colors hover:bg-[var(--bg-sidebar-hover)] text-[var(--text-secondary)] border-[var(--border-default)]"
-                                          title="Download"
-                                        >
-                                          <Download className="h-3.5 w-3.5" />
-                                        </button>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                            </>
-                          )}
-                          </div>
-                          <MessageActionsMenu
-                            isSelf={isSelf}
-                            canDelete={canDeleteMessage(msg, activeConv, user?.id, user?.role)}
-                            showDelete={!msg.is_deleted}
-                            showReply={!msg.is_deleted}
-                            onReply={() => setReplyingTo(msg)}
-                            onInfo={() => openMessageInfo(msg)}
-                            onDelete={() => setDeleteConfirmMessage(msg)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                  </div>
-                ))
-              )}
-              <div ref={messageEndRef} />
-            </div>
+            <MessagesChatStream
+              groupedMessages={groupedMessages}
+              loading={loadingMsgs}
+              loadError={threadLoadError}
+              activeConv={activeConv}
+              currentUserId={user?.id}
+              userRole={user?.role}
+              hasNewMessagesBelow={hasNewMessagesBelow}
+              onScrollToNew={() => {
+                setHasNewMessagesBelow(false);
+                messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+              }}
+              onRetry={() => loadMessages(activeConv.id)}
+              messagesContainerRef={messagesContainerRef}
+              messageEndRef={messageEndRef}
+              onReply={setReplyingTo}
+              onDelete={setDeleteConfirmMessage}
+              onInfo={openMessageInfo}
+              canDeleteMessage={canDeleteMessage}
+            />
 
             {/* Fixed composer */}
-            <form onSubmit={handleSendMessage} className="shrink-0 p-3 border-t border-[var(--border-subtle)] bg-[var(--bg-elevated)] dark:bg-[#0f172a] relative">
+            <form onSubmit={handleSendMessage} className="shrink-0 p-3 border-t border-[var(--border-subtle)] bg-[#f0f2f5] dark:bg-[#202c33] relative">
               {showMentionPicker && activeConv?.type !== 'direct' && (
                 <div className="absolute bottom-full left-3 mb-2 w-64 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] shadow-lg p-1.5 z-40 max-h-48 overflow-y-auto custom-scrollbar">
                   <div className="p-2 text-[9px] font-bold uppercase tracking-wider text-[var(--text-muted)] border-b border-[var(--border-subtle)] mb-1">
@@ -1340,7 +1103,7 @@ function MessagesContent() {
               <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] overflow-hidden">
                 <RichTextComposer
                   ref={composerRef}
-                  placeholder={canISend ? `Message ${activeConvName}` : sendRestrictionMsg ?? ''}
+                  placeholder={canISend ? 'Type a message' : sendRestrictionMsg ?? ''}
                   disabled={!canISend || isSending}
                   onUpdate={handleComposerUpdate}
                   onSubmit={handleComposerSubmit}
@@ -1379,6 +1142,7 @@ function MessagesContent() {
                     size="sm"
                     disabled={(!composerPlainText.trim() && selectedFiles.length === 0) || isSending || !canISend}
                     className="h-8 rounded-md px-3"
+                    onMouseDown={event => event.preventDefault()}
                   >
                     {isSending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Send className="h-3.5 w-3.5 mr-1" /> Send</>}
                   </Button>
@@ -1480,24 +1244,21 @@ function MessagesContent() {
             )}
           </>
         ) : (
-          <div className="flex-1 min-h-0 flex flex-col justify-center items-center p-8 text-center text-[var(--text-muted)] space-y-4">
-            <div className="h-14 w-14 rounded-xl bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--accent-primary)] flex items-center justify-center">
-              <MessageSquare className="h-7 w-7" />
+          <div className="flex-1 min-h-0 flex flex-col justify-center items-center p-8 text-center bg-[#f0f2f5] dark:bg-[#222e35]">
+            <div className="h-24 w-24 rounded-full bg-[#dfe5e7] dark:bg-[#374248] flex items-center justify-center mb-6">
+              <MessageSquare className="h-10 w-10 text-[#54656f]" />
             </div>
-            <div className="max-w-md space-y-2">
-              <h2 className="text-sm font-black uppercase tracking-wider text-[var(--text-primary)] not-italic">
-                PIMS Communication Center
-              </h2>
-              <p className="text-xs text-[var(--text-secondary)] not-italic font-semibold">
-                Select a conversation from the left sidebar or start a new direct message, group, or channel.
-              </p>
-            </div>
+            <h2 className="text-2xl font-light text-[#41525d] dark:text-[#e9edef] mb-2">
+              PIMS Messages
+            </h2>
+            <p className="text-sm text-[#667781] dark:text-[#8696a0] max-w-sm mb-6">
+              Select a chat from the list or start a new conversation to send messages.
+            </p>
             <Button
-              variant="outline"
-              className="rounded-xl border-[var(--border-default)] hover:bg-[var(--bg-sidebar-hover)] text-xs font-bold gap-2"
+              className="rounded-full bg-[#25d366] hover:bg-[#20bd5a] text-white px-6"
               onClick={() => setShowCreateModal(true)}
             >
-              <Plus className="h-4 w-4" /> Start New Discussion
+              <Plus className="h-4 w-4 mr-2" /> New chat
             </Button>
           </div>
         )}

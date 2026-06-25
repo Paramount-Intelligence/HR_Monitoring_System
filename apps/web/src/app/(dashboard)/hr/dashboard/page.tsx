@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { KPICard, KPICardSkeleton } from '@/components/dashboard/KPICard';
+import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api/client';
@@ -80,6 +81,12 @@ export default function HRDashboardPage() {
             />
         </div>
       )}
+
+      <DashboardOverviewUpdatesSection
+        limit={5}
+        announcementsViewAllHref="/admin/announcements"
+        holidaysViewAllHref="/admin/holidays"
+      />
 
       <div className="grid gap-8 md:grid-cols-3">
         <Card className="rounded-[2.5rem] shadow-[var(--shadow-soft)] border-none bg-[var(--bg-surface)] overflow-hidden group cursor-pointer hover:shadow-[var(--shadow-hard)] transition-all duration-500 text-[var(--text-primary)]">

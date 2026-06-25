@@ -8,6 +8,10 @@ from app.models.user import User
 from app.models.holiday import Holiday
 from app.schemas.holiday import HolidayRead, HolidayCreate, HolidayUpdate
 
+from datetime import date
+
+from app.services.holiday_service import list_upcoming_holidays
+
 router = APIRouter()
 
 @router.post("", response_model=HolidayRead, summary="Create a holiday (Admin only)")
@@ -33,6 +37,16 @@ def list_holidays(db: Session = Depends(get_db), actor: User = Depends(get_curre
 @router.get("/active", response_model=list[HolidayRead], summary="List active holidays")
 def list_active_holidays(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> list[HolidayRead]:
     return db.query(Holiday).filter(Holiday.is_active == True).all()
+
+
+@router.get("/upcoming", response_model=list[HolidayRead], summary="Upcoming active holidays")
+def list_upcoming_holidays_for_dashboard(
+    limit: int = 5,
+    from_date: date | None = None,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> list[HolidayRead]:
+    return list_upcoming_holidays(db, limit=limit, from_date=from_date)
 
 @router.patch("/{holiday_id}", response_model=HolidayRead, summary="Update a holiday")
 def update_holiday(

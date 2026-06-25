@@ -17,10 +17,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
-import { formatPKDate } from '@/lib/time';
+import { formatPKDate, formatPKDateTime } from '@/lib/time';
 import { ManagerPageShell } from '@/components/manager/ManagerPageShell';
 import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
 import { DialogBody, DialogFooter } from '@/components/ui/dialog';
+import { SubmittedEodSection } from '@/components/eod/SubmittedEodSection';
 
 export default function EODReviewsPage() {
   const [eods, setEods] = useState<EODReport[]>([]);
@@ -51,27 +52,31 @@ export default function EODReviewsPage() {
   function openReview(eod: EODReport) {
     setSelectedEod(eod);
     setComments(eod.manager_comments || '');
+    setReviewAction(null);
     setIsReviewOpen(true);
   }
 
-  async function submitReview() {
-    if (!selectedEod || !reviewAction) return;
-    
-    if ((reviewAction === 'Rejected' || reviewAction === 'Needs Revision') && !comments.trim()) {
+  async function submitReview(action: 'Approved' | 'Rejected' | 'Needs Revision') {
+    if (!selectedEod) return;
+
+    if ((action === 'Rejected' || action === 'Needs Revision') && !comments.trim()) {
       toast.error('Comments are required when rejecting or requesting revision');
       return;
     }
 
     try {
+      setReviewAction(action);
       setIsSubmitting(true);
-      const updated = await eodApi.reviewEOD(selectedEod.id, reviewAction, comments);
-      setEods(eods.map(e => e.id === updated.id ? updated : e));
-      toast.success(`EOD ${reviewAction}`);
+      const updated = await eodApi.reviewEOD(selectedEod.id, action, comments);
+      setEods((current) => current.map((e) => (e.id === updated.id ? updated : e)));
+      toast.success(`EOD ${action}`);
       setIsReviewOpen(false);
-    } catch (error) {
+      setSelectedEod(null);
+    } catch {
       toast.error('Failed to submit review');
     } finally {
       setIsSubmitting(false);
+      setReviewAction(null);
     }
   }
 
@@ -205,15 +210,18 @@ export default function EODReviewsPage() {
 
       {selectedEod && (
         <Dialog open={isReviewOpen} onOpenChange={setIsReviewOpen}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>EOD Review: {selectedEod.user_name}</DialogTitle>
               <DialogDescription>
-                Reviewing EOD report for {formatPKDate(selectedEod.date)}.
+                Reviewing EOD report for {formatPKDate(selectedEod.date)}
+                {selectedEod.submitted_at
+                  ? ` · Submitted ${formatPKDateTime(selectedEod.submitted_at)}`
+                  : ''}
               </DialogDescription>
             </DialogHeader>
 
-            <DialogBody>
+            <DialogBody className="overflow-y-auto">
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-[var(--bg-subtle)]/50 rounded-xl border border-[var(--border-subtle)] flex flex-col gap-1">
                 <div className="flex items-center gap-2 text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">
@@ -258,6 +266,10 @@ export default function EODReviewsPage() {
               </div>
             </div>
 
+            <div className="mt-4">
+              <SubmittedEodSection report={selectedEod} />
+            </div>
+
             <div className="space-y-4 pt-4 mt-4 border-t border-[var(--border-subtle)]">
               <div className="space-y-2">
                 <Label className="text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">Manager Feedback</Label>
@@ -277,7 +289,7 @@ export default function EODReviewsPage() {
                   <Button 
                     className="flex-1 bg-emerald-600 hover:bg-emerald-700 rounded-xl font-bold h-9 border-none text-white" 
                     disabled={isSubmitting}
-                    onClick={() => { setReviewAction('Approved'); setTimeout(submitReview, 0); }}
+                    onClick={() => void submitReview('Approved')}
                   >
                     {isSubmitting && reviewAction === 'Approved' ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <ShieldCheck className="mr-2 h-4 w-4 text-white" />}
                     Approve
@@ -286,7 +298,7 @@ export default function EODReviewsPage() {
                     variant="outline"
                     className="flex-1 rounded-xl font-bold h-9" 
                     disabled={isSubmitting}
-                    onClick={() => { setReviewAction('Needs Revision'); setTimeout(submitReview, 0); }}
+                    onClick={() => void submitReview('Needs Revision')}
                   >
                     {isSubmitting && reviewAction === 'Needs Revision' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
                     Request Revision
@@ -295,7 +307,7 @@ export default function EODReviewsPage() {
                     variant="outline"
                     className="flex-1 rounded-xl font-bold h-9 text-rose-700" 
                     disabled={isSubmitting}
-                    onClick={() => { setReviewAction('Rejected'); setTimeout(submitReview, 0); }}
+                    onClick={() => void submitReview('Rejected')}
                   >
                     {isSubmitting && reviewAction === 'Rejected' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
                     Reject
@@ -305,7 +317,7 @@ export default function EODReviewsPage() {
                 <Button 
                   className="w-full bg-[var(--text-primary)] hover:opacity-90 rounded-xl font-bold h-9 border-none text-white text-xs" 
                   disabled={isSubmitting}
-                  onClick={() => { setReviewAction(selectedEod.status as any); setTimeout(submitReview, 0); }}
+                  onClick={() => void submitReview(selectedEod.status as 'Approved' | 'Rejected' | 'Needs Revision')}
                 >
                   {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : null}
                   Update Comments

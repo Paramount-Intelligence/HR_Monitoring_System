@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import {
-  Activity, Timer, CheckSquare, AlertCircle, PlayCircle, Megaphone,
+  Activity, Timer, CheckSquare, AlertCircle, PlayCircle,
   Clock, FileText, Palmtree, MessageSquare, Calendar, Bell, ArrowRight,
 } from 'lucide-react';
 import { AdminMetricCard } from '@/components/admin/dashboard/AdminMetricCard';
-import { AnnouncementList } from '@/components/dashboard/announcement-list';
+import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 import { DashboardSummary } from '@/lib/api/dashboard';
 import { EODReport } from '@/lib/api/eod';
 import { Meeting } from '@/lib/api/meetings';
@@ -173,19 +173,7 @@ export function EmployeeOverviewTab({
             </div>
           </div>
 
-          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] shadow-[var(--shadow-soft)] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
-              <div className="flex items-center gap-2">
-                <Megaphone className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                  Latest Announcement
-                </span>
-              </div>
-            </div>
-            <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
-              <AnnouncementList />
-            </div>
-          </div>
+          <DashboardOverviewUpdatesSection limit={5} holidaysViewAllHref="/calendar" />
         </div>
 
         <div className="lg:col-span-5 space-y-3">

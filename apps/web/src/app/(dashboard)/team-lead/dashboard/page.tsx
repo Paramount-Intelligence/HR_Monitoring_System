@@ -3,6 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckSquare, Users, TrendingUp, Clock, Award, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 
 export default function TeamLeadDashboardPage() {
   const { user } = useAuth();
@@ -65,6 +66,8 @@ export default function TeamLeadDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <DashboardOverviewUpdatesSection limit={5} holidaysViewAllHref="/calendar" />
 
       {/* Quick Access */}
       <div className="grid gap-6 md:grid-cols-3">

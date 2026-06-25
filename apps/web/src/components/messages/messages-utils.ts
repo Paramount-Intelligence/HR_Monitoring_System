@@ -4,6 +4,7 @@ import { isVoiceNoteMessage } from '@/lib/messages/voice-messages';
 import { format, isValid, parseISO } from 'date-fns';
 
 export type SidebarFilter = 'home' | 'threads' | 'mentions' | 'drafts' | 'files' | 'calls';
+export type ChatListFilter = 'all' | 'unread' | 'favourites' | 'groups';
 export type ConversationPanelTab = 'messages' | 'files' | 'calls' | 'details';
 
 export const SLACK_GROUP_WINDOW_MS = 5 * 60 * 1000;
@@ -74,6 +75,33 @@ export function getMessagePreviewText(message: Message): string {
 export function getDirectParticipant(conv: Conversation, currentUserId?: string) {
   if (conv.type !== 'direct') return null;
   return conv.participants.find((p) => p.user_id !== currentUserId)?.user ?? null;
+}
+
+export function formatConversationListTime(dateStr: string): string {
+  try {
+    const d = parseISO(dateStr);
+    if (!isValid(d)) return '';
+    const today = new Date();
+    if (format(d, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')) {
+      return format(d, 'h:mm a');
+    }
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    if (format(d, 'yyyy-MM-dd') === format(yesterday, 'yyyy-MM-dd')) {
+      return 'Yesterday';
+    }
+    return format(d, 'M/d/yy');
+  } catch {
+    return '';
+  }
+}
+
+export function getConversationTypeBadge(type: ConversationType): string {
+  if (type === 'direct') return 'DM';
+  if (type === 'group') return 'Group';
+  if (type === 'channel') return 'Channel';
+  if (type.endsWith('_thread')) return type.split('_')[0].toUpperCase();
+  return 'Chat';
 }
 
 export function formatMessageTime(dateStr: string): string {
@@ -244,7 +272,27 @@ export function matchesSearch(conv: Conversation, query: string, currentUserId?:
   const q = query.toLowerCase();
   const name = getConversationDisplayName(conv, currentUserId).toLowerCase();
   const preview = getConversationPreview(conv).toLowerCase();
-  return name.includes(q) || preview.includes(q);
+  const participantMatch = conv.participants.some(
+    (p) =>
+      p.user.full_name.toLowerCase().includes(q) ||
+      (p.user.email || '').toLowerCase().includes(q)
+  );
+  return name.includes(q) || preview.includes(q) || participantMatch;
+}
+
+export function filterByChatListFilter(conv: Conversation, filter: ChatListFilter): boolean {
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'unread':
+      return (conv.unread_count ?? 0) > 0;
+    case 'favourites':
+      return false;
+    case 'groups':
+      return conv.type === 'group' || conv.type === 'channel';
+    default:
+      return true;
+  }
 }
 
 export function filterBySidebarFilter(

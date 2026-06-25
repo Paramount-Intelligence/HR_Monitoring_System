@@ -20,6 +20,43 @@ const ALLOWED_TAGS = [
 
 const ALLOWED_ATTR = ['href', 'target', 'rel', 'class'];
 
+const EMPTY_LIST_ITEM_PATTERN =
+  /<li>(?:\s|<br\s*\/?>|&nbsp;|<p>\s*<\/p>)*<\/li>/gi;
+
+/** Remove accidental trailing empty list items before send/sanitize. */
+export function stripEmptyComposerListArtifacts(html: string): string {
+  if (!html) return html;
+
+  let result = html;
+  let changed = true;
+
+  while (changed) {
+    changed = false;
+    result = result.replace(
+      /(<(?:ul|ol)[^>]*>)([\s\S]*?)(<\/(?:ul|ol)>)/gi,
+      (_match, open: string, body: string, close: string) => {
+        let trimmed = body;
+        let localChanged = false;
+        while (EMPTY_LIST_ITEM_PATTERN.test(trimmed)) {
+          EMPTY_LIST_ITEM_PATTERN.lastIndex = 0;
+          const next = trimmed.replace(
+            new RegExp(`${EMPTY_LIST_ITEM_PATTERN.source}$`, 'i'),
+            ''
+          );
+          if (next === trimmed) break;
+          trimmed = next;
+          localChanged = true;
+        }
+        if (localChanged) changed = true;
+        if (!/<li[\s>]/i.test(trimmed)) return '';
+        return `${open}${trimmed}${close}`;
+      }
+    );
+  }
+
+  return result.replace(/<(?:ul|ol)[^>]*>\s*<\/(?:ul|ol)>/gi, '');
+}
+
 /** Sanitize rich message HTML for storage and rendering. */
 export function sanitizeMessageHtml(html: string): string {
   const cleaned = DOMPurify.sanitize(html, {

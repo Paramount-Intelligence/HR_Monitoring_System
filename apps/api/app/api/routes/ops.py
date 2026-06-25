@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -16,13 +17,42 @@ from app.models.personal_note import PersonalNote
 from app.models.task import Task
 from app.models.time_log import TimeLog
 from app.models.user import User
-from app.schemas.ops import DutyCreate, DutyRead, DutyUpdate, EODReportRead, EODReviewRequest
+from app.schemas.ops import (
+    DutyCreate,
+    DutyRead,
+    DutyUpdate,
+    EODReportRead,
+    EODReviewRequest,
+    EODSubmitRequest,
+)
+from app.services.eod_service import (
+    generate_or_refresh_eod,
+    get_user_eod_report,
+    notify_submitter_on_eod_review,
+    resolve_report_date,
+    submit_user_eod,
+)
 
 router = APIRouter()
 
+MANAGER_VISIBLE_EOD_STATUSES = (
+    "Pending Approval",
+    "Approved",
+    "Rejected",
+    "Needs Revision",
+)
+
+
+def _read_work_mode(report: EODReport) -> str:
+    if report.work_mode in {"office", "wfh"}:
+        return report.work_mode
+    legacy = report.highlights_summary or ""
+    if legacy in {"office", "wfh"}:
+        return legacy
+    return "office"
+
 
 def _format_eod(report: EODReport, user_name: str) -> EODReportRead:
-    session_work_mode = report.highlights_summary or "office"
     return EODReportRead(
         id=report.id,
         user_id=report.user_id,
@@ -30,7 +60,7 @@ def _format_eod(report: EODReport, user_name: str) -> EODReportRead:
         date=report.report_date,
         login_time=ensure_pk_datetime(report.login_time),
         logout_time=ensure_pk_datetime(report.logout_time),
-        work_mode=session_work_mode,
+        work_mode=_read_work_mode(report),
         total_hours=float(report.total_hours),
         tasks_worked_on=report.tasks_worked_on,
         completed_tasks=report.completed_tasks,
@@ -40,6 +70,10 @@ def _format_eod(report: EODReport, user_name: str) -> EODReportRead:
         status=report.status,
         manager_comments=report.manager_comments,
         productivity_score=report.productivity_score,
+        work_summary=report.work_summary,
+        blockers=report.blockers,
+        next_day_plan=report.next_day_plan,
+        submitted_at=ensure_pk_datetime(report.submitted_at) if report.submitted_at else None,
         created_at=ensure_pk_datetime(report.created_at),
         updated_at=ensure_pk_datetime(report.updated_at),
     )
@@ -140,91 +174,52 @@ def delete_duty(duty_id: uuid.UUID, db: Session = Depends(get_db), actor: User =
 
 
 @router.get("/eod/me", response_model=EODReportRead | None, summary="Get my EOD")
-def get_my_eod(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> EODReportRead | None:
-    today = pk_today()
-    report = (
-        db.query(EODReport)
-        .filter(EODReport.user_id == actor.id, EODReport.report_date == today)
-        .order_by(EODReport.created_at.desc())
-        .first()
-    )
+def get_my_eod(
+    report_date: date | None = Query(None, alias="date"),
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> EODReportRead | None:
+    target_date = resolve_report_date(report_date)
+    report = get_user_eod_report(db, actor.id, target_date)
     if not report:
         return None
     return _format_eod(report, actor.full_name)
 
 
+@router.get("/eod/me/today", response_model=EODReportRead | None, summary="Get my EOD for today")
+def get_my_eod_today(
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> EODReportRead | None:
+    return get_my_eod(report_date=None, db=db, actor=actor)
+
+
 @router.post("/eod/me/generate", response_model=EODReportRead, summary="Generate my EOD")
-def generate_my_eod(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> EODReportRead:
-    today = pk_today()
-    report = (
-        db.query(EODReport)
-        .filter(EODReport.user_id == actor.id, EODReport.report_date == today)
-        .order_by(EODReport.created_at.desc())
-        .first()
-    )
-
-    from app.core.time_utils import pk_day_start
-    from datetime import timedelta
-    start_dt = pk_day_start(today)
-    end_dt = start_dt + timedelta(days=1)
-
-    session = (
-        db.query(AttendanceSession)
-        .filter(AttendanceSession.user_id == actor.id, AttendanceSession.check_in_at >= start_dt, AttendanceSession.check_in_at < end_dt)
-        .order_by(AttendanceSession.check_in_at.desc())
-        .first()
-    )
-    tasks = db.query(Task).filter(Task.assigned_to == actor.id).all()
-    duties = db.query(PersonalNote).filter(PersonalNote.user_id == actor.id, PersonalNote.note_date == today).all()
-    time_logs = db.query(TimeLog).filter(TimeLog.user_id == actor.id, TimeLog.started_at >= start_dt, TimeLog.started_at < end_dt).all()
-
-    completed_tasks = sum(1 for t in tasks if t.status == TaskStatus.COMPLETED)
-    pending_tasks = sum(1 for t in tasks if t.status in (TaskStatus.CREATED, TaskStatus.APPROVED, TaskStatus.IN_PROGRESS, TaskStatus.REOPENED))
-    blocked_tasks = sum(1 for t in tasks if t.status == TaskStatus.BLOCKED)
-    tasks_worked_on = len({log.task_id for log in time_logs}) if time_logs else len(tasks)
-    total_minutes = sum(log.duration_minutes or 0 for log in time_logs if log.status != TimeLogStatus.INVALID)
-    total_hours = round(total_minutes / 60, 2) if total_minutes else 0.0
-    if total_hours == 0.0 and session and session.check_out_at:
-        total_hours = round((ensure_pk_datetime(session.check_out_at) - ensure_pk_datetime(session.check_in_at)).total_seconds() / 3600, 2)
-    duties_performed = sum(1 for d in duties if (d.content or "").startswith("[done]"))
-    productivity_score = max(0, min(100, completed_tasks * 15 + duties_performed * 10 + int(total_hours * 5) - blocked_tasks * 10))
-    work_mode = session.work_mode.value if session else "office"
-
-    if not report:
-        report = EODReport(user_id=actor.id, report_date=today)
-        db.add(report)
-
-    report.login_time = session.check_in_at if session else None
-    report.logout_time = session.check_out_at if session else None
-    report.total_hours = total_hours
-    report.tasks_worked_on = tasks_worked_on
-    report.completed_tasks = completed_tasks
-    report.pending_tasks = pending_tasks
-    report.blocked_tasks = blocked_tasks
-    report.duties_performed = duties_performed
-    report.productivity_score = productivity_score
-    report.status = "Generated"
-    report.highlights_summary = work_mode
-
-    db.commit()
-    db.refresh(report)
+def generate_my_eod(
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> EODReportRead:
+    report = generate_or_refresh_eod(db, actor)
     return _format_eod(report, actor.full_name)
 
 
 @router.post("/eod/me/submit", response_model=EODReportRead, summary="Submit my EOD")
-def submit_my_eod(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> EODReportRead:
-    today = pk_today()
-    report = (
-        db.query(EODReport)
-        .filter(EODReport.user_id == actor.id, EODReport.report_date == today)
-        .order_by(EODReport.created_at.desc())
-        .first()
-    )
-    if not report:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Generate EOD first")
-    report.status = "Pending Approval"
-    db.commit()
-    db.refresh(report)
+def submit_my_eod(
+    payload: EODSubmitRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> EODReportRead:
+    try:
+        report = submit_user_eod(
+            db,
+            actor,
+            report_date=payload.report_date,
+            work_summary=payload.work_summary,
+            blockers=payload.blockers,
+            next_day_plan=payload.next_day_plan,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
     return _format_eod(report, actor.full_name)
 
 
@@ -239,7 +234,11 @@ def get_team_eods(db: Session = Depends(get_db), actor: User = Depends(require_a
         return []
     reports = (
         db.query(EODReport)
-        .filter(EODReport.user_id.in_(list(user_map.keys())))
+        .filter(
+            EODReport.user_id.in_(list(user_map.keys())),
+            EODReport.user_id != actor.id,
+            EODReport.status.in_(MANAGER_VISIBLE_EOD_STATUSES),
+        )
         .order_by(EODReport.report_date.desc(), EODReport.created_at.desc())
         .all()
     )
@@ -251,6 +250,17 @@ def review_eod(report_id: uuid.UUID, payload: EODReviewRequest, db: Session = De
     report = db.get(EODReport, report_id)
     if not report:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="EOD not found")
+
+    if report.user_id == actor.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot review your own EOD",
+        )
+
+    if actor.role == UserRole.MANAGER:
+        employee = db.get(User, report.user_id)
+        if not employee or employee.manager_id != actor.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to review this EOD")
 
     if payload.action not in {"Approved", "Rejected", "Needs Revision", "Pending Approval", "Generated"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid review action")
@@ -264,6 +274,7 @@ def review_eod(report_id: uuid.UUID, payload: EODReviewRequest, db: Session = De
         snapshot_data=f"status={payload.action}",
     )
     db.add(revision)
+    notify_submitter_on_eod_review(db, report=report, reviewer=actor, action=payload.action)
     db.commit()
     db.refresh(report)
     user = db.get(User, report.user_id)

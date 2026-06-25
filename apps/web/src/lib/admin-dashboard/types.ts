@@ -5,10 +5,19 @@ export interface AdminDashboardTabState<T> {
 }
 
 export interface UsersAnalyticsData {
+  business_date?: string;
+  timezone?: string;
   summary: Record<string, number>;
   role_distribution: { label: string; count: number }[];
   department_distribution: { label: string; count: number }[];
   attendance_rate_by_department: { label: string; count: number }[];
+  attendance_by_department?: {
+    department: string;
+    active_users: number;
+    present_today: number;
+    late_today: number;
+    attendance_rate: number;
+  }[];
   employee_activity_trend: { date: string; checked_in: number; late: number; absent: number }[];
   employee_roster: Record<string, unknown>[];
   employee_performance: Record<string, unknown>[];

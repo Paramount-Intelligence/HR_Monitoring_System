@@ -35,6 +35,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { TaskTimer } from '@/components/tasks/TaskTimer';
+import { TaskCompleteRequestButton } from '@/components/tasks/TaskCompleteRequestButton';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { TableSkeleton } from '@/components/ui/skeletons';
@@ -523,8 +524,15 @@ export default function EmployeeTasksPage() {
                   </div>
                 </div>
               </DialogBody>
-              <DialogFooter>
+              <DialogFooter className="flex-wrap gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={() => setIsDetailOpen(false)}>Close</Button>
+                <TaskCompleteRequestButton
+                  task={selectedTask}
+                  role={user?.role}
+                  currentUserId={user?.id}
+                  activeTimer={activeTimer}
+                  onSuccess={fetchData}
+                />
                 <Button type="button" size="sm" onClick={() => { setIsDetailOpen(false); handleDiscussTask(selectedTask); }}>Discuss</Button>
                 {activeTimer && activeTimer.task_id === selectedTask.id ? (
                   activeTimer.status === 'running' ? (

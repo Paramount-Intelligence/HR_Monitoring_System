@@ -8,6 +8,7 @@ import {
 import { AdminMetricCard } from '@/components/admin/dashboard/AdminMetricCard';
 import { AdminChartCard } from '@/components/admin/dashboard/AdminChartCard';
 import { AdminTabError } from '@/components/admin/dashboard/AdminTabError';
+import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 import { safeArray, safeNumber } from '@/lib/admin-dashboard/utils';
 import { ManagerOverviewData } from '@/lib/manager-dashboard/types';
 import {
@@ -51,6 +52,7 @@ export function ManagerOverviewTab({ data, loading, error, onRetry }: Props) {
     { label: 'Team Directory', href: '/manager/team', icon: Users },
     { label: 'Approvals', href: '/manager/approvals', icon: ClipboardCheck },
     { label: 'Assign Task', href: '/manager/tasks', icon: UserPlus },
+    { label: 'Completion Requests', href: '/manager/tasks?tab=completion-requests', icon: CheckSquare },
     { label: 'EOD Reviews', href: '/manager/eod-reviews', icon: ShieldCheck },
   ];
 
@@ -183,6 +185,8 @@ export function ManagerOverviewTab({ data, loading, error, onRetry }: Props) {
           )}
         </div>
       </div>
+
+      <DashboardOverviewUpdatesSection limit={5} holidaysViewAllHref="/calendar" />
     </div>
   );
 }

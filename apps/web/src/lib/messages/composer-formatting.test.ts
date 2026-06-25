@@ -6,8 +6,33 @@ import {
   shouldSubmitComposerOnEnter,
 } from './composer-formatting';
 
-function createMockEditor() {
+type MockListContext = 'bulletList' | 'orderedList' | null;
+
+function createSelectionPos(insideList: MockListContext) {
+  const nodeAtDepth = (depth: number) => {
+    if (insideList === 'bulletList') {
+      if (depth === 2) return { type: { name: 'bulletList' } };
+      if (depth === 3) return { type: { name: 'listItem' } };
+    }
+    if (insideList === 'orderedList') {
+      if (depth === 2) return { type: { name: 'orderedList' } };
+      if (depth === 3) return { type: { name: 'listItem' } };
+    }
+    return { type: { name: 'paragraph' } };
+  };
+
+  return {
+    depth: insideList ? 3 : 1,
+    node: nodeAtDepth,
+  };
+}
+
+function createMockEditor(options?: { insideList?: MockListContext }) {
   const calls: string[] = [];
+  const insideList = options?.insideList ?? null;
+  const $from = createSelectionPos(insideList);
+  const $to = createSelectionPos(insideList);
+
   const chain = {
     focus: () => chain,
     toggleBold: () => {
@@ -50,6 +75,38 @@ function createMockEditor() {
       active.clear();
       names.forEach(name => active.add(name));
     },
+    getHTML: () => '<p></p>',
+    state: {
+      selection: { $from, $to, from: 1, to: 1 },
+      doc: {
+        content: { size: 10 },
+        resolve: () => ({
+          depth: insideList ? 3 : 1,
+          node: $from.node,
+          before: () => 0,
+          index: () => 0,
+        }),
+        descendants: () => {},
+        nodesBetween: () => {},
+      },
+      schema: {
+        nodes: {
+          bulletList: {},
+          orderedList: {},
+          listItem: {},
+          paragraph: { create: () => ({ type: { name: 'paragraph' }, nodeSize: 2 }) },
+        },
+      },
+      tr: {
+        setSelection: () => ({}),
+        replaceWith: () => ({}),
+        delete: () => ({}),
+      },
+    },
+    view: {
+      focus: () => {},
+      dispatch: () => {},
+    },
     calls,
   };
 
@@ -57,21 +114,21 @@ function createMockEditor() {
 }
 
 describe('runComposerFormatAction', () => {
-  it('calls toggleBulletList for bullet list action', () => {
+  it('calls toggleBulletList when bullet list is inactive', () => {
     const editor = createMockEditor();
-    runComposerFormatAction(editor, 'bulletList');
+    runComposerFormatAction(editor as never, 'bulletList');
     assert.deepEqual(editor.calls, ['toggleBulletList']);
   });
 
-  it('calls toggleOrderedList for numbered list action', () => {
+  it('calls toggleOrderedList when ordered list is inactive', () => {
     const editor = createMockEditor();
-    runComposerFormatAction(editor, 'orderedList');
+    runComposerFormatAction(editor as never, 'orderedList');
     assert.deepEqual(editor.calls, ['toggleOrderedList']);
   });
 
   it('calls toggleCode for inline code action', () => {
     const editor = createMockEditor();
-    runComposerFormatAction(editor, 'code');
+    runComposerFormatAction(editor as never, 'code');
     assert.deepEqual(editor.calls, ['toggleCode']);
   });
 });
@@ -80,21 +137,26 @@ describe('getComposerActiveState', () => {
   it('reflects bullet list active state', () => {
     const editor = createMockEditor();
     editor.setActive('bulletList');
-    assert.equal(getComposerActiveState(editor).bulletList, true);
-    assert.equal(getComposerActiveState(editor).orderedList, false);
+    assert.equal(getComposerActiveState(editor as never).bulletList, true);
+    assert.equal(getComposerActiveState(editor as never).orderedList, false);
   });
 
   it('reflects ordered list active state', () => {
     const editor = createMockEditor();
     editor.setActive('orderedList');
-    assert.equal(getComposerActiveState(editor).orderedList, true);
-    assert.equal(getComposerActiveState(editor).bulletList, false);
+    assert.equal(getComposerActiveState(editor as never).orderedList, true);
+    assert.equal(getComposerActiveState(editor as never).bulletList, false);
   });
 
   it('reflects inline code active state', () => {
     const editor = createMockEditor();
     editor.setActive('code');
-    assert.equal(getComposerActiveState(editor).code, true);
+    assert.equal(getComposerActiveState(editor as never).code, true);
+  });
+
+  it('detects bullet list from cursor position when isActive is false', () => {
+    const editor = createMockEditor({ insideList: 'bulletList' });
+    assert.equal(getComposerActiveState(editor as never).bulletList, true);
   });
 });
 

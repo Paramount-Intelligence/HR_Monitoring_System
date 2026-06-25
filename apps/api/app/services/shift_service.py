@@ -67,7 +67,16 @@ class ShiftService:
         shift = self.db.get(Shift, shift_id)
         if not shift:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shift not found")
-        
+
+        from app.services.organization_member_service import count_shift_members
+
+        assigned = count_shift_members(self.db, shift_id)
+        if assigned > 0:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This shift has assigned employees. Reassign them before deactivating.",
+            )
+
         shift.is_active = False
         self.db.commit()
         return True

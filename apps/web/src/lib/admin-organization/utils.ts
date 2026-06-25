@@ -44,6 +44,12 @@ export function formatUserNameById(userId: unknown, users: Record<string, unknow
   return user?.full_name && typeof user.full_name === 'string' ? user.full_name : '—';
 }
 
+export function formatActiveInactive(value: unknown): string {
+  if (value === true || value === 'true' || value === 'active') return 'Active';
+  if (value === false || value === 'false' || value === 'inactive') return 'Inactive';
+  return '—';
+}
+
 export function countEmployeesInDepartment(
   deptId: string,
   deptName: string,
@@ -54,6 +60,46 @@ export function countEmployeesInDepartment(
       u.department_id === deptId ||
       (u.department && typeof u.department === 'string' && u.department === deptName)
   ).length;
+}
+
+export function countEmployeesInShift(
+  shiftId: string,
+  users: Record<string, unknown>[]
+): number {
+  return users.filter((u) => u.shift_id === shiftId).length;
+}
+
+export function resolveHeadLabel(
+  headId: string | null | undefined,
+  users: Record<string, unknown>[],
+  fallbackName?: string | null
+): string {
+  if (fallbackName && typeof fallbackName === 'string' && fallbackName.trim()) {
+    return fallbackName;
+  }
+  if (!headId) return 'Unassigned';
+  const user = users.find((u) => String(u.id) === String(headId));
+  if (!user) return 'Unknown user';
+  const name = user.full_name;
+  if (typeof name === 'string' && name.trim()) return name;
+  return 'Unknown user';
+}
+
+export function formatWorkingDays(value: unknown): string {
+  if (!value || typeof value !== 'string') return '—';
+  const dayMap: Record<string, string> = {
+    '1': 'Mon',
+    '2': 'Tue',
+    '3': 'Wed',
+    '4': 'Thu',
+    '5': 'Fri',
+    '6': 'Sat',
+    '7': 'Sun',
+  };
+  return value
+    .split(',')
+    .map((d) => dayMap[d.trim()] || d.trim())
+    .join(', ');
 }
 
 export function isOvernightShift(startTime: string, endTime: string): boolean {

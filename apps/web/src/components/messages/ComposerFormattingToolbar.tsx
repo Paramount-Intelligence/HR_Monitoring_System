@@ -9,8 +9,10 @@ import {
   ListOrdered,
   Code,
 } from 'lucide-react';
+import type { Editor } from '@tiptap/core';
 import { cn } from '@/lib/utils';
 import type { ComposerFormatAction } from '@/components/messages/RichTextComposer';
+import type { SelectionSnapshot } from '@/lib/messages/tiptap-list-commands';
 
 export interface ToolbarActiveState {
   bold: boolean;
@@ -39,12 +41,14 @@ const TOOLBAR_ITEMS: Array<{
 ];
 
 interface ComposerFormattingToolbarProps {
+  editor: Editor | null;
   disabled?: boolean;
   activeState?: ToolbarActiveState;
-  onAction: (action: ComposerFormatAction) => void;
+  onAction: (action: ComposerFormatAction, selection: SelectionSnapshot) => void;
 }
 
 export function ComposerFormattingToolbar({
+  editor,
   disabled,
   activeState,
   onAction,
@@ -67,12 +71,20 @@ export function ComposerFormattingToolbar({
           <button
             key={action}
             type="button"
-            disabled={disabled}
+            disabled={disabled || !editor}
             title={shortcut ? `${label} (${shortcut})` : label}
             aria-label={label}
             aria-pressed={active}
-            onMouseDown={event => event.preventDefault()}
-            onClick={() => onAction(action)}
+            onMouseDown={event => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (disabled || !editor) return;
+              const selection: SelectionSnapshot = {
+                from: editor.state.selection.from,
+                to: editor.state.selection.to,
+              };
+              onAction(action, selection);
+            }}
             className={cn(
               'shrink-0 p-1.5 rounded transition-colors',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]',

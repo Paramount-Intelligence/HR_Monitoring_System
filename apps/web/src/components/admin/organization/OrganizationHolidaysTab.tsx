@@ -10,7 +10,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -45,7 +64,9 @@ interface OrganizationHolidaysTabProps {
 export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }: OrganizationHolidaysTabProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Holiday | null>(null);
   const [selected, setSelected] = useState<Holiday | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const createForm = useForm<z.infer<typeof holidaySchema>>({
     resolver: zodResolver(holidaySchema),
@@ -70,7 +91,7 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
   const onCreate = async (data: z.infer<typeof holidaySchema>) => {
     try {
       await holidaysApi.createHoliday(data);
-      toast.success('Holiday recorded');
+      toast.success('Holiday recorded.');
       setIsCreateOpen(false);
       createForm.reset();
       onRefresh();
@@ -83,7 +104,7 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
     if (!selected) return;
     try {
       await holidaysApi.updateHoliday(selected.id, data);
-      toast.success('Holiday updated');
+      toast.success('Holiday updated successfully.');
       setIsEditOpen(false);
       onRefresh();
     } catch (e) {
@@ -91,13 +112,18 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     try {
-      await holidaysApi.deactivateHoliday(id);
-      toast.success('Holiday removed');
+      await holidaysApi.deactivateHoliday(deleteTarget.id);
+      toast.success('Holiday removed.');
+      setDeleteTarget(null);
       onRefresh();
     } catch (e) {
       toast.error(getErrorMessage(e));
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -111,17 +137,47 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
   const thisMonth = list.filter((h) => isThisMonthHoliday(h.holiday_date)).length;
 
   const HolidayFields = ({ form }: { form: typeof createForm }) => (
-    <>
-      <FormField control={form.control} name="name" render={({ field }) => (
-        <FormItem><FormLabel>Holiday Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-      )} />
-      <FormField control={form.control} name="holiday_date" render={({ field }) => (
-        <FormItem><FormLabel>Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
-      )} />
-      <FormField control={form.control} name="description" render={({ field }) => (
-        <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea className="resize-none" {...field} /></FormControl><FormMessage /></FormItem>
-      )} />
-    </>
+    <div className="space-y-5">
+      <FormField
+        control={form.control}
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Holiday Name</FormLabel>
+            <FormControl>
+              <Input className="h-11 rounded-xl" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="holiday_date"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Date</FormLabel>
+            <FormControl>
+              <Input type="date" className="h-11 rounded-xl" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="description"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Description</FormLabel>
+            <FormControl>
+              <Textarea className="min-h-[96px] resize-none rounded-xl" {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </div>
   );
 
   return (
@@ -145,12 +201,22 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
                 <Plus className="mr-2 h-4 w-4" /> Create Holiday
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md rounded-2xl">
-              <DialogHeader><DialogTitle className="font-black">Record Holiday</DialogTitle></DialogHeader>
+            <DialogContent className="sm:max-w-lg rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="font-black">Record Holiday</DialogTitle>
+                <DialogDescription>Add a public or company holiday.</DialogDescription>
+              </DialogHeader>
               <Form {...createForm}>
-                <form onSubmit={createForm.handleSubmit(onCreate)} className="space-y-4 pt-2">
-                  <HolidayFields form={createForm} />
-                  <Button type="submit" className="w-full rounded-xl">Save Holiday</Button>
+                <form onSubmit={createForm.handleSubmit(onCreate)}>
+                  <DialogBody>
+                    <HolidayFields form={createForm} />
+                  </DialogBody>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">Save Holiday</Button>
+                  </DialogFooter>
                 </form>
               </Form>
             </DialogContent>
@@ -158,7 +224,17 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-6"><TableSkeleton rows={5} cols={5} /></div>
+            <div className="p-6">
+              <TableSkeleton rows={5} cols={6} />
+            </div>
+          ) : list.length === 0 ? (
+            <div className="p-12">
+              <EmptyState
+                title="No holidays recorded"
+                description="Add public and company holidays here."
+                icon={Calendar}
+              />
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -182,7 +258,14 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
                         {hol.description || '—'}
                       </TableCell>
                       <TableCell>
-                        <Badge className={cn('text-[10px] font-bold', hol.is_active ? 'bg-emerald-500/15 text-emerald-700' : 'bg-slate-500/15 text-slate-600')}>
+                        <Badge
+                          className={cn(
+                            'text-[10px] font-bold',
+                            hol.is_active
+                              ? 'bg-emerald-500/15 text-emerald-700'
+                              : 'bg-slate-500/15 text-slate-600'
+                          )}
+                        >
                           {hol.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
@@ -191,20 +274,18 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
                           <Button variant="ghost" size="sm" className="text-xs" onClick={() => openEdit(hol)}>
                             <Edit className="h-3.5 w-3.5 mr-1" /> Edit
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-xs text-rose-600" onClick={() => handleDelete(hol.id)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-rose-600"
+                            onClick={() => setDeleteTarget(hol)}
+                          >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
-                  {list.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="p-12">
-                        <EmptyState title="No Holidays Recorded" description="Add public and company holidays here." icon={Calendar} />
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </div>
@@ -213,19 +294,43 @@ export function OrganizationHolidaysTab({ holidays, loading, error, onRefresh }:
       </Card>
 
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
-          <DialogHeader><DialogTitle className="font-black">Edit Holiday</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-lg rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="font-black">Edit Holiday</DialogTitle>
+            <DialogDescription>Update holiday details.</DialogDescription>
+          </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEdit)} className="space-y-4 pt-2">
-              <HolidayFields form={editForm} />
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" className="flex-1 rounded-xl" onClick={() => setIsEditOpen(false)}>Cancel</Button>
-                <Button type="submit" className="flex-1 rounded-xl">Save Changes</Button>
-              </div>
+            <form onSubmit={editForm.handleSubmit(onEdit)}>
+              <DialogBody>
+                <HolidayFields form={editForm} />
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">Save Changes</Button>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete holiday?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will deactivate &quot;{deleteTarget?.name}&quot;. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={deleteLoading}>
+              {deleteLoading ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

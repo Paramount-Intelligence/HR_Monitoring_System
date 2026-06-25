@@ -18,6 +18,15 @@ export const announcementsApi = {
     const response = await apiClient.get<Announcement[]>('/announcements');
     return response.data;
   },
+  getVisibleAnnouncements: async (params?: { limit?: number; includeExpired?: boolean }) => {
+    const response = await apiClient.get<Announcement[]>('/announcements/visible', {
+      params: {
+        limit: params?.limit ?? 5,
+        include_expired: params?.includeExpired ?? false,
+      },
+    });
+    return response.data;
+  },
   getAllAnnouncements: async () => {
     const response = await apiClient.get<Announcement[]>('/announcements/all');
     return response.data;
@@ -32,5 +41,25 @@ export const announcementsApi = {
   }) => {
     const response = await apiClient.post<Announcement>('/announcements', data);
     return response.data;
-  }
+  },
+  updateAnnouncement: async (
+    id: string,
+    data: Partial<{
+      title: string;
+      content: string;
+      audience: string;
+      start_date: string | null;
+      end_date: string | null;
+      is_active: boolean;
+    }>
+  ) => {
+    const response = await apiClient.patch<Announcement>(`/announcements/${id}`, data);
+    return response.data;
+  },
+  archiveAnnouncement: async (id: string) => {
+    const response = await apiClient.patch<Announcement>(`/announcements/${id}`, {
+      is_active: false,
+    });
+    return response.data;
+  },
 };

@@ -29,3 +29,8 @@ class EODReport(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), default="Draft", nullable=False)
     manager_comments: Mapped[str | None] = mapped_column(Text, nullable=True)
     highlights_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    work_mode: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    work_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blockers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_day_plan: Mapped[str | None] = mapped_column(Text, nullable=True)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

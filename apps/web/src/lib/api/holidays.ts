@@ -17,6 +17,15 @@ export const holidaysApi = {
     const response = await apiClient.get<Holiday[]>('/holidays/active');
     return response.data;
   },
+  getUpcomingHolidays: async (params?: { limit?: number; fromDate?: string }) => {
+    const response = await apiClient.get<Holiday[]>('/holidays/upcoming', {
+      params: {
+        limit: params?.limit ?? 5,
+        from_date: params?.fromDate,
+      },
+    });
+    return response.data;
+  },
   createHoliday: async (data: { name: string; description?: string; holiday_date: string; is_active?: boolean }) => {
     const response = await apiClient.post<Holiday>('/holidays', data);
     return response.data;

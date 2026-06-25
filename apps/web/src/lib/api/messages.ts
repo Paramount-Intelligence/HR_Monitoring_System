@@ -256,7 +256,7 @@ export const messagesApi = {
       `/messages/conversations/${conversationId}/messages`,
       { params }
     );
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   },
 
   sendMessage: async (conversationId: string, payload: MessageCreateParams): Promise<Message> => {

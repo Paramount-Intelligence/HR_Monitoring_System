@@ -146,6 +146,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           { title: 'My Attendance', href: '/manager/my-attendance', icon: Clock },
           { title: 'My Tasks', href: '/manager/my-tasks', icon: CheckSquare },
           { title: 'Approvals', href: '/manager/approvals', icon: ClipboardCheck },
+          { title: 'My EOD', href: '/manager/eod', icon: ShieldCheck },
           { title: 'EOD Reviews', href: '/manager/eod-reviews', icon: Activity },
         ];
         break;

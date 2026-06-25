@@ -108,6 +108,24 @@ class ApprovalService:
 
         self.db.commit()
         self.db.refresh(req)
+
+        from app.models.enums import NotificationType
+        from app.services.notification_service import create_notification
+
+        if action in (ApprovalAction.APPROVED, ApprovalAction.REJECTED):
+            status_label = "approved" if action == ApprovalAction.APPROVED else "rejected"
+            create_notification(
+                self.db,
+                recipient_id=req.user_id,
+                notification_type=NotificationType.SYSTEM,
+                title=f"Leave request {status_label}",
+                body=f"Your leave request was {status_label} by {actor.full_name}.",
+                related_entity_type="leave_request",
+                related_entity_id=req.id,
+                actor_id=actor.id,
+            )
+            self.db.commit()
+
         return req
 
     def escalate_request(self, req: LeaveRequest, target_approver: User) -> LeaveRequest:

@@ -73,39 +73,104 @@ class RealtimeService:
         )
 
     @staticmethod
-    def notification_payload(notif: Notification) -> dict[str, Any]:
-        return {
-            "id": str(notif.id),
-            "title": notif.title,
-            "message": notif.message[:200] if notif.message else "",
-            "notification_type": notif.notification_type.value
-            if hasattr(notif.notification_type, "value")
-            else str(notif.notification_type),
-            "related_entity_type": notif.related_entity_type,
-            "related_entity_id": str(notif.related_entity_id) if notif.related_entity_id else None,
-            "is_read": notif.is_read,
-            "created_at": notif.created_at.isoformat() if notif.created_at else None,
-        }
+    def notification_payload(
+        notif: Notification,
+        *,
+        prefs=None,
+        conversation_type=None,
+    ) -> dict[str, Any]:
+        from app.services.notification_service import (
+            display_message_for_user,
+            notification_category,
+            notification_deep_link,
+            should_deliver_banner,
+            should_deliver_desktop,
+        )
 
-    @staticmethod
-    def emit_notification_created(notif: Notification) -> None:
-        route = None
         ntype = (
             notif.notification_type.value
             if hasattr(notif.notification_type, "value")
             else str(notif.notification_type)
         )
-        if ntype.startswith("meeting"):
-            route = "/calendar"
-        elif ntype in ("message", "mention"):
-            route = "/messages"
-        elif ntype.startswith("call"):
-            route = "/messages"
+        category = notification_category(ntype, notif.related_entity_type)
+        deep_link = notification_deep_link(
+            notif.notification_type, notif.related_entity_type, notif.related_entity_id
+        )
 
+        display_message = notif.message[:200] if notif.message else ""
+        deliver_banner = True
+        deliver_desktop = True
+        if prefs is not None:
+            display_message = display_message_for_user(
+                prefs,
+                notif.notification_type,
+                notif.message or "",
+                related_entity_type=notif.related_entity_type,
+                conversation_type=conversation_type,
+            )
+            deliver_banner = should_deliver_banner(
+                prefs,
+                notif.notification_type,
+                related_entity_type=notif.related_entity_type,
+                conversation_type=conversation_type,
+            )
+            deliver_desktop = should_deliver_desktop(
+                prefs,
+                notif.notification_type,
+                related_entity_type=notif.related_entity_type,
+                conversation_type=conversation_type,
+            )
+
+        return {
+            "id": str(notif.id),
+            "title": notif.title,
+            "message": display_message,
+            "body": display_message,
+            "notification_type": ntype,
+            "type": ntype,
+            "category": category,
+            "related_entity_type": notif.related_entity_type,
+            "related_entity_id": str(notif.related_entity_id) if notif.related_entity_id else None,
+            "deep_link": deep_link,
+            "is_read": notif.is_read,
+            "created_at": notif.created_at.isoformat() if notif.created_at else None,
+            "deliver_banner": deliver_banner,
+            "deliver_desktop": deliver_desktop,
+        }
+
+    @staticmethod
+    def emit_notification_created(
+        notif: Notification,
+        *,
+        prefs=None,
+        conversation_type=None,
+        actor_id: uuid.UUID | None = None,
+    ) -> None:
+        from app.services.notification_service import notification_deep_link
+
+        ntype = (
+            notif.notification_type.value
+            if hasattr(notif.notification_type, "value")
+            else str(notif.notification_type)
+        )
+        route = notification_deep_link(
+            notif.notification_type, notif.related_entity_type, notif.related_entity_id
+        )
+        if route is None:
+            if ntype.startswith("meeting"):
+                route = "/calendar"
+            elif ntype in ("message", "mention"):
+                route = "/messages"
+            elif ntype.startswith("call"):
+                route = "/messages"
+
+        payload = RealtimeService.notification_payload(
+            notif, prefs=prefs, conversation_type=conversation_type
+        )
         event = RealtimeService.event(
             "notification_created",
-            RealtimeService.notification_payload(notif),
-            actor_id=None,
+            payload,
+            actor_id=actor_id,
             entity_type=notif.related_entity_type,
             entity_id=notif.related_entity_id,
             route=route,
@@ -125,6 +190,17 @@ class RealtimeService:
             PushNotificationService.schedule_send_for_notification(notif)
         except Exception:
             logger.exception("[PUSH] schedule_failed notification_id=%s", notif.id)
+
+        try:
+            from app.services.web_push_service import WebPushService
+
+            WebPushService.schedule_send_for_notification(
+                notif,
+                prefs=prefs,
+                conversation_type=conversation_type,
+            )
+        except Exception:
+            logger.exception("[WEB_PUSH] schedule_failed notification_id=%s", notif.id)
 
     @staticmethod
     def emit_notification_read(user_id: uuid.UUID, notification_id: uuid.UUID) -> None:
@@ -357,6 +433,17 @@ class RealtimeService:
             user_ids,
             RealtimeService.event("dashboard_refresh_hint", {"scope": "communication"}),
         )
+        if event_type == "announcement_created":
+            from app.services.notification_service import notify_announcement_audience
+
+            notify_announcement_audience(
+                db,
+                announcement_id=announcement_id,
+                title=title,
+                audience_user_ids=user_ids,
+                actor_id=actor_id,
+            )
+            db.commit()
 
     @staticmethod
     def emit_meeting_event(

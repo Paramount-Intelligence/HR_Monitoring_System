@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
@@ -13,22 +14,28 @@ import {
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
 import { getProfilePictureUrl, clearFailedAvatarUrl } from '@/lib/profile-picture';
+import { NotificationSettingsPanel } from '@/components/notifications/NotificationSettingsPanel';
 import {
-  requestBrowserNotificationPermission,
-  setBrowserNotificationsEnabled,
-  useBrowserNotificationsEnabled,
-} from '@/components/notifications/BrowserNotificationProvider';
+  parseProfileSection,
+  profilePathForSection,
+  type ProfileSection,
+} from '@/lib/profile/profile-section';
 
-export default function ProfilePage() {
+type ProfileTab = ProfileSection;
+
+function ProfilePageContent() {
   const { user: authUser, updateUser } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [profile, setProfile] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'info' | 'security' | 'notifications'>('info');
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() =>
+    parseProfileSection(searchParams.get('section'))
+  );
 
   // Edit states
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [browserNotifEnabled, setBrowserNotifEnabled] = useState(false);
   
   // Password change states
   const [currentPassword, setCurrentPassword] = useState('');
@@ -63,8 +70,20 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetchProfile();
-    setBrowserNotifEnabled(useBrowserNotificationsEnabled());
   }, []);
+
+  useEffect(() => {
+    setActiveTab(parseProfileSection(searchParams.get('section')));
+  }, [searchParams]);
+
+  const selectTab = useCallback(
+    (tab: ProfileTab) => {
+      setActiveTab(tab);
+      const href = profilePathForSection(tab);
+      router.replace(href, { scroll: false });
+    },
+    [router]
+  );
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,25 +155,6 @@ export default function ProfilePage() {
       setSuccessMsg('Profile picture removed.');
     } catch (err) {
       throw new Error(getErrorMessage(err));
-    }
-  };
-
-  const handleToggleBrowserNotifications = async () => {
-    if (!browserNotifEnabled) {
-      const permission = await requestBrowserNotificationPermission();
-      if (permission !== 'granted') {
-        setErrorMsg('Browser notifications were denied. You can enable them in browser settings.');
-        return;
-      }
-      setBrowserNotificationsEnabled(true);
-      setBrowserNotifEnabled(true);
-      window.dispatchEvent(new Event('pims-browser-notifications-changed'));
-      setSuccessMsg('Browser notifications enabled.');
-    } else {
-      setBrowserNotificationsEnabled(false);
-      setBrowserNotifEnabled(false);
-      window.dispatchEvent(new Event('pims-browser-notifications-changed'));
-      setSuccessMsg('Browser notifications disabled.');
     }
   };
 
@@ -273,7 +273,7 @@ export default function ProfilePage() {
         <div className="lg:col-span-1 space-y-6">
           <Card className="p-4 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl space-y-2">
             <button
-              onClick={() => setActiveTab('info')}
+              onClick={() => selectTab('info')}
               className={`w-full text-left px-4 py-3 rounded-2xl font-bold text-sm flex items-center gap-3 transition-all duration-200 ${
                 activeTab === 'info'
                   ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[var(--accent-primary)]/20'
@@ -285,7 +285,7 @@ export default function ProfilePage() {
             </button>
             
             <button
-              onClick={() => setActiveTab('security')}
+              onClick={() => selectTab('security')}
               className={`w-full text-left px-4 py-3 rounded-2xl font-bold text-sm flex items-center gap-3 transition-all duration-200 ${
                 activeTab === 'security'
                   ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[var(--accent-primary)]/20'
@@ -297,7 +297,7 @@ export default function ProfilePage() {
             </button>
 
             <button
-              onClick={() => setActiveTab('notifications')}
+              onClick={() => selectTab('notifications')}
               className={`w-full text-left px-4 py-3 rounded-2xl font-bold text-sm flex items-center gap-3 transition-all duration-200 ${
                 activeTab === 'notifications'
                   ? 'bg-[var(--accent-primary)] text-white shadow-lg shadow-[var(--accent-primary)]/20'
@@ -533,34 +533,33 @@ export default function ProfilePage() {
               </form>
             </Card>
           ) : (
-            <Card className="p-6 sm:p-8 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl space-y-6">
-              <div>
-                <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Browser Notifications</h2>
+            <div className="space-y-6">
+              <Card className="p-6 sm:p-8 rounded-3xl border border-[var(--border-default)] bg-[var(--bg-elevated)] backdrop-blur-xl">
+                <h2 className="text-xl font-extrabold text-[var(--text-primary)]">Notifications</h2>
                 <p className="text-xs text-[var(--text-muted)] mt-1">
-                  Receive desktop alerts for messages, meetings, tasks, and announcements while PIMS is open.
+                  Manage browser alerts, message sounds, previews, and workflow notifications.
                 </p>
-              </div>
-              <div className="flex items-center justify-between p-4 rounded-2xl border border-[var(--border-default)] bg-[var(--bg-surface)]">
-                <div>
-                  <p className="text-sm font-bold text-[var(--text-primary)]">Enable browser notifications</p>
-                  <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                    {browserNotifEnabled ? 'Enabled — you will receive alerts for new events.' : 'Disabled — in-app notifications still work.'}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  onClick={handleToggleBrowserNotifications}
-                  variant={browserNotifEnabled ? 'outline' : 'default'}
-                  className="rounded-xl font-bold text-xs"
-                >
-                  {browserNotifEnabled ? 'Disable' : 'Enable'}
-                </Button>
-              </div>
-            </Card>
+              </Card>
+              <NotificationSettingsPanel context="profile" />
+            </div>
           )}
         </div>
         
       </div>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="h-12 w-12 rounded-full border-t-2 border-b-2 border-[var(--accent-primary)] animate-spin" />
+        </div>
+      }
+    >
+      <ProfilePageContent />
+    </Suspense>
   );
 }

@@ -33,5 +33,9 @@ export const departmentsApi = {
   deactivateDepartment: async (id: string) => {
     const response = await apiClient.delete(`/departments/${id}`);
     return response.data;
-  }
+  },
+  getDepartment: async (id: string) => {
+    const response = await apiClient.get<Department>(`/departments/${id}`);
+    return response.data;
+  },
 };

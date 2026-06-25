@@ -90,6 +90,14 @@ class TaskStatus(str, enum.Enum):
     ARCHIVED = "archived"
 
 
+class TaskCompletionRequestStatus(str, enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    CANCELLED = "cancelled"
+    SUPERSEDED = "superseded"
+
+
 class ApprovalEntityType(str, enum.Enum):
     PROJECT = "project"
     TIMESHEET = "timesheet"

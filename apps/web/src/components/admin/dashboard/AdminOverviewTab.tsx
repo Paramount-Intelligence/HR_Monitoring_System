@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { AdminMetricCard } from './AdminMetricCard';
 import { AdminChartCard } from './AdminChartCard';
+import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -217,6 +218,12 @@ export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabPr
           </div>
         )}
       </AdminChartCard>
+
+      <DashboardOverviewUpdatesSection
+        limit={5}
+        announcementsViewAllHref="/admin/announcements"
+        holidaysViewAllHref="/admin/holidays"
+      />
     </div>
   );
 }

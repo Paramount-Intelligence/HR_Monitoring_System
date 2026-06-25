@@ -4,9 +4,12 @@ import type { Conversation, Message } from '@/lib/api/messages';
 import {
   getConversationLoadError,
   getConversationPreview,
+  getConversationDisplayName,
   getSlackMessageRenderItems,
   groupMessagesByDateWithSlack,
   stripMessagePreviewText,
+  filterByChatListFilter,
+  matchesSearch,
 } from './messages-utils';
 
 function makeMessage(overrides: Partial<Message> & Pick<Message, 'id' | 'sender_id' | 'created_at'>): Message {
@@ -112,6 +115,68 @@ describe('groupMessagesByDateWithSlack', () => {
     const groups = groupMessagesByDateWithSlack(messages);
     assert.equal(groups.length, 1);
     assert.equal(groups[0].items[1].isContinuation, true);
+  });
+});
+
+describe('filterByChatListFilter', () => {
+  it('shows all conversations for all filter', () => {
+    const conv = makeConversation();
+    assert.equal(filterByChatListFilter(conv, 'all'), true);
+  });
+
+  it('unread filter shows only unread conversations', () => {
+    assert.equal(filterByChatListFilter(makeConversation({ unread_count: 2 }), 'unread'), true);
+    assert.equal(filterByChatListFilter(makeConversation({ unread_count: 0 }), 'unread'), false);
+  });
+
+  it('groups filter shows group and channel conversations', () => {
+    assert.equal(filterByChatListFilter(makeConversation({ type: 'group' }), 'groups'), true);
+    assert.equal(filterByChatListFilter(makeConversation({ type: 'channel' }), 'groups'), true);
+    assert.equal(filterByChatListFilter(makeConversation({ type: 'direct' }), 'groups'), false);
+  });
+});
+
+describe('matchesSearch', () => {
+  it('filters by conversation name and participant name', () => {
+    const conv = makeConversation({
+      type: 'direct',
+      participants: [
+        {
+          id: 'p1',
+          user_id: 'user-2',
+          role: 'member',
+          user: {
+            id: 'user-2',
+            full_name: 'Jane Smith',
+            email: 'jane@company.com',
+            role: 'employee',
+          },
+        },
+      ],
+    });
+    assert.equal(matchesSearch(conv, 'jane', 'user-1'), true);
+    assert.equal(matchesSearch(conv, 'zzz', 'user-1'), false);
+  });
+});
+
+describe('getConversationDisplayName', () => {
+  it('does not expose raw UUIDs in display name', () => {
+    const uuid = '13108efc-17da-4cdf-90e8-1d36a2d99883';
+    const conv = makeConversation({
+      title: null,
+      type: 'direct',
+      participants: [
+        {
+          id: 'p1',
+          user_id: 'user-2',
+          role: 'member',
+          user: { id: 'user-2', full_name: 'Jane Smith', email: 'j@test.com', role: 'employee' },
+        },
+      ],
+    });
+    const name = getConversationDisplayName(conv, 'user-1');
+    assert.equal(name.includes(uuid), false);
+    assert.equal(name, 'Jane Smith');
   });
 });
 

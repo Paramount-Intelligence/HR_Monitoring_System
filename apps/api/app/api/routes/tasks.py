@@ -8,17 +8,42 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db, require_admin
-from app.models.enums import TaskStatus, TimerSessionStatus, ProjectPriority
+from app.models.enums import TaskCompletionRequestStatus, TaskStatus, TimerSessionStatus, ProjectPriority
+from app.models.task import Task
 from app.models.user import User
 from app.schemas.task import TaskComplexity, TaskCreate, TaskRead, TaskUpdate, TaskCommentRead, TaskCommentCreate
+from app.schemas.task_completion_request import (
+    TaskCompletionRequestCreate,
+    TaskCompletionRequestRead,
+    TaskCompletionRequestReject,
+    TaskCompletionRequestReview,
+)
+from app.services.task_completion_request_service import TaskCompletionRequestService
 from app.services.task_service import TaskService
 
 router = APIRouter()
 
 
+def _enrich_task_read(task: Task, db: Session, actor: User) -> TaskRead:
+    read = TaskRead.model_validate(task)
+    read.pending_completion_request = TaskCompletionRequestService(db).get_summary_for_task(task.id, actor)
+    return read
+
+
+def _enrich_task_reads(tasks: list[Task], db: Session, actor: User) -> list[TaskRead]:
+    summaries = TaskCompletionRequestService(db).summaries_for_tasks([t.id for t in tasks], actor)
+    reads: list[TaskRead] = []
+    for task in tasks:
+        read = TaskRead.model_validate(task)
+        read.pending_completion_request = summaries.get(task.id)
+        reads.append(read)
+    return reads
+
+
 @router.post("", response_model=TaskRead, status_code=status.HTTP_201_CREATED, summary="Create a task")
 def create_task(payload: TaskCreate, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
-    return TaskService(db).create_task(payload, actor)
+    task = TaskService(db).create_task(payload, actor)
+    return _enrich_task_read(task, db, actor)
 
 
 @router.get("", response_model=list[TaskRead], summary="List tasks (RBAC-scoped)")
@@ -30,33 +55,107 @@ def list_tasks(
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> list[TaskRead]:
-    return TaskService(db).list_tasks(
+    tasks = TaskService(db).list_tasks(
         project_id=project_id,
         assigned_to=assigned_to,
         task_status=task_status,
         include_archived=include_archived,
         actor=actor,
     )
+    return _enrich_task_reads(tasks, db, actor)
+
+
+@router.get(
+    "/completion-requests",
+    response_model=list[TaskCompletionRequestRead],
+    summary="List task completion requests (scoped)",
+)
+def list_completion_requests(
+    request_status: TaskCompletionRequestStatus | None = Query(None, alias="status"),
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> list[TaskCompletionRequestRead]:
+    return TaskCompletionRequestService(db).list_requests(actor=actor, request_status=request_status)
+
+
+@router.get(
+    "/completion-requests/{request_id}",
+    response_model=TaskCompletionRequestRead,
+    summary="Get a task completion request",
+)
+def get_completion_request(
+    request_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> TaskCompletionRequestRead:
+    return TaskCompletionRequestService(db).get_request(request_id, actor)
+
+
+@router.post(
+    "/completion-requests/{request_id}/approve",
+    response_model=TaskCompletionRequestRead,
+    summary="Approve intern task completion request",
+)
+def approve_completion_request(
+    request_id: uuid.UUID,
+    payload: TaskCompletionRequestReview,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> TaskCompletionRequestRead:
+    return TaskCompletionRequestService(db).approve(request_id, payload, actor)
+
+
+@router.post(
+    "/completion-requests/{request_id}/reject",
+    response_model=TaskCompletionRequestRead,
+    summary="Reject intern task completion request",
+)
+def reject_completion_request(
+    request_id: uuid.UUID,
+    payload: TaskCompletionRequestReject,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> TaskCompletionRequestRead:
+    return TaskCompletionRequestService(db).reject(request_id, payload, actor)
 
 
 @router.get("/{task_id}", response_model=TaskRead, summary="Get task by ID")
 def get_task(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
-    return TaskService(db).get_task(task_id, actor)
+    task = TaskService(db).get_task(task_id, actor)
+    return _enrich_task_read(task, db, actor)
 
 
 @router.patch("/{task_id}", response_model=TaskRead, summary="Update task")
 def update_task(task_id: uuid.UUID, payload: TaskUpdate, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
-    return TaskService(db).update_task(task_id, payload, actor)
+    task = TaskService(db).update_task(task_id, payload, actor)
+    return _enrich_task_read(task, db, actor)
 
 
 @router.patch("/{task_id}/archive", response_model=TaskRead, summary="Archive a task (soft delete)")
 def archive_task(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
-    return TaskService(db).archive_task(task_id, actor)
+    task = TaskService(db).archive_task(task_id, actor)
+    return _enrich_task_read(task, db, actor)
+
+
+@router.post(
+    "/{task_id}/completion-requests",
+    response_model=TaskCompletionRequestRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Intern requests task completion approval",
+)
+def create_completion_request(
+    task_id: uuid.UUID,
+    payload: TaskCompletionRequestCreate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> TaskCompletionRequestRead:
+    return TaskCompletionRequestService(db).create_request(task_id, payload, actor)
 
 
 @router.post("/{task_id}/complexity", response_model=TaskRead, summary="Set task complexity (manager/admin only)")
 def set_complexity(task_id: uuid.UUID, payload: TaskComplexity, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
-    return TaskService(db).set_complexity(task_id, payload, actor)
+    task = TaskService(db).set_complexity(task_id, payload, actor)
+    return _enrich_task_read(task, db, actor)
 
 @router.get("/{task_id}/subtasks", response_model=list[TaskRead], summary="List subtasks for a task")
 def list_subtasks(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> list[TaskRead]:

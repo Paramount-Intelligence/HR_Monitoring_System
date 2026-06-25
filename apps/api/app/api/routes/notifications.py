@@ -9,7 +9,17 @@ from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.models.notifications import Notification
 from app.models.user_device_token import UserDeviceToken
+from app.models.web_push_subscription import WebPushSubscription
 from app.schemas.notifications import NotificationRead
+from app.schemas.notification_preferences import (
+    NotificationPreferencesRead,
+    NotificationPreferencesUpdate,
+    WebPushPublicKeyRead,
+    WebPushSubscriptionCreate,
+    WebPushTestResult,
+)
+from app.services.notification_preference_service import get_or_create_preferences, update_preferences
+from app.services.web_push_service import WebPushService
 from app.schemas.device_token import (
     DeviceTokenRead,
     DeviceTokenRegister,
@@ -35,6 +45,121 @@ def _normalize_environment(value: str | None) -> str:
     if env in ("development", "preview", "production"):
         return env
     return "development"
+
+
+@router.get("/preferences", response_model=NotificationPreferencesRead)
+def get_notification_preferences(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> NotificationPreferencesRead:
+    prefs = get_or_create_preferences(db, current_user.id)
+    return NotificationPreferencesRead.model_validate(prefs)
+
+
+@router.patch("/preferences", response_model=NotificationPreferencesRead)
+def patch_notification_preferences(
+    payload: NotificationPreferencesUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> NotificationPreferencesRead:
+    prefs = update_preferences(db, current_user, payload)
+    return NotificationPreferencesRead.model_validate(prefs)
+
+
+@router.get("/push-public-key", response_model=WebPushPublicKeyRead)
+def get_push_public_key() -> WebPushPublicKeyRead:
+    configured = WebPushService.is_configured()
+    return WebPushPublicKeyRead(
+        public_key=WebPushService.get_public_key() if configured else None,
+        configured=configured,
+    )
+
+
+@router.post("/push-subscriptions", status_code=status.HTTP_201_CREATED)
+def register_push_subscription(
+    payload: WebPushSubscriptionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    if not WebPushService.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Web Push is not configured on this server.",
+        )
+    now = datetime.now(timezone.utc)
+    existing = (
+        db.query(WebPushSubscription)
+        .filter(
+            WebPushSubscription.user_id == current_user.id,
+            WebPushSubscription.endpoint == payload.endpoint.strip(),
+            WebPushSubscription.revoked_at.is_(None),
+        )
+        .first()
+    )
+    if existing:
+        existing.p256dh = payload.p256dh
+        existing.auth = payload.auth
+        existing.user_agent = payload.user_agent
+        existing.last_used_at = now
+        db.commit()
+        return {"message": "Push subscription updated."}
+
+    row = WebPushSubscription(
+        id=uuid.uuid4(),
+        user_id=current_user.id,
+        endpoint=payload.endpoint.strip(),
+        p256dh=payload.p256dh,
+        auth=payload.auth,
+        user_agent=payload.user_agent,
+        last_used_at=now,
+    )
+    db.add(row)
+    db.commit()
+    return {"message": "Push subscription registered."}
+
+
+@router.post("/push/test", response_model=WebPushTestResult)
+def send_test_web_push(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> WebPushTestResult:
+    """Send a test Web Push to the current user's active browser subscriptions."""
+    if not WebPushService.is_configured():
+        return WebPushTestResult(
+            configured=False,
+            message="Web Push is not configured",
+        )
+    stats = WebPushService.send_test_to_user(db, current_user.id)
+    return WebPushTestResult(
+        configured=stats.configured,
+        message=stats.message,
+        subscriptions=stats.subscriptions,
+        attempted=stats.attempted,
+        sent=stats.sent,
+        failed=stats.failed,
+    )
+
+
+@router.delete("/push-subscriptions")
+def unregister_push_subscription(
+    payload: WebPushSubscriptionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    now = datetime.now(timezone.utc)
+    rows = (
+        db.query(WebPushSubscription)
+        .filter(
+            WebPushSubscription.user_id == current_user.id,
+            WebPushSubscription.endpoint == payload.endpoint.strip(),
+            WebPushSubscription.revoked_at.is_(None),
+        )
+        .all()
+    )
+    for row in rows:
+        row.revoked_at = now
+    db.commit()
+    return {"message": "Push subscription removed."}
 
 
 @router.get("", response_model=list[NotificationRead])

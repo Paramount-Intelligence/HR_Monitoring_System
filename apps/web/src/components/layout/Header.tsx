@@ -23,6 +23,11 @@ import { ThemeToggle } from './ThemeToggle';
 import { messagesApi } from '@/lib/api/messages';
 import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
 import { useBrowserNotifications } from '@/hooks/useBrowserNotifications';
+import { syncTaskbarBadge } from '@/lib/notifications/badge';
+import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
+import { getNotificationRoute } from '@/lib/notifications/delivery';
+import { PROFILE_NOTIFICATIONS_PATH } from '@/lib/profile/profile-section';
+import { formatDistanceToNow } from 'date-fns';
 
 
 interface HeaderProps {
@@ -43,12 +48,15 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const [notifError, setNotifError] = useState<string | null>(null);
   const { isConnected } = useRealtimeStatus();
   const { permission, isSupported } = useBrowserNotifications();
+  const { preferences } = useNotificationPreferences();
 
   const fetchUnreadCount = async () => {
     if (!canFetchProtectedData()) return;
     try {
       const res = await notificationsApi.getUnreadCount();
       setUnreadCount(res.count);
+      void syncTaskbarBadge(res.count, preferences);
+      window.dispatchEvent(new CustomEvent('pims-notifications-unread-update'));
     } catch (err) {
       logProtectedFetchError('[Header] Failed to load unread count', err);
     }
@@ -129,20 +137,18 @@ export function Header({ onMenuToggle }: HeaderProps) {
         await notificationsApi.markRead(n.id);
         fetchUnreadCount();
       }
-      
-      // Dynamic navigation
-      const route = n.route || (
-        n.related_entity_type === 'meeting' ? '/calendar'
-        : n.related_entity_type === 'support_ticket' ? '/help-support'
-        : n.notification_type?.startsWith('meeting') ? '/calendar'
-        : null
-      );
+
+      const route = getNotificationRoute(n);
       if (route) {
         router.push(route);
       }
     } catch (err) {
       logProtectedFetchError('[Header] Failed to process notification click', err);
     }
+  };
+
+  const openNotificationSettings = () => {
+    router.push(PROFILE_NOTIFICATIONS_PATH);
   };
 
   const getIconForNotif = (type: string) => {
@@ -154,6 +160,12 @@ export function Header({ onMenuToggle }: HeaderProps) {
         return <AlertCircle className="h-4 w-4 text-[var(--status-danger-text)]" />;
       case 'support_ticket':
         return <MessageSquare className="h-4 w-4 text-[var(--status-warning-text)]" />;
+      case 'message':
+      case 'mention':
+        return <MessageSquare className="h-4 w-4 text-[var(--accent-primary)]" />;
+      case 'call_incoming':
+      case 'call_missed':
+        return <BellRing className="h-4 w-4 text-[var(--accent-primary)]" />;
       default:
         return <Bell className="h-4 w-4 text-[var(--text-secondary)]" />;
     }
@@ -307,10 +319,30 @@ export function Header({ onMenuToggle }: HeaderProps) {
                         <p className="text-[10px] text-[var(--text-secondary)] line-clamp-2 leading-relaxed">
                           {n.message}
                         </p>
+                        <p className="text-[9px] text-[var(--text-muted)] mt-1">
+                          {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                          {n.category ? ` · ${n.category}` : ''}
+                        </p>
                       </div>
                     </DropdownMenuItem>
                   ))
                 )}
+              </div>
+              <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
+              <div className="p-2 space-y-1">
+                <DropdownMenuItem
+                  onClick={() => router.push('/messages')}
+                  className="focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3"
+                >
+                  View all notifications
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={openNotificationSettings}
+                  className="focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3 flex items-center gap-2"
+                >
+                  <Settings className="h-4 w-4" />
+                  Notification settings
+                </DropdownMenuItem>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

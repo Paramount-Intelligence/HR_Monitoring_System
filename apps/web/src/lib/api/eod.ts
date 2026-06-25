@@ -19,13 +19,38 @@ export interface EODReport {
   status: EODStatus;
   manager_comments: string | null;
   productivity_score: number;
+  work_summary: string | null;
+  blockers: string | null;
+  next_day_plan: string | null;
+  submitted_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
+export interface EODSubmitPayload {
+  report_date?: string;
+  work_summary: string;
+  blockers?: string;
+  next_day_plan?: string;
+}
+
 export const eodApi = {
-  getMyEOD: async () => {
-    const response = await apiClient.get<EODReport | null>('/eod/me');
+  getMyEOD: async (date?: string) => {
+    const response = await apiClient.get<EODReport | null>('/eod/me', {
+      params: date ? { date } : undefined,
+    });
+    return response.data;
+  },
+
+  getMyTodayEod: async () => {
+    const response = await apiClient.get<EODReport | null>('/eod/me/today');
+    return response.data;
+  },
+
+  getMyEodByDate: async (date: string) => {
+    const response = await apiClient.get<EODReport | null>('/eod/me', {
+      params: { date },
+    });
     return response.data;
   },
 
@@ -34,8 +59,8 @@ export const eodApi = {
     return response.data;
   },
 
-  submitEOD: async () => {
-    const response = await apiClient.post<EODReport>('/eod/me/submit');
+  submitMyEod: async (payload: EODSubmitPayload) => {
+    const response = await apiClient.post<EODReport>('/eod/me/submit', payload);
     return response.data;
   },
 

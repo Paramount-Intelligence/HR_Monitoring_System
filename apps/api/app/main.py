@@ -10,7 +10,7 @@ from fastapi.encoders import jsonable_encoder
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pathlib import Path
 
-from app.core.config import settings, resolve_cors_origins, validate_production_settings
+from app.core.config import is_unresolved_template, settings, resolve_cors_origins, validate_production_settings
 from app.core.validation_errors import sanitize_validation_errors
 from app.core.security_headers import SecurityHeadersMiddleware
 from app.api.router import api_router
@@ -26,6 +26,25 @@ import os
 import logging
 
 logger = logging.getLogger("uvicorn.error")
+
+
+def _log_vapid_config_status() -> None:
+    from app.services.web_push_service import WebPushService
+
+    values = [
+        settings.vapid_public_key,
+        settings.vapid_private_key,
+        settings.vapid_subject,
+    ]
+    set_count = sum(1 for value in values if value and not is_unresolved_template(value))
+    if 0 < set_count < 3:
+        logger.warning(
+            "[WEB_PUSH] Partial VAPID configuration — set VAPID_PUBLIC_KEY, "
+            "VAPID_PRIVATE_KEY, and VAPID_SUBJECT to enable Web Push."
+        )
+    elif WebPushService.is_configured():
+        logger.info("[WEB_PUSH] VAPID configured — Web Push delivery enabled.")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -73,6 +92,7 @@ async def lifespan(app: FastAPI):
 
     log_call_recordings_storage_config()
     log_profile_image_storage_config()
+    _log_vapid_config_status()
 
     yield
 

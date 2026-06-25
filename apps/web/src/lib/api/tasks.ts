@@ -1,5 +1,7 @@
 import apiClient from './client';
 
+import type { TaskCompletionRequestSummary } from '@/lib/api/taskCompletionRequests';
+
 export interface Task {
   id: string;
   project_id: string;
@@ -21,6 +23,7 @@ export interface Task {
   updated_at: string;
   created_by_name?: string;
   assigned_to_role?: string;
+  pending_completion_request?: TaskCompletionRequestSummary | null;
 }
 
 export const tasksApi = {

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from pydantic import BaseModel, field_serializer
 
@@ -197,11 +197,21 @@ class EmployeeRosterItem(BaseModel):
     designation: str | None = None
     status: str
     today_attendance: str
+    check_in_at: str | None = None
+    check_out_at: str | None = None
     active_tasks: int
     completed_tasks: int
     logged_hours: float
     productivity_score: float | None = None
     last_active: str | None = None
+
+
+class DepartmentAttendanceItem(BaseModel):
+    department: str
+    active_users: int
+    present_today: int
+    late_today: int
+    attendance_rate: int
 
 
 class EmployeePerformanceItem(BaseModel):
@@ -234,10 +244,13 @@ class UsersAnalyticsSummary(BaseModel):
 
 
 class UsersAnalyticsDashboard(BaseModel):
+    business_date: date
+    timezone: str = "Asia/Karachi"
     summary: UsersAnalyticsSummary
     role_distribution: list[DistributionItem]
     department_distribution: list[DistributionItem]
     attendance_rate_by_department: list[DistributionItem]
+    attendance_by_department: list[DepartmentAttendanceItem] = []
     employee_activity_trend: list[AdminAnalyticsAttendanceTrend]
     employee_roster: list[EmployeeRosterItem]
     employee_performance: list[EmployeePerformanceItem]

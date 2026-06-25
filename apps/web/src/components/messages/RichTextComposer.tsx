@@ -5,23 +5,28 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
-import Placeholder from '@tiptap/extension-placeholder';
-import { Extension } from '@tiptap/core';
 import { cn } from '@/lib/utils';
 import { ComposerFormattingToolbar } from '@/components/messages/ComposerFormattingToolbar';
-import { sanitizeMessageHtml } from '@/lib/messages/message-sanitize';
+import {
+  sanitizeMessageHtml,
+  stripEmptyComposerListArtifacts,
+} from '@/lib/messages/message-sanitize';
 import {
   getComposerActiveState,
   runComposerFormatAction,
   shouldSubmitComposerOnEnter,
   type ComposerFormatAction,
 } from '@/lib/messages/composer-formatting';
+import {
+  createComposerEditorProps,
+  createComposerExtensions,
+} from '@/lib/messages/composer-editor-setup';
+
+const RICH_TEXT_DEBUG = process.env.NEXT_PUBLIC_RICH_TEXT_DEBUG === 'true';
 
 export type { ComposerFormatAction };
 
@@ -42,65 +47,19 @@ interface RichTextComposerProps {
   className?: string;
 }
 
-const ShiftEnterHardBreak = Extension.create({
-  name: 'shiftEnterHardBreak',
-  addKeyboardShortcuts() {
-    return {
-      'Shift-Enter': () => this.editor.commands.setHardBreak(),
-    };
-  },
-});
-
 export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextComposerProps>(
   function RichTextComposer(
     { placeholder = 'Write a message…', disabled = false, onUpdate, onSubmit, className },
     ref
   ) {
     const [toolbarVersion, setToolbarVersion] = useState(0);
+    const selectionSnapshotRef = useRef<{ from: number; to: number } | null>(null);
 
     const editor = useEditor({
       immediatelyRender: false,
-      extensions: [
-        StarterKit.configure({
-          heading: false,
-          blockquote: false,
-          horizontalRule: false,
-          codeBlock: false,
-          link: false,
-          underline: false,
-          bulletList: {
-            keepMarks: true,
-            keepAttributes: false,
-          },
-          orderedList: {
-            keepMarks: true,
-            keepAttributes: false,
-          },
-        }),
-        Underline,
-        Link.configure({
-          openOnClick: false,
-          autolink: true,
-          linkOnPaste: true,
-          HTMLAttributes: {
-            target: '_blank',
-            rel: 'noopener noreferrer',
-          },
-        }),
-        Placeholder.configure({
-          placeholder,
-          emptyEditorClass: 'is-editor-empty',
-        }),
-        ShiftEnterHardBreak,
-      ],
+      extensions: createComposerExtensions(placeholder),
       editorProps: {
-        attributes: {
-          class:
-            'message-rich-body focus:outline-none min-h-[72px] px-3 py-2 text-sm text-[var(--text-primary)]',
-        },
-        transformPastedHTML(html) {
-          return sanitizeMessageHtml(html);
-        },
+        ...createComposerEditorProps(onSubmit),
         handleKeyDown(view, event) {
           if (event.key === 'Enter' && !event.shiftKey && onSubmit) {
             if (!shouldSubmitComposerOnEnter(view)) {
@@ -118,7 +77,11 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
         onUpdate?.(ed.getText({ blockSeparator: '\n' }).trimEnd());
         setToolbarVersion(v => v + 1);
       },
-      onSelectionUpdate: () => {
+      onSelectionUpdate: ({ editor: ed }) => {
+        selectionSnapshotRef.current = {
+          from: ed.state.selection.from,
+          to: ed.state.selection.to,
+        };
         setToolbarVersion(v => v + 1);
       },
     });
@@ -130,12 +93,24 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
     useImperativeHandle(
       ref,
       () => ({
-        focus: () => editor?.commands.focus('end'),
-        clear: () => editor?.commands.clearContent(true),
+        focus: () => {
+          const ed = editor;
+          if (!ed?.isEditable) return;
+          requestAnimationFrame(() => {
+            if (!ed.isEditable) return;
+            ed.chain().focus('end').run();
+          });
+        },
+        clear: () => {
+          editor?.commands.clearContent(true);
+        },
         isEmpty: () => !editor || editor.isEmpty,
         getPlainText: () =>
           editor?.getText({ blockSeparator: '\n' }).trim() ?? '',
-        getHtml: () => sanitizeMessageHtml(editor?.getHTML() ?? ''),
+        getHtml: () =>
+          sanitizeMessageHtml(
+            stripEmptyComposerListArtifacts(editor?.getHTML() ?? '')
+          ),
         insertText: (text: string) => {
           editor?.chain().focus().insertContent(text).run();
         },
@@ -159,23 +134,48 @@ export const RichTextComposer = forwardRef<RichTextComposerHandle, RichTextCompo
       return getComposerActiveState(editor);
     }, [editor, toolbarVersion]);
 
-    const handleAction = (action: ComposerFormatAction) => {
+    const handleAction = (action: ComposerFormatAction, selection: SelectionSnapshot) => {
       if (!editor || disabled) return;
+
+      if (RICH_TEXT_DEBUG) {
+        console.debug('[composer-action]', action, {
+          at: Date.now(),
+          selection,
+          bulletActive: editor.isActive('bulletList'),
+          orderedActive: editor.isActive('orderedList'),
+          doc: editor.getJSON(),
+        });
+      }
 
       if (action === 'link') {
         const previousUrl = editor.getAttributes('link').href as string | undefined;
         const url = window.prompt('Enter link URL', previousUrl || 'https://');
         if (url === null) return;
-        runComposerFormatAction(editor, action, { linkUrl: url });
+        runComposerFormatAction(editor, action, { linkUrl: url, selection });
       } else {
-        runComposerFormatAction(editor, action);
+        runComposerFormatAction(editor, action, { selection });
       }
+
+      if (RICH_TEXT_DEBUG) {
+        console.debug('[composer-action:after]', action, {
+          bulletActive: editor.isActive('bulletList'),
+          orderedActive: editor.isActive('orderedList'),
+          html: editor.getHTML(),
+          doc: editor.getJSON(),
+        });
+      }
+
+      selectionSnapshotRef.current = {
+        from: editor.state.selection.from,
+        to: editor.state.selection.to,
+      };
       setToolbarVersion(v => v + 1);
     };
 
     return (
       <div className={cn('overflow-hidden', className)}>
         <ComposerFormattingToolbar
+          editor={editor}
           disabled={disabled}
           activeState={activeState}
           onAction={handleAction}

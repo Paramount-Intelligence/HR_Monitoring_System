@@ -32,6 +32,13 @@ class EODReviewRequest(BaseModel):
     comments: str | None = None
 
 
+class EODSubmitRequest(BaseModel):
+    report_date: date | None = None
+    work_summary: str = Field(..., min_length=10, max_length=5000)
+    blockers: str | None = Field(None, max_length=5000)
+    next_day_plan: str | None = Field(None, max_length=5000)
+
+
 class EODReportRead(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
@@ -49,5 +56,9 @@ class EODReportRead(BaseModel):
     status: str
     manager_comments: str | None
     productivity_score: int
+    work_summary: str | None = None
+    blockers: str | None = None
+    next_day_plan: str | None = None
+    submitted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

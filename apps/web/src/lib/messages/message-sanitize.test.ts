@@ -6,6 +6,7 @@ import {
   isEmptyComposerHtml,
   looksLikeLegacyFormattedText,
   sanitizeMessageHtml,
+  stripEmptyComposerListArtifacts,
 } from './message-sanitize';
 
 describe('sanitizeMessageHtml', () => {
@@ -53,6 +54,32 @@ describe('sanitizeMessageHtml', () => {
     assert.equal(out.includes('script'), false);
     assert.match(out, /<li>safe<\/li>/);
     assert.match(out, /<code>ok<\/code>/);
+  });
+});
+
+describe('stripEmptyComposerListArtifacts', () => {
+  it('removes trailing empty bullet list items', () => {
+    const input = '<ul><li>one</li><li></li><li><p></p></li></ul>';
+    const out = stripEmptyComposerListArtifacts(input);
+    assert.equal(out, '<ul><li>one</li></ul>');
+  });
+
+  it('removes trailing empty numbered list items', () => {
+    const input = '<ol><li>first</li><li>&nbsp;</li></ol>';
+    const out = stripEmptyComposerListArtifacts(input);
+    assert.equal(out, '<ol><li>first</li></ol>');
+  });
+
+  it('removes entirely empty lists', () => {
+    const input = '<ul><li></li><li><br></li></ul>';
+    const out = stripEmptyComposerListArtifacts(input);
+    assert.equal(out, '');
+  });
+
+  it('preserves real list content', () => {
+    const input = '<ul><li>alpha</li><li>beta</li></ul>';
+    const out = stripEmptyComposerListArtifacts(input);
+    assert.equal(out, input);
   });
 });
 

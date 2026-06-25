@@ -20,6 +20,7 @@ from app.models.approval import Approval
 from app.models.notifications import Notification
 
 from app.services.realtime_service import RealtimeService
+from app.services.notification_service import create_message_notifications
 from app.services.websocket_manager import ws_manager
 from app.services import message_receipt_service as receipt_svc
 from app.services.message_html_service import prepare_message_content
@@ -695,31 +696,21 @@ def send_message(
         .all()
     )
 
-    # Determine standard notification title
-    conv_title = conv.title or "Direct Message"
-    if conv.type == ConversationType.DIRECT:
-        notif_title = f"New message from {current_user.full_name}"
-    else:
-        notif_title = f"[{conv_title}] {current_user.full_name}"
-
-    created_notifications: list[Notification] = []
-    for op in other_participants:
-        is_mentioned = op.user_id in payload.mentioned_user_ids
-        n_type = NotificationType.MENTION if is_mentioned else NotificationType.MESSAGE
-        n_title = f"You were mentioned by {current_user.full_name}" if is_mentioned else notif_title
-
-        db_notif = Notification(
-            user_id=op.user_id,
-            title=n_title,
-            message=(plain_body or "Sent an attachment")[:200],
-            notification_type=n_type,
-            related_entity_type="conversation",
-            related_entity_id=conversation_id,
-        )
-        db.add(db_notif)
-        created_notifications.append(db_notif)
-
+    participant_ids = [op.user_id for op in other_participants]
+    created_notifications = create_message_notifications(
+        db,
+        participants=participant_ids,
+        sender_id=current_user.id,
+        sender_name=current_user.full_name,
+        conversation_id=conversation_id,
+        conversation_title=conv.title,
+        conversation_type=conv.type,
+        body_preview=plain_body or "Sent an attachment",
+        mentioned_user_ids=payload.mentioned_user_ids,
+    )
     db.commit()
+    for notif in created_notifications:
+        db.refresh(notif)
 
     preview = payload.body or "Sent an attachment"
     try:
@@ -733,9 +724,6 @@ def send_message(
             created_at=new_msg.created_at.isoformat() if new_msg.created_at else datetime.now(timezone.utc).isoformat(),
         )
         RealtimeService.emit_conversation_updated(db, conversation_id)
-        for notif in created_notifications:
-            db.refresh(notif)
-            RealtimeService.emit_notification_created(notif)
     except Exception:
         logger.exception("Failed to emit realtime events for new message %s", new_msg.id)
 

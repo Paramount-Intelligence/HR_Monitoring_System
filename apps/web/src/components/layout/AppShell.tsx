@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { BrowserNotificationProvider } from '@/components/notifications/BrowserNotificationProvider';
+import { NotificationPreferencesProvider } from '@/hooks/useNotificationPreferences';
 import { RealtimeProvider } from '@/providers/RealtimeProvider';
 import { CallProvider } from '@/providers/CallProvider';
 import { cn } from '@/lib/utils';
@@ -37,7 +38,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <RealtimeProvider>
       <CallProvider>
-        <BrowserNotificationProvider />
+        <NotificationPreferencesProvider>
+          <Suspense fallback={null}>
+            <BrowserNotificationProvider />
+          </Suspense>
         <div className="flex h-screen w-full overflow-hidden bg-[var(--bg-page)] text-[var(--text-primary)] transition-all duration-300">
           <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
@@ -65,6 +69,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </main>
           </div>
         </div>
+        </NotificationPreferencesProvider>
       </CallProvider>
     </RealtimeProvider>
   );

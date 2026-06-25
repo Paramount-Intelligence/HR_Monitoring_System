@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/lib/api/messages';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
@@ -11,24 +10,18 @@ import {
   Users,
   MessageSquare,
   Loader2,
-  ChevronDown,
-  ChevronRight,
-  AtSign,
-  FileText,
-  Phone,
-  GitBranch,
-  Pencil,
+  MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
-  SidebarFilter,
+  type ChatListFilter,
   getConversationDisplayName,
   getConversationPreview,
+  getConversationTypeBadge,
   getDirectParticipant,
-  formatMessageTime,
+  formatConversationListTime,
   matchesSearch,
-  filterBySidebarFilter,
-  getContextThreadLabel,
+  filterByChatListFilter,
 } from './messages-utils';
 
 interface MessagesWorkspaceSidebarProps {
@@ -36,50 +29,24 @@ interface MessagesWorkspaceSidebarProps {
   loading: boolean;
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  sidebarFilter: SidebarFilter;
-  onSidebarFilterChange: (filter: SidebarFilter) => void;
+  chatListFilter: ChatListFilter;
+  onChatListFilterChange: (filter: ChatListFilter) => void;
   selectedConversationId: string | null;
   onSelectConversation: (id: string) => void;
   onNewMessage: () => void;
+  onOpenSettings: () => void;
   currentUserId?: string;
   visible: boolean;
 }
 
-const PRIMARY_LINKS: { id: SidebarFilter; label: string; icon: typeof MessageSquare }[] = [
-  { id: 'threads', label: 'Threads', icon: GitBranch },
-  { id: 'mentions', label: 'Mentions', icon: AtSign },
-  { id: 'drafts', label: 'Drafts', icon: Pencil },
-  { id: 'files', label: 'Files', icon: FileText },
-  { id: 'calls', label: 'Calls', icon: Phone },
+const FILTER_CHIPS: { id: ChatListFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'favourites', label: 'Favourites' },
+  { id: 'groups', label: 'Groups' },
 ];
 
-function SectionHeader({
-  title,
-  collapsed,
-  onToggle,
-  count,
-}: {
-  title: string;
-  collapsed: boolean;
-  onToggle: () => void;
-  count?: number;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition-colors"
-    >
-      {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-      <span>{title}</span>
-      {typeof count === 'number' && count > 0 && (
-        <span className="ml-auto text-[9px] font-semibold tabular-nums">{count}</span>
-      )}
-    </button>
-  );
-}
-
-function ConversationRow({
+function ConversationListItem({
   conv,
   isSelected,
   onSelect,
@@ -93,52 +60,71 @@ function ConversationRow({
   const name = getConversationDisplayName(conv, currentUserId);
   const preview = getConversationPreview(conv);
   const directUser = getDirectParticipant(conv, currentUserId);
-  const isChannel = conv.type === 'channel';
+  const typeBadge = getConversationTypeBadge(conv.type);
+  const showTypeBadge = conv.type !== 'direct';
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={cn(
-        'w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg text-left transition-all group',
+        'w-full flex items-center gap-3 px-3 min-h-[72px] text-left transition-colors border-b border-[var(--border-subtle)]/60',
         isSelected
-          ? 'bg-[var(--accent-primary)]/12 text-[var(--text-primary)] border border-[var(--accent-primary)]/25'
-          : 'hover:bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-transparent'
+          ? 'bg-[#f0f2f5] dark:bg-[#2a3942]'
+          : 'hover:bg-[#f5f6f6] dark:hover:bg-[#202c33]'
       )}
     >
-      {directUser ? (
-        <UserProfilePicture
-          user={directUser}
-          name={directUser.full_name}
-          size="sm"
-          className="h-7 w-7 shrink-0 ring-1 ring-[var(--border-subtle)]"
-        />
-      ) : (
-        <div
-          className={cn(
-            'h-7 w-7 rounded-md flex items-center justify-center shrink-0 text-[var(--accent-primary)]',
-            isSelected ? 'bg-[var(--accent-primary)]/15' : 'bg-[var(--bg-subtle)]'
-          )}
-        >
-          {isChannel ? <Hash className="h-3.5 w-3.5" /> : <Users className="h-3.5 w-3.5" />}
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
+      <div className="relative shrink-0">
+        {directUser ? (
+          <UserProfilePicture
+            user={directUser}
+            name={directUser.full_name}
+            size="lg"
+            className="h-12 w-12"
+          />
+        ) : (
+          <div className="h-12 w-12 rounded-full bg-[#dfe5e7] dark:bg-[#374248] flex items-center justify-center text-[#54656f] dark:text-[#aebac1]">
+            {conv.type === 'channel' ? (
+              <Hash className="h-5 w-5" />
+            ) : (
+              <Users className="h-5 w-5" />
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 min-w-0 py-2">
         <div className="flex items-center justify-between gap-2">
-          <span className={cn('text-xs font-semibold truncate', isSelected && 'text-[var(--text-primary)]')}>
-            {isChannel ? `# ${name}` : name}
+          <span className="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">
+            {name}
           </span>
           {conv.updated_at && (
-            <span className="text-[9px] text-[var(--text-muted)] shrink-0 tabular-nums">
-              {formatMessageTime(conv.updated_at)}
+            <span
+              className={cn(
+                'text-[11px] shrink-0 tabular-nums',
+                (conv.unread_count ?? 0) > 0
+                  ? 'text-[#25d366] font-semibold'
+                  : 'text-[#667781] dark:text-[#8696a0]'
+              )}
+            >
+              {formatConversationListTime(conv.updated_at)}
             </span>
           )}
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <span className="text-[10px] truncate text-[var(--text-muted)]">{preview}</span>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {showTypeBadge && (
+              <span className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-[#e9edef] dark:bg-[#374248] text-[#54656f] dark:text-[#aebac1]">
+                {typeBadge}
+              </span>
+            )}
+            <span className="text-[13px] truncate text-[#667781] dark:text-[#8696a0]">
+              {preview}
+            </span>
+          </div>
           {(conv.unread_count ?? 0) > 0 && (
-            <span className="h-4 min-w-4 px-1 rounded-full bg-[var(--accent-primary)] text-white text-[9px] font-bold flex items-center justify-center shrink-0">
-              {conv.unread_count}
+            <span className="h-5 min-w-5 px-1.5 rounded-full bg-[#25d366] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
+              {conv.unread_count! > 99 ? '99+' : conv.unread_count}
             </span>
           )}
         </div>
@@ -152,227 +138,108 @@ export function MessagesWorkspaceSidebar({
   loading,
   searchQuery,
   onSearchChange,
-  sidebarFilter,
-  onSidebarFilterChange,
+  chatListFilter,
+  onChatListFilterChange,
   selectedConversationId,
   onSelectConversation,
   onNewMessage,
+  onOpenSettings,
   currentUserId,
   visible,
 }: MessagesWorkspaceSidebarProps) {
-  const [collapsed, setCollapsed] = useState({
-    channels: false,
-    dms: false,
-    groups: false,
-    context: false,
-  });
-
-  const filtered = conversations.filter(
-    (c) =>
-      matchesSearch(c, searchQuery, currentUserId) &&
-      filterBySidebarFilter(c, sidebarFilter, currentUserId)
-  );
-
-  const channels = filtered.filter((c) => c.type === 'channel');
-  const directMessages = filtered.filter((c) => c.type === 'direct');
-  const groups = filtered.filter((c) => c.type === 'group');
-  const contextThreads = filtered.filter((c) => c.type.endsWith('_thread'));
-
-  const toggleSection = (key: keyof typeof collapsed) =>
-    setCollapsed((prev) => ({ ...prev, [key]: !prev[key] }));
+  const filtered = conversations
+    .filter(
+      (c) =>
+        matchesSearch(c, searchQuery, currentUserId) &&
+        filterByChatListFilter(c, chatListFilter)
+    )
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 
   if (!visible) return null;
 
   return (
-    <aside className="flex flex-col h-full min-h-0 w-full lg:w-[280px] xl:w-[300px] shrink-0 border-r border-[var(--border-subtle)] bg-[var(--bg-elevated)] dark:bg-[#0f172a]">
-      {/* Workspace header */}
-      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-[var(--border-subtle)] space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">PIMS</p>
-            <h1 className="text-sm font-bold text-[var(--text-primary)] truncate">Messages</h1>
+    <aside className="flex flex-col h-full min-h-0 w-full lg:w-[360px] shrink-0 border-r border-[var(--border-subtle)] bg-white dark:bg-[#111b21]">
+      <div className="shrink-0 px-4 pt-4 pb-3 bg-[#f0f2f5] dark:bg-[#202c33]">
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <h1 className="text-xl font-semibold text-[#111b21] dark:text-[#e9edef]">Chats</h1>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full text-[#54656f] hover:bg-[#e9edef] dark:hover:bg-[#374248]"
+              onClick={onNewMessage}
+              title="New chat"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full text-[#54656f] hover:bg-[#e9edef] dark:hover:bg-[#374248]"
+              title="More options"
+              onClick={onOpenSettings}
+            >
+              <MoreVertical className="h-5 w-5" />
+            </Button>
           </div>
-          <Button size="sm" className="h-8 rounded-lg text-xs shrink-0" onClick={onNewMessage}>
-            <Plus className="h-3.5 w-3.5 mr-1" />
-            New
-          </Button>
         </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[var(--text-muted)]" />
+
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#667781]" />
           <input
             type="text"
-            placeholder="Search messages, people, channels"
+            placeholder="Search or start a new chat"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 text-xs rounded-lg bg-[var(--bg-surface)] border border-[var(--border-subtle)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+            className="w-full h-9 pl-9 pr-3 text-sm rounded-lg bg-white dark:bg-[#2a3942] border-0 focus:outline-none focus:ring-1 focus:ring-[#25d366]/40 text-[#111b21] dark:text-[#e9edef] placeholder:text-[#667781]"
           />
+        </div>
+
+        <div className="flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1">
+          {FILTER_CHIPS.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              onClick={() => onChatListFilterChange(chip.id)}
+              className={cn(
+                'shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors',
+                chatListFilter === chip.id
+                  ? 'bg-[#d9fdd3] dark:bg-[#005c4b] text-[#111b21] dark:text-[#e9edef] border-[#25d366]/30'
+                  : 'bg-white dark:bg-[#2a3942] text-[#54656f] dark:text-[#aebac1] border-[#e9edef] dark:border-[#374248] hover:bg-[#f5f6f6]'
+              )}
+            >
+              {chip.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Primary links */}
-      <div className="shrink-0 px-2 py-2 border-b border-[var(--border-subtle)] space-y-0.5">
-        <button
-          type="button"
-          onClick={() => onSidebarFilterChange('home')}
-          className={cn(
-            'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors',
-            sidebarFilter === 'home'
-              ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]'
-              : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]'
-          )}
-        >
-          <MessageSquare className="h-3.5 w-3.5" />
-          All conversations
-        </button>
-        {PRIMARY_LINKS.map((link) => (
-          <button
-            key={link.id}
-            type="button"
-            onClick={() => onSidebarFilterChange(link.id)}
-            className={cn(
-              'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors',
-              sidebarFilter === link.id
-                ? 'bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-subtle)]'
-            )}
-          >
-            <link.icon className="h-3.5 w-3.5" />
-            {link.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Scrollable conversation sections */}
-      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-1 py-2">
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar bg-white dark:bg-[#111b21]">
         {loading ? (
-          <div className="py-8 flex items-center justify-center gap-2 text-xs text-[var(--text-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--accent-primary)]" />
-            Loading…
+          <div className="py-12 flex items-center justify-center gap-2 text-sm text-[#667781]">
+            <Loader2 className="h-5 w-5 animate-spin text-[#25d366]" />
+            Loading chats…
           </div>
-        ) : sidebarFilter === 'drafts' ? (
-          <div className="px-3 py-8 text-center text-xs text-[var(--text-muted)]">
-            No drafts saved yet.
-          </div>
-        ) : sidebarFilter === 'files' ? (
-          <div className="px-3 py-8 text-center text-xs text-[var(--text-muted)]">
-            Select a conversation to view shared files.
+        ) : chatListFilter === 'favourites' ? (
+          <div className="px-4 py-12 text-center text-sm text-[#667781]">
+            No favourites yet.
           </div>
         ) : filtered.length === 0 ? (
-          <div className="px-3 py-8 text-center text-xs text-[var(--text-muted)]">
-            No conversations found.
+          <div className="px-4 py-12 text-center text-sm text-[#667781]">
+            {searchQuery.trim() ? 'No conversations match your search' : 'No conversations found'}
           </div>
         ) : (
-          <>
-            {channels.length > 0 && (
-              <div className="mb-3">
-                <SectionHeader
-                  title="Channels"
-                  collapsed={collapsed.channels}
-                  onToggle={() => toggleSection('channels')}
-                  count={channels.length}
-                />
-                {!collapsed.channels && (
-                  <div className="space-y-0.5 mt-0.5">
-                    {channels.map((conv) => (
-                      <ConversationRow
-                        key={conv.id}
-                        conv={conv}
-                        isSelected={selectedConversationId === conv.id}
-                        onSelect={() => onSelectConversation(conv.id)}
-                        currentUserId={currentUserId}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {directMessages.length > 0 && (
-              <div className="mb-3">
-                <SectionHeader
-                  title="Direct Messages"
-                  collapsed={collapsed.dms}
-                  onToggle={() => toggleSection('dms')}
-                  count={directMessages.length}
-                />
-                {!collapsed.dms && (
-                  <div className="space-y-0.5 mt-0.5">
-                    {directMessages.map((conv) => (
-                      <ConversationRow
-                        key={conv.id}
-                        conv={conv}
-                        isSelected={selectedConversationId === conv.id}
-                        onSelect={() => onSelectConversation(conv.id)}
-                        currentUserId={currentUserId}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {groups.length > 0 && (
-              <div className="mb-3">
-                <SectionHeader
-                  title="Groups"
-                  collapsed={collapsed.groups}
-                  onToggle={() => toggleSection('groups')}
-                  count={groups.length}
-                />
-                {!collapsed.groups && (
-                  <div className="space-y-0.5 mt-0.5">
-                    {groups.map((conv) => (
-                      <ConversationRow
-                        key={conv.id}
-                        conv={conv}
-                        isSelected={selectedConversationId === conv.id}
-                        onSelect={() => onSelectConversation(conv.id)}
-                        currentUserId={currentUserId}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {contextThreads.length > 0 && (
-              <div className="mb-3">
-                <SectionHeader
-                  title="Context Threads"
-                  collapsed={collapsed.context}
-                  onToggle={() => toggleSection('context')}
-                  count={contextThreads.length}
-                />
-                {!collapsed.context && (
-                  <div className="space-y-0.5 mt-0.5">
-                    {contextThreads.map((conv) => (
-                      <button
-                        key={conv.id}
-                        type="button"
-                        onClick={() => onSelectConversation(conv.id)}
-                        className={cn(
-                          'w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs transition-all',
-                          selectedConversationId === conv.id
-                            ? 'bg-[var(--accent-primary)]/12 border border-[var(--accent-primary)]/25'
-                            : 'hover:bg-[var(--bg-subtle)] border border-transparent'
-                        )}
-                      >
-                        <MessageSquare className="h-3.5 w-3.5 shrink-0 text-[var(--accent-primary)]" />
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold truncate">
-                            {getConversationDisplayName(conv, currentUserId)}
-                          </p>
-                          <p className="text-[10px] text-[var(--text-muted)]">
-                            {getContextThreadLabel(conv.type)}
-                          </p>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
+          filtered.map((conv) => (
+            <ConversationListItem
+              key={conv.id}
+              conv={conv}
+              isSelected={selectedConversationId === conv.id}
+              onSelect={() => onSelectConversation(conv.id)}
+              currentUserId={currentUserId}
+            />
+          ))
         )}
       </div>
     </aside>

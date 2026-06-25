@@ -1,4 +1,11 @@
 import type { EditorView } from '@tiptap/pm/view';
+import type { Editor } from '@tiptap/core';
+import {
+  toggleSlackBulletList,
+  toggleSlackOrderedList,
+  isInsideListType,
+  type SelectionSnapshot,
+} from '@/lib/messages/tiptap-list-commands';
 
 export type ComposerFormatAction =
   | 'bold'
@@ -9,28 +16,10 @@ export type ComposerFormatAction =
   | 'orderedList'
   | 'code';
 
-type ChainRunner = {
-  focus: () => ChainRunner;
-  toggleBold: () => ChainRunner;
-  toggleItalic: () => ChainRunner;
-  toggleUnderline: () => ChainRunner;
-  extendMarkRange: (mark: string) => ChainRunner;
-  unsetLink: () => ChainRunner;
-  setLink: (attrs: { href: string }) => ChainRunner;
-  toggleBulletList: () => ChainRunner;
-  toggleOrderedList: () => ChainRunner;
-  toggleCode: () => ChainRunner;
-  run: () => boolean;
-};
-
-export type ComposerEditorLike = {
-  chain: () => ChainRunner;
-  getAttributes: (mark: string) => Record<string, unknown>;
-  isActive: (
-    name: string,
-    attributes?: Record<string, unknown>
-  ) => boolean;
-};
+export type ComposerEditorLike = Pick<
+  Editor,
+  'chain' | 'getAttributes' | 'isActive'
+>;
 
 /** True when Enter should send the message instead of editing list structure. */
 export function shouldSubmitComposerOnEnter(view: EditorView): boolean {
@@ -43,13 +32,17 @@ export function shouldSubmitComposerOnEnter(view: EditorView): boolean {
   return true;
 }
 
-export function getComposerActiveState(editor: ComposerEditorLike) {
+export type { SelectionSnapshot };
+
+export function getComposerActiveState(editor: Editor) {
   return {
     bold: editor.isActive('bold'),
     italic: editor.isActive('italic'),
     underline: editor.isActive('underline'),
-    bulletList: editor.isActive('bulletList'),
-    orderedList: editor.isActive('orderedList'),
+    bulletList:
+      editor.isActive('bulletList') || isInsideListType(editor.state, 'bulletList'),
+    orderedList:
+      editor.isActive('orderedList') || isInsideListType(editor.state, 'orderedList'),
     code: editor.isActive('code'),
     link: editor.isActive('link'),
   };
@@ -57,9 +50,9 @@ export function getComposerActiveState(editor: ComposerEditorLike) {
 
 /** Run a Slack-style formatting command on the TipTap editor. */
 export function runComposerFormatAction(
-  editor: ComposerEditorLike,
+  editor: Editor,
   action: ComposerFormatAction,
-  options?: { linkUrl?: string | null }
+  options?: { linkUrl?: string | null; selection?: SelectionSnapshot | null }
 ): void {
   switch (action) {
     case 'bold':
@@ -83,10 +76,10 @@ export function runComposerFormatAction(
       break;
     }
     case 'bulletList':
-      editor.chain().focus().toggleBulletList().run();
+      toggleSlackBulletList(editor, options?.selection);
       break;
     case 'orderedList':
-      editor.chain().focus().toggleOrderedList().run();
+      toggleSlackOrderedList(editor, options?.selection);
       break;
     case 'code':
       editor.chain().focus().toggleCode().run();
@@ -95,3 +88,8 @@ export function runComposerFormatAction(
       break;
   }
 }
+
+export {
+  toggleSlackBulletList,
+  toggleSlackOrderedList,
+} from '@/lib/messages/tiptap-list-commands';

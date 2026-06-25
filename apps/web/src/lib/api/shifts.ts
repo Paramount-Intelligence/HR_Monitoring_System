@@ -17,5 +17,9 @@ export const shiftsApi = {
   deactivateShift: async (id: string) => {
     const response = await apiClient.delete(`/shifts/${id}`);
     return response.data;
-  }
+  },
+  getShift: async (id: string) => {
+    const response = await apiClient.get<Shift>(`/shifts/${id}`);
+    return response.data;
+  },
 };

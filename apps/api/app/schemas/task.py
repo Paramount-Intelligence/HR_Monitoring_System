@@ -7,6 +7,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, Field
 
 from app.models.enums import ProjectPriority, TaskStatus
+from app.schemas.task_completion_request import TaskCompletionRequestSummary
 
 
 class TaskCreate(BaseModel):
@@ -60,6 +61,7 @@ class TaskRead(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    pending_completion_request: TaskCompletionRequestSummary | None = None
 
 class TaskCommentCreate(BaseModel):
     content: str = Field(..., min_length=1)

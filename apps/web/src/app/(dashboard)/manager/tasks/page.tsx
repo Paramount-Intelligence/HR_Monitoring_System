@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { tasksApi, Task } from '@/lib/api/tasks';
 import { projectsApi, Project } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
@@ -50,6 +50,7 @@ import {
   getUserLabel,
 } from '@/lib/display-labels';
 import { TaskEditDialog } from '@/components/tasks/TaskEditDialog';
+import { ManagerCompletionRequestsPanel } from '@/components/tasks/ManagerCompletionRequestsPanel';
 import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
 import {
   DEFAULT_TASK_FILTERS,
@@ -122,6 +123,8 @@ const SORT_OPTIONS: { value: TaskSortOption; label: string }[] = [
 
 export default function ManagerTasksPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'completion-requests' ? 'completion-requests' : 'tasks';
   const { user: currentUser } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -382,6 +385,37 @@ export default function ManagerTasksPage() {
         }
       />
 
+      <div className="flex flex-wrap gap-2 border-b border-[var(--border-subtle)] pb-2">
+        <Button
+          type="button"
+          size="sm"
+          variant={activeTab === 'tasks' ? 'default' : 'ghost'}
+          className="rounded-lg text-xs"
+          onClick={() => router.push('/manager/tasks')}
+        >
+          Team Tasks
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={activeTab === 'completion-requests' ? 'default' : 'ghost'}
+          className="rounded-lg text-xs"
+          onClick={() => router.push('/manager/tasks?tab=completion-requests')}
+        >
+          Completion Requests
+        </Button>
+      </div>
+
+      {activeTab === 'completion-requests' ? (
+        <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] rounded-2xl">
+          <CardHeader>
+            <CardTitle className="text-base font-bold">Pending Completion Requests</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ManagerCompletionRequestsPanel />
+          </CardContent>
+        </Card>
+      ) : (
       <Card className="border border-[var(--border-subtle)] shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-2xl overflow-hidden text-[var(--text-primary)]">
         <CardHeader className="px-5 pt-5 pb-4 border-b border-[var(--border-subtle)] space-y-4">
           <CardTitle className="text-base font-bold tracking-tight flex items-center gap-2">
@@ -585,6 +619,7 @@ export default function ManagerTasksPage() {
           )}
         </CardContent>
       </Card>
+      )}
 
       <TaskEditDialog
         task={editingTask}

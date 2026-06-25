@@ -145,6 +145,10 @@ class Settings(BaseSettings):
     expo_push_api_url: str = "https://exp.host/--/api/v2/push/send"
     push_notification_message_preview_enabled: bool = True
 
+    vapid_public_key: str | None = None
+    vapid_private_key: str | None = None
+    vapid_subject: str | None = None
+
     attendance_max_active_hours: int = 16
     attendance_auto_close_grace_minutes: int = 60
 

@@ -17,20 +17,20 @@ import { Shift } from '@/types';
 
 type TabState<T> = { data: T; loading: boolean; error: string | null };
 
-const emptyTab = <T,>(): TabState<T> => ({ data: [] as unknown as T, loading: false, error: null });
+const initialTabState = <T,>(): TabState<T> => ({ data: [] as unknown as T, loading: true, error: null });
 
 export default function AdminOrgPage() {
   const [activeTab, setActiveTab] = useState<OrganizationTabId>('departments');
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
 
-  const [deptState, setDeptState] = useState<TabState<Department[]>>(emptyTab());
-  const [shiftState, setShiftState] = useState<TabState<Shift[]>>(emptyTab());
-  const [holidayState, setHolidayState] = useState<TabState<Holiday[]>>(emptyTab());
-  const [announceState, setAnnounceState] = useState<TabState<Announcement[]>>(emptyTab());
+  const [deptState, setDeptState] = useState<TabState<Department[]>>(initialTabState());
+  const [shiftState, setShiftState] = useState<TabState<Shift[]>>(initialTabState());
+  const [holidayState, setHolidayState] = useState<TabState<Holiday[]>>(initialTabState());
+  const [announceState, setAnnounceState] = useState<TabState<Announcement[]>>(initialTabState());
 
   const loadUsers = useCallback(async () => {
     try {
-      const data = await usersApi.getUsers({ status: 'active' });
+      const data = await usersApi.getUsers();
       setUsers(data as unknown as Record<string, unknown>[]);
     } catch {
       setUsers([]);
@@ -116,6 +116,7 @@ export default function AdminOrgPage() {
         {activeTab === 'shifts' && (
           <OrganizationShiftsTab
             shifts={shiftState.data}
+            users={users}
             loading={shiftState.loading}
             error={shiftState.error}
             onRefresh={loadShifts}

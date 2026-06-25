@@ -8,6 +8,7 @@ from app.models.team import Team  # noqa: F401
 from app.models.attendance_session import AttendanceSession  # noqa: F401
 from app.models.project import Project  # noqa: F401
 from app.models.task import Task  # noqa: F401
+from app.models.task_completion_request import TaskCompletionRequest  # noqa: F401
 from app.models.time_log import TimeLog  # noqa: F401
 from app.models.task_timer_session import TaskTimerSession  # noqa: F401
 from app.models.approval import Approval  # noqa: F401
@@ -43,6 +44,8 @@ from app.models.notifications import Notification  # noqa: F401
 from app.models.support import SupportTicket, SupportTicketComment  # noqa: F401
 from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction, MessageAttachment, CallSession, CallParticipant, CallSignal, CallRecording  # noqa: F401
 from app.models.user_device_token import UserDeviceToken  # noqa: F401
+from app.models.user_notification_preferences import UserNotificationPreferences  # noqa: F401
+from app.models.web_push_subscription import WebPushSubscription  # noqa: F401
 
 __all__ = [
     "Base",
@@ -51,6 +54,7 @@ __all__ = [
     "AttendanceSession",
     "Project",
     "Task",
+    "TaskCompletionRequest",
     "TimeLog",
     "TaskTimerSession",
     "Approval",
