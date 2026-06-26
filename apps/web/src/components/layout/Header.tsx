@@ -28,6 +28,9 @@ import { useNotificationPreferences } from '@/hooks/useNotificationPreferences';
 import { getNotificationRoute } from '@/lib/notifications/delivery';
 import { PROFILE_NOTIFICATIONS_PATH } from '@/lib/profile/profile-section';
 import { formatDistanceToNow } from 'date-fns';
+import { toast } from 'sonner';
+import { usersApi } from '@/lib/api/users';
+import { hydrateUserPresence, setUserPresence } from '@/lib/presence/presence-store';
 
 
 interface HeaderProps {
@@ -35,10 +38,11 @@ interface HeaderProps {
 }
 
 export function Header({ onMenuToggle }: HeaderProps) {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, updateUser } = useAuth();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [presenceUpdating, setPresenceUpdating] = useState(false);
 
   // Notifications states
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -97,6 +101,60 @@ export function Header({ onMenuToggle }: HeaderProps) {
   useRealtimeEvent(['new_message', 'conversation_updated'], () => {
     if (canFetchProtectedData()) fetchUnreadMsgCount();
   });
+
+  useRealtimeEvent(['user_presence_updated'], (event) => {
+    const payload = event.payload as {
+      user_id?: string;
+      presence_status?: 'active' | 'away';
+      presence_updated_at?: string | null;
+      last_seen_at?: string | null;
+    };
+    if (!payload?.user_id) return;
+    setUserPresence(payload.user_id, {
+      presence_status: payload.presence_status,
+      presence_updated_at: payload.presence_updated_at,
+      last_seen_at: payload.last_seen_at,
+    });
+    if (user?.id === payload.user_id) {
+      updateUser({
+        presence_status: payload.presence_status,
+        presence_updated_at: payload.presence_updated_at ?? undefined,
+        last_seen_at: payload.last_seen_at ?? undefined,
+      });
+    }
+  });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    hydrateUserPresence(user.id, {
+      presence_status: user.presence_status,
+      presence_updated_at: user.presence_updated_at,
+      last_seen_at: user.last_seen_at,
+    });
+  }, [user?.id, user?.presence_status, user?.presence_updated_at, user?.last_seen_at]);
+
+  const myPresence = user?.presence_status === 'away' ? 'away' : 'active';
+
+  const handlePresenceToggle = async () => {
+    if (!user || presenceUpdating) return;
+    const next = myPresence === 'active' ? 'away' : 'active';
+    setPresenceUpdating(true);
+    try {
+      const result = await usersApi.updateMyPresence(next);
+      updateUser({
+        presence_status: result.presence_status,
+        presence_updated_at: result.presence_updated_at ?? undefined,
+        last_seen_at: result.last_seen_at ?? undefined,
+      });
+      hydrateUserPresence(user.id, result);
+      toast.success(next === 'away' ? 'Set yourself as away' : 'Set yourself as active');
+    } catch (err) {
+      logProtectedFetchError('[Header] Failed to update presence', err);
+      toast.error('Could not update your status');
+    } finally {
+      setPresenceUpdating(false);
+    }
+  };
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -356,6 +414,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   user={user}
                   name={user?.full_name || 'User'}
                   size="default"
+                  showPresence
                   className="h-8 w-8 border-2 border-[var(--bg-elevated)] shadow-sm ring-1 ring-[var(--border-default)] group-hover:ring-[var(--accent-primary)] transition-all"
                 />
                 <div className="hidden sm:flex flex-col items-start leading-none">
@@ -374,12 +433,26 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   <div className="flex flex-col space-y-1.5">
                     <p className="text-sm font-bold leading-none text-[var(--text-primary)]">{user?.full_name}</p>
                     <p className="text-[11px] font-semibold text-[var(--text-secondary)] truncate flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[var(--status-success-text)] animate-pulse" />
-                      {user?.email || 'Active Session'}
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          myPresence === 'away' ? 'bg-amber-400' : 'bg-emerald-500'
+                        }`}
+                      />
+                      {myPresence === 'away' ? 'Away' : 'Active'}
                     </p>
                   </div>
                 </DropdownMenuLabel>
               </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
+
+              <DropdownMenuItem
+                onClick={() => void handlePresenceToggle()}
+                disabled={presenceUpdating}
+                className="focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3"
+              >
+                {myPresence === 'active' ? 'Set yourself as away' : 'Set yourself as active'}
+              </DropdownMenuItem>
+
               <DropdownMenuSeparator className="bg-[var(--border-subtle)]" />
 
               <DropdownMenuItem asChild className="focus:bg-[var(--bg-sidebar-hover)] m-1 rounded-xl cursor-pointer font-bold text-xs py-2.5 px-3 group flex items-center gap-2 transition-colors duration-150 text-[var(--text-primary)]">

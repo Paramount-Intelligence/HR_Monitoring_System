@@ -47,6 +47,13 @@ class User(Base, TimestampMixin):
     avatar_updated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True, default=None
     )
+    presence_status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    presence_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+    last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
 
     # Relationships
     manager = relationship("User", remote_side=[id], foreign_keys=[manager_id])

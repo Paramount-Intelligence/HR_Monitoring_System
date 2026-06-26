@@ -107,6 +107,27 @@ def _seed_task(db, manager: User, assignee: User) -> Task:
     return task
 
 
+def test_active_timer_includes_task_and_project_titles(db, users):
+    task = _seed_task(db, users["manager"], users["manager"])
+    _check_in(db, users["manager"])
+    token = _login(users["manager"].email)
+    headers = {"Authorization": f"Bearer {token}"}
+    start = client.post(
+        f"{API}/time-logs/start",
+        headers=headers,
+        json={"task_id": str(task.id)},
+    )
+    assert start.status_code == 200, start.text
+    assert start.json()["task_title"] == "Timer Task"
+    assert start.json()["project_title"] == "Timer Project"
+
+    active = client.get(f"{API}/time-logs/active-timer", headers=headers)
+    assert active.status_code == 200, active.text
+    body = active.json()
+    assert body["task_title"] == "Timer Task"
+    assert body["project_title"] == "Timer Project"
+
+
 def test_manager_can_start_timer_on_self_assigned_task(db, users):
     task = _seed_task(db, users["manager"], users["manager"])
     _check_in(db, users["manager"])

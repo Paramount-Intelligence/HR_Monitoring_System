@@ -18,6 +18,11 @@ class UserStatus(str, enum.Enum):
     INVITED = "invited"
 
 
+class PresenceStatus(str, enum.Enum):
+    ACTIVE = "active"
+    AWAY = "away"
+
+
 class WorkMode(str, enum.Enum):
     OFFICE = "office"
     WFH = "wfh"

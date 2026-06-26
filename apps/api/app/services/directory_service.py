@@ -107,6 +107,14 @@ class DirectoryService:
         return [self._serialize_messaging_entry(user) for user in users]
 
     @staticmethod
+    def _presence_fields(user: User) -> dict:
+        return {
+            "presence_status": getattr(user, "presence_status", None) or "active",
+            "presence_updated_at": getattr(user, "presence_updated_at", None),
+            "last_seen_at": getattr(user, "last_seen_at", None),
+        }
+
+    @staticmethod
     def _serialize_messaging_entry(user: User) -> dict:
         dept = user.department_name if hasattr(user, "department_name") else user.department
         return {
@@ -117,6 +125,7 @@ class DirectoryService:
             "designation": user.designation,
             "profile_picture_url": user.avatar_url,
             "is_active": user.status == UserStatus.ACTIVE,
+            **DirectoryService._presence_fields(user),
         }
 
     def list_active_directory(self, actor: User) -> list[dict]:
@@ -146,5 +155,6 @@ class DirectoryService:
             "avatar_url": user.avatar_url,
             "profile_picture_url": user.avatar_url,
             "email": user.email if include_email else None,
+            **DirectoryService._presence_fields(user),
         }
         return entry

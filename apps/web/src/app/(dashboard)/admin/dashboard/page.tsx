@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { dashboardApi } from '@/lib/api/dashboard';
 import { meetingsApi } from '@/lib/api/meetings';
 import { supportApi } from '@/lib/api/support';
@@ -13,6 +14,7 @@ import { AdminOverviewTab } from '@/components/admin/dashboard/AdminOverviewTab'
 import { AdminUserManagementTab } from '@/components/admin/dashboard/AdminUserManagementTab';
 import { AdminCommunicationTab } from '@/components/admin/dashboard/AdminCommunicationTab';
 import { AdminProjectTasksTab } from '@/components/admin/dashboard/AdminProjectTasksTab';
+import { AdminTabError } from '@/components/admin/dashboard/AdminTabError';
 import { Meeting } from '@/lib/api/meetings';
 import {
   CommunicationAnalyticsData,
@@ -20,14 +22,24 @@ import {
   UsersAnalyticsData,
 } from '@/lib/admin-dashboard/types';
 import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
+import { parseAdminDashboardTab } from '@/lib/navigation/admin-profile-nav';
 
 const MEETING_POLL_CONNECTED_MS = 90000;
 const MEETING_POLL_FALLBACK_MS = 45000;
 
 const initialTabState = () => ({ data: null, loading: false, error: null as string | null });
 
+function isValidOverviewResponse(value: unknown): value is { kpis: Record<string, unknown> } {
+  return Boolean(value && typeof value === 'object' && 'kpis' in value && (value as { kpis?: unknown }).kpis);
+}
+
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<AdminDashboardTabId>('overview');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState<AdminDashboardTabId>(() =>
+    parseAdminDashboardTab(searchParams.get('tab')),
+  );
   const [overviewData, setOverviewData] = useState<any>(null);
   const [usersState, setUsersState] = useState(initialTabState() as {
     data: UsersAnalyticsData | null;
@@ -46,9 +58,30 @@ export default function AdminDashboardPage() {
   });
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isBootLoading, setIsBootLoading] = useState(true);
+  const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
   const [meetingsLoading, setMeetingsLoading] = useState(false);
+
+  useEffect(() => {
+    const tabFromUrl = parseAdminDashboardTab(searchParams.get('tab'));
+    setActiveTab(tabFromUrl);
+  }, [searchParams]);
+
+  const handleTabChange = useCallback(
+    (tab: AdminDashboardTabId) => {
+      setActiveTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === 'overview') {
+        params.delete('tab');
+      } else {
+        params.set('tab', tab);
+      }
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
   const loadMeetings = useCallback(async () => {
     try {
@@ -69,24 +102,34 @@ export default function AdminDashboardPage() {
   }, []);
 
   const loadOverview = useCallback(async () => {
+    setOverviewLoading(true);
     setOverviewError(null);
     const [analyticsRes, ticketsRes] = await Promise.allSettled([
       dashboardApi.getAdminAnalytics(),
       supportApi.getTickets(),
     ]);
-    if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.kpis) {
+
+    if (analyticsRes.status === 'fulfilled' && isValidOverviewResponse(analyticsRes.value)) {
       setOverviewData(analyticsRes.value);
     } else {
       const msg =
         analyticsRes.status === 'rejected'
           ? getErrorMessage(analyticsRes.reason)
           : 'Invalid analytics response';
+      setOverviewData(null);
       setOverviewError(msg);
-      throw new Error(msg);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[AdminDashboard] overview-analytics', msg);
+      }
     }
+
     if (ticketsRes.status === 'fulfilled') {
       setTickets(ticketsRes.value || []);
+    } else if (process.env.NODE_ENV === 'development') {
+      console.error('[AdminDashboard] tickets', getErrorMessage(ticketsRes.reason));
     }
+
+    setOverviewLoading(false);
   }, []);
 
   const loadUsersTab = useCallback(async () => {
@@ -140,24 +183,19 @@ export default function AdminDashboardPage() {
   );
 
   const loadData = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      await loadOverview();
-      await loadMeetings();
-    } catch (e) {
-      console.error('Failed to load admin dashboard overview', e);
-    } finally {
-      setIsLoading(false);
-    }
+    setIsBootLoading(true);
+    await Promise.allSettled([loadOverview(), loadMeetings()]);
+    setIsBootLoading(false);
   }, [loadOverview, loadMeetings]);
 
   const handleRefreshAll = useCallback(async () => {
-    await loadData();
+    await loadOverview();
+    await loadMeetings();
     loadTabData(activeTab, true);
-  }, [loadData, loadTabData, activeTab]);
+  }, [loadOverview, loadMeetings, loadTabData, activeTab]);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const { isConnected } = useRealtimeStatus();
@@ -182,7 +220,7 @@ export default function AdminDashboardPage() {
         } else if (scope === 'tasks' && activeTab === 'projects') {
           loadProjectsTab();
         } else if (!scope) {
-          loadOverview();
+          void loadOverview();
         }
         return;
       }
@@ -214,7 +252,7 @@ export default function AdminDashboardPage() {
     return () => clearInterval(interval);
   }, [activeTab, loadMeetings, isConnected]);
 
-  if (isLoading) {
+  if (isBootLoading) {
     return (
       <div className="space-y-6 pb-20 max-w-[1600px] mx-auto">
         <Skeleton className="h-12 w-96" />
@@ -224,20 +262,6 @@ export default function AdminDashboardPage() {
           ))}
         </div>
         <Skeleton className="h-64 rounded-2xl" />
-      </div>
-    );
-  }
-
-  if (overviewError || !overviewData) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <p className="text-sm font-semibold text-[var(--text-secondary)]">
-          Failed to load dashboard overview.
-        </p>
-        {overviewError && <p className="text-xs text-[var(--text-muted)]">{overviewError}</p>}
-        <Button onClick={loadData} variant="outline">
-          <RefreshCcw className="mr-2 h-4 w-4" /> Retry
-        </Button>
       </div>
     );
   }
@@ -256,7 +280,7 @@ export default function AdminDashboardPage() {
           </p>
         </div>
         <Button
-          onClick={handleRefreshAll}
+          onClick={() => void handleRefreshAll()}
           variant="outline"
           size="sm"
           className="rounded-lg border-[var(--border-default)] bg-[var(--bg-elevated)]"
@@ -265,16 +289,36 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      <AdminDashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <AdminDashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
       <div className="pt-2">
         {activeTab === 'overview' && (
-          <AdminOverviewTab
-            data={overviewData}
-            tickets={tickets}
-            meetings={meetings}
-            onRefresh={handleRefreshAll}
-          />
+          overviewLoading ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-6 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton key={i} className="h-28 rounded-2xl" />
+                ))}
+              </div>
+              <Skeleton className="h-64 rounded-2xl" />
+            </div>
+          ) : overviewError || !overviewData ? (
+            <AdminTabError
+              tabName="dashboard overview"
+              message={
+                overviewError ||
+                'Unable to load dashboard overview. Please refresh or contact support.'
+              }
+              onRetry={() => void loadOverview()}
+            />
+          ) : (
+            <AdminOverviewTab
+              data={overviewData}
+              tickets={tickets}
+              meetings={meetings}
+              onRefresh={handleRefreshAll}
+            />
+          )
         )}
         {activeTab === 'users' && (
           <AdminUserManagementTab

@@ -43,6 +43,10 @@ from app.schemas.communication import (
     MessageAttachmentRead,
     MessageInfoRead,
     MessagingDirectoryEntryRead,
+    MessagesDeliveredRequest,
+    MessagesDeliveredResponse,
+    MessagesSeenRequest,
+    MessagesSeenResponse,
     CallSessionRead,
     CallStartRequest,
     CallSignalCreate,
@@ -538,17 +542,7 @@ def get_messages(
     )
     if delivered_updates:
         db.commit()
-        for message_id, user_id, delivered_at in delivered_updates:
-            msg = db.get(Message, message_id)
-            if msg:
-                RealtimeService.emit_message_delivered(
-                    db,
-                    conversation_id=conversation_id,
-                    message_id=message_id,
-                    user_id=user_id,
-                    delivered_at=delivered_at.isoformat(),
-                    sender_id=msg.sender_id,
-                )
+        receipt_svc.emit_delivered_updates(db, conversation_id, delivered_updates)
 
     # Return in chronological order
     chronological = list(reversed(messages))
@@ -681,12 +675,20 @@ def send_message(
     conv.updated_at = datetime.now(timezone.utc)
     
     # Automatically mark conversation as read for the sender
-    participant.last_read_at = datetime.now(timezone.utc)
+    read_at = datetime.now(timezone.utc)
+    participant.last_read_at = read_at
 
     receipt_svc.create_receipts_for_message(db, new_msg)
 
+    seen_updates = receipt_svc.mark_seen_for_conversation_read(
+        db, conversation_id, current_user.id, read_at
+    )
+
     db.commit()
     db.refresh(new_msg)
+
+    if seen_updates:
+        receipt_svc.emit_seen_updates(db, conversation_id, seen_updates)
 
     # Send Notification/Alert System events
     other_participants = (
@@ -845,6 +847,85 @@ def get_message_info(
     return MessageInfoRead.model_validate(info)
 
 
+@router.post("/conversations/{conversation_id}/delivered", response_model=MessagesDeliveredResponse)
+def mark_messages_delivered(
+    conversation_id: uuid.UUID,
+    payload: MessagesDeliveredRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessagesDeliveredResponse:
+    """Mark incoming messages as delivered for the current user."""
+    participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not participate in this conversation.",
+        )
+
+    updates = receipt_svc.mark_messages_delivered(
+        db,
+        conversation_id,
+        current_user.id,
+        payload.message_ids,
+    )
+    if updates:
+        db.commit()
+        receipt_svc.emit_delivered_updates(db, conversation_id, updates)
+
+    return MessagesDeliveredResponse(
+        marked_count=len(updates),
+        message_ids=[message_id for message_id, _, _ in updates],
+    )
+
+
+@router.post("/conversations/{conversation_id}/seen", response_model=MessagesSeenResponse)
+def mark_conversation_seen(
+    conversation_id: uuid.UUID,
+    payload: MessagesSeenRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessagesSeenResponse:
+    """Mark incoming messages in a conversation as seen for the current user."""
+    participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not participate in this conversation.",
+        )
+
+    read_at = datetime.now(timezone.utc)
+    participant.last_read_at = read_at
+    message_ids = payload.message_ids if payload else None
+
+    seen_updates = receipt_svc.mark_seen_for_conversation_read(
+        db,
+        conversation_id,
+        current_user.id,
+        read_at,
+        message_ids=message_ids,
+    )
+    db.commit()
+
+    if seen_updates:
+        receipt_svc.emit_seen_updates(db, conversation_id, seen_updates)
+        RealtimeService.emit_conversation_read(
+            db,
+            conversation_id=conversation_id,
+            user_id=current_user.id,
+            read_at=read_at.isoformat(),
+        )
+
+    return MessagesSeenResponse(
+        seen_count=len(seen_updates),
+        seen_at=read_at,
+        message_ids=[message_id for message_id, _, _ in seen_updates],
+    )
+
+
 @router.post("/conversations/{conversation_id}/read")
 def mark_conversation_read(
     conversation_id: uuid.UUID,
@@ -852,44 +933,13 @@ def mark_conversation_read(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
     """Mark conversation as read for current user."""
-    participant = db.query(ConversationParticipant).filter_by(
-        conversation_id=conversation_id, user_id=current_user.id
-    ).first()
-    if not participant:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not participate in this conversation."
-        )
-
-    read_at = datetime.now(timezone.utc)
-    participant.last_read_at = read_at
-
-    seen_updates = receipt_svc.mark_seen_for_conversation_read(
-        db, conversation_id, current_user.id, read_at
+    result = mark_conversation_seen(
+        conversation_id,
+        MessagesSeenRequest(),
+        db=db,
+        current_user=current_user,
     )
-    db.commit()
-
-    read_at_iso = read_at.isoformat()
-    RealtimeService.emit_conversation_read(
-        db,
-        conversation_id=conversation_id,
-        user_id=current_user.id,
-        read_at=read_at_iso,
-    )
-
-    for message_id, user_id, seen_time in seen_updates:
-        msg = db.get(Message, message_id)
-        if msg:
-            RealtimeService.emit_message_seen(
-                db,
-                conversation_id=conversation_id,
-                message_id=message_id,
-                user_id=user_id,
-                seen_at=seen_time.isoformat(),
-                sender_id=msg.sender_id,
-            )
-
-    return {"message": "Conversation marked as read."}
+    return {"message": f"Conversation marked as read ({result.seen_count} messages seen)."}
 
 
 @router.get("/unread-count", response_model=UnreadCountResponse)

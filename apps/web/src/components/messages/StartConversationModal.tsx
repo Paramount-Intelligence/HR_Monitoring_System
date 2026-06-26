@@ -245,9 +245,11 @@ export function StartConversationModal({
                       <div className="flex items-center gap-3 min-w-0">
                         <UserProfilePicture
                           user={user}
+                          userId={user.id}
                           name={user.full_name}
                           size="default"
                           className="h-8 w-8 ring-1 ring-[var(--border-default)] shrink-0"
+                          showPresence
                         />
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-[var(--text-primary)] truncate">{user.full_name}</p>

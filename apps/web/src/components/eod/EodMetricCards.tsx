@@ -19,8 +19,13 @@ export function EodMetricCards({ eod }: EodMetricCardsProps) {
     <EmployeeMetricGrid>
       <EmployeeMetricCard title="EOD Status" value={displayEodStatus(eod.status)} icon={ShieldCheck} />
       <EmployeeMetricCard title="Productivity" value={`${productivityScore}/100`} icon={TrendingUp} />
-      <EmployeeMetricCard title="Completed Tasks" value={eod.completed_tasks ?? 0} icon={CheckSquare} />
-      <EmployeeMetricCard title="Logged Hours" value={`${eod.total_hours ?? 0}h`} icon={Clock} />
+      <EmployeeMetricCard title="Completed Tasks" value={eod.completed_tasks ?? 0} icon={CheckSquare} subtitle="For selected report date" />
+      <EmployeeMetricCard
+        title="Logged Hours"
+        value={`${eod.logged_hours ?? eod.total_hours ?? 0}h`}
+        icon={Clock}
+        subtitle="For selected report date"
+      />
     </EmployeeMetricGrid>
   );
 }

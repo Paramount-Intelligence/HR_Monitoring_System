@@ -531,7 +531,7 @@ export function AdminUserControlPanel({
             <>
               <div className={`shrink-0 ${DRAWER_PAD_X} ${DRAWER_SECTION_Y} border-b border-[var(--border-subtle)] bg-[var(--bg-subtle)]/40`}>
                 <div className="flex items-start gap-5 min-w-0">
-                  <UserProfilePicture user={user} name={user.full_name} size="lg" className="shrink-0" />
+                  <UserProfilePicture user={user} userId={user.id} name={user.full_name} size="lg" className="shrink-0" showPresence />
                   <div className="flex-1 min-w-0 space-y-3">
                     <div className="space-y-1">
                       <p className="text-lg font-semibold text-[var(--text-primary)] truncate">{user.full_name}</p>

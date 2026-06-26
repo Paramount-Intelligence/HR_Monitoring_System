@@ -39,8 +39,13 @@ export function EodAttendanceSummary({ eod }: EodAttendanceSummaryProps) {
         </div>
         <div className="flex justify-between pt-1">
           <span className="font-medium">Total Hours</span>
-          <span className="font-bold text-[var(--accent-primary)]">{eod.total_hours ?? 0}h</span>
+          <span className="font-bold text-[var(--accent-primary)]">
+            {eod.logged_hours ?? eod.total_hours ?? 0}h
+          </span>
         </div>
+        {eod.attendance_status ? (
+          <p className="text-[10px] text-[var(--text-muted)] pt-1">Status: {eod.attendance_status}</p>
+        ) : null}
       </div>
     </EmployeeSectionCard>
   );

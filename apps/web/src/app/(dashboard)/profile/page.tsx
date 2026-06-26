@@ -228,9 +228,11 @@ function ProfilePageContent() {
         <div className="relative flex flex-col md:flex-row items-center md:items-start gap-6">
           <UserProfilePicture
             user={profile}
+            userId={profile?.id}
             name={profile?.full_name || 'User'}
             size="lg"
             className="h-20 w-20 rounded-2xl text-xl"
+            showPresence
           />
           <div className="flex-1 text-center md:text-left space-y-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)]">

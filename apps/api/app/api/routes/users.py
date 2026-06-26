@@ -15,7 +15,8 @@ from app.core.deps import (
 from app.core.time_utils import pk_now
 from app.models.enums import UserRole, UserStatus
 from app.models.user import User
-from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse, UserProfileUpdate, UserPasswordChange, UserDirectoryRead, UserProfilePictureUpdate
+from app.schemas.user import UserCreate, UserRead, UserUpdate, UserCreateResponse, UserProfileUpdate, UserPasswordChange, UserDirectoryRead, UserProfilePictureUpdate, UserPresenceUpdate, UserPresenceRead
+from app.services.presence_service import update_user_presence
 from app.services.profile_image_storage import ProfileImageStorageService
 from app.services.user_service import UserService
 
@@ -80,6 +81,19 @@ def list_active_directory(
 def get_me(current_user: User = Depends(get_current_user)) -> UserRead:
     return current_user
 
+
+@router.patch("/me/presence", response_model=UserPresenceRead, summary="Update current user presence")
+def update_my_presence(
+    payload: UserPresenceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserPresenceRead:
+    user = update_user_presence(db, current_user, payload.presence_status)
+    return UserPresenceRead(
+        presence_status=user.presence_status,
+        presence_updated_at=user.presence_updated_at,
+        last_seen_at=user.last_seen_at,
+    )
 
 
 @router.patch("/me/profile", response_model=UserRead, summary="Update current user profile details")

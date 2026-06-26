@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { usersApi } from '@/lib/api/users';
 import { classifyProfileLoadError } from '@/lib/api/profile-errors';
+import {
+  getProfileBackLabel,
+  resolveProfileBackHref,
+} from '@/lib/navigation/admin-profile-nav';
 import { User } from '@/types';
 import { toast } from 'sonner';
 import { 
@@ -50,28 +54,29 @@ const formatShortDate = (dateString?: string) => {
 
 export default function AdminEmployeeProfilePage() {
   const router = useRouter();
-  const [id, setId] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
+  const backHref = resolveProfileBackHref(searchParams.get('returnTo'));
+  const backLabel = getProfileBackLabel(backHref);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<ReturnType<typeof classifyProfileLoadError> | null>(null);
   const [dateFilter, setDateFilter] = useState('30days'); // '7days', '30days', 'month'
 
+  const handleBack = useCallback(() => {
+    router.push(backHref);
+  }, [router, backHref]);
+
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const queryId = params.get('id');
-      if (queryId) {
-        setId(queryId);
-      } else {
-        setIsLoading(false);
-        setLoadError({
-          kind: 'not_found',
-          title: 'Profile Not Found',
-          message: 'No employee was selected. Open a profile from Admin → Users.',
-        });
-      }
+    if (!id) {
+      setIsLoading(false);
+      setLoadError({
+        kind: 'not_found',
+        title: 'Profile Not Found',
+        message: 'No employee was selected. Open a profile from Admin → Users.',
+      });
     }
-  }, []);
+  }, [id]);
 
   useEffect(() => {
     if (id) {
@@ -144,8 +149,8 @@ export default function AdminEmployeeProfilePage() {
         <AlertOctagon className="h-16 w-16 text-[var(--status-danger-text)]" />
         <h2 className="text-xl font-bold text-[var(--text-primary)]">{presentation.title}</h2>
         <p className="text-[var(--text-secondary)] text-sm max-w-md">{presentation.message}</p>
-        <Button onClick={() => router.push('/admin/users')} className="btn-primary">
-          Back to Users
+        <Button onClick={handleBack} className="btn-primary">
+          {backLabel}
         </Button>
       </div>
     );
@@ -195,7 +200,9 @@ export default function AdminEmployeeProfilePage() {
           <Button 
             variant="ghost" 
             size="icon" 
-            onClick={() => router.push('/admin/users')} 
+            onClick={handleBack}
+            title={backLabel}
+            aria-label={backLabel}
             className="btn-ghost h-8 w-8 text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
           >
             <ArrowLeft className="h-4.5 w-4.5" />

@@ -71,9 +71,11 @@ export function MessagesConversationHeader({
         {directUser ? (
           <UserProfilePicture
             user={directUser}
+            userId={directUser.id}
             name={directUser.full_name}
             size="lg"
             className="h-10 w-10 shrink-0"
+            showPresence
           />
         ) : (
           <div className="h-10 w-10 rounded-full bg-[#dfe5e7] dark:bg-[#374248] flex items-center justify-center text-[#54656f] shrink-0">

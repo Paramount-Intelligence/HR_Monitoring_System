@@ -282,9 +282,9 @@ export default function AttendancePage() {
 
 
   const todaySession = useMemo(() => {
-    const today = new Date().toDateString();
-    return sessions.find((s) => new Date(s.check_in_at).toDateString() === today);
-  }, [sessions]);
+    if (activeSession) return activeSession;
+    return sessions[0] ?? null;
+  }, [activeSession, sessions]);
 
   const breakMinutes = Number(activeSession?.total_break_minutes);
   const breakLabel = Number.isFinite(breakMinutes) && breakMinutes >= 0

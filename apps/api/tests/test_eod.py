@@ -415,3 +415,120 @@ def test_manager_can_resubmit_after_needs_revision(db, manager_chain):
     assert second.status_code == 200
     assert second.json()["id"] == report_id
     assert second.json()["status"] == "Pending Approval"
+
+
+@pytest.fixture
+def admin_manager_chain(db):
+    suffix = uuid.uuid4().hex[:8]
+    admin = User(
+        full_name=f"Admin Reviewer {suffix}",
+        email=f"admin-reviewer-{suffix}@test.com",
+        password_hash=hash_password(PASSWORD),
+        role=UserRole.ADMIN,
+        status=UserStatus.ACTIVE,
+    )
+    unrelated_admin = User(
+        full_name=f"Unrelated Admin {suffix}",
+        email=f"unrelated-admin-{suffix}@test.com",
+        password_hash=hash_password(PASSWORD),
+        role=UserRole.ADMIN,
+        status=UserStatus.ACTIVE,
+    )
+    manager = User(
+        full_name=f"Managed Manager {suffix}",
+        email=f"managed-mgr-{suffix}@test.com",
+        password_hash=hash_password(PASSWORD),
+        role=UserRole.MANAGER,
+        status=UserStatus.ACTIVE,
+    )
+    db.add_all([admin, unrelated_admin, manager])
+    db.commit()
+    manager.manager_id = admin.id
+    db.commit()
+    return {"admin": admin, "unrelated_admin": unrelated_admin, "manager": manager}
+
+
+def test_admin_can_fetch_direct_report_manager_eod(db, admin_manager_chain):
+    manager = admin_manager_chain["manager"]
+    admin = admin_manager_chain["admin"]
+    report = EODReport(
+        user_id=manager.id,
+        report_date=date.today(),
+        status="Pending Approval",
+        work_summary="Manager submitted EOD for admin review with enough detail.",
+        submitted_at=datetime.now(timezone.utc),
+    )
+    db.add(report)
+    db.commit()
+
+    token = _login(admin.email)
+    response = client.get(f"{API}/eod/team", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["user_name"] == manager.full_name
+
+
+def test_unrelated_admin_cannot_see_manager_eod(db, admin_manager_chain):
+    manager = admin_manager_chain["manager"]
+    db.add(
+        EODReport(
+            user_id=manager.id,
+            report_date=date.today(),
+            status="Pending Approval",
+            work_summary="Should not be visible to unrelated admin reviewer.",
+            submitted_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+    token = _login(admin_manager_chain["unrelated_admin"].email)
+    response = client.get(f"{API}/eod/team", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_admin_can_review_manager_eod(db, admin_manager_chain):
+    manager = admin_manager_chain["manager"]
+    admin = admin_manager_chain["admin"]
+    report = EODReport(
+        user_id=manager.id,
+        report_date=date.today(),
+        status="Pending Approval",
+        work_summary="Manager EOD awaiting admin approval.",
+        submitted_at=datetime.now(timezone.utc),
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    token = _login(admin.email)
+    response = client.post(
+        f"{API}/eod/{report.id}/review",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"action": "Approved", "comments": "Looks good"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "Approved"
+
+
+def test_admin_cannot_review_own_eod(db, admin_manager_chain):
+    admin = admin_manager_chain["admin"]
+    report = EODReport(
+        user_id=admin.id,
+        report_date=date.today(),
+        status="Pending Approval",
+        work_summary="Admin own EOD should not be self-reviewed.",
+        submitted_at=datetime.now(timezone.utc),
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    token = _login(admin.email)
+    response = client.post(
+        f"{API}/eod/{report.id}/review",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"action": "Approved", "comments": "Self approve"},
+    )
+    assert response.status_code == 403

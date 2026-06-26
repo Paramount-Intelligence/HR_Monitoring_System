@@ -11,6 +11,7 @@ export interface EODReport {
   logout_time: string | null;
   work_mode: 'office' | 'wfh';
   total_hours: number;
+  logged_hours?: number;
   tasks_worked_on: number;
   completed_tasks: number;
   pending_tasks: number;
@@ -25,6 +26,9 @@ export interface EODReport {
   submitted_at: string | null;
   created_at: string;
   updated_at: string;
+  attendance_status?: string | null;
+  window_start?: string | null;
+  window_end?: string | null;
 }
 
 export interface EODSubmitPayload {
@@ -64,8 +68,8 @@ export const eodApi = {
     return response.data;
   },
 
-  getTeamEODs: async () => {
-    const response = await apiClient.get<EODReport[]>('/eod/team');
+  getTeamEODs: async (params?: { search?: string; status?: string; report_date?: string }) => {
+    const response = await apiClient.get<EODReport[]>('/eod/team', { params });
     return response.data;
   },
 

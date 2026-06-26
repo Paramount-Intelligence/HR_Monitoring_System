@@ -2,19 +2,27 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import case, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
-from app.core.time_utils import PK_TIMEZONE_NAME, ensure_pk_datetime, pk_day_end, pk_day_start, pk_today
+from app.core.time_utils import PK_TIMEZONE_NAME, ensure_pk_datetime, pk_now, pk_today
 from app.models.attendance_session import AttendanceSession
 from app.models.department import Department
 from app.models.enums import LeaveStatus, LeaveType, TaskStatus, TimeLogStatus, UserRole, UserStatus, WorkMode
 from app.models.leave_request import LeaveRequest
+from app.models.shift import Shift
 from app.models.task import Task
 from app.models.time_log import TimeLog
 from app.models.user import User
+from app.services.shift_window_service import (
+    current_shift_sessions_for_users,
+    is_before_shift_start,
+    is_past_absence_deadline,
+    resolve_current_shift_business_date,
+    sessions_for_business_date,
+)
 
 OPEN_TASK_STATUSES = (
     TaskStatus.CREATED,
@@ -23,25 +31,6 @@ OPEN_TASK_STATUSES = (
     TaskStatus.BLOCKED,
     TaskStatus.REOPENED,
 )
-
-
-def sessions_for_business_date(db: Session, business_date: date) -> dict[uuid.UUID, AttendanceSession]:
-    day_start = pk_day_start(business_date)
-    day_end = pk_day_end(business_date)
-    sessions = (
-        db.query(AttendanceSession)
-        .filter(
-            AttendanceSession.check_in_at >= day_start,
-            AttendanceSession.check_in_at < day_end,
-        )
-        .all()
-    )
-    latest_by_user: dict[uuid.UUID, AttendanceSession] = {}
-    for session in sessions:
-        existing = latest_by_user.get(session.user_id)
-        if not existing or session.check_in_at > existing.check_in_at:
-            latest_by_user[session.user_id] = session
-    return latest_by_user
 
 
 def approved_leaves_for_date(db: Session, business_date: date) -> dict[uuid.UUID, LeaveRequest]:
@@ -61,6 +50,8 @@ def resolve_today_attendance_status(
     *,
     session: AttendanceSession | None,
     leave: LeaveRequest | None,
+    shift: Shift | None = None,
+    now_local=None,
 ) -> str:
     is_wfh_leave = leave is not None and leave.leave_type == LeaveType.WFH
     is_on_leave = leave is not None and leave.leave_type != LeaveType.WFH
@@ -80,11 +71,18 @@ def resolve_today_attendance_status(
     if is_wfh_leave:
         return "WFH"
 
+    if shift is not None:
+        now = now_local or pk_now()
+        if is_before_shift_start(shift, now):
+            return "Scheduled"
+        if not is_past_absence_deadline(shift, now):
+            return "Scheduled"
+
     return "Absent"
 
 
 def is_present_status(status: str) -> bool:
-    return status in {"Present", "Late", "Checked Out", "WFH"}
+    return status in {"Present", "Late", "Checked Out", "WFH", "Active Session"}
 
 
 def task_counts_by_user(db: Session) -> dict[uuid.UUID, dict[str, int]]:
@@ -122,3 +120,42 @@ def serialize_dt(dt) -> str | None:
         return None
     value = ensure_pk_datetime(dt)
     return value.isoformat() if value else None
+
+
+def roster_statuses_for_users(
+    db: Session,
+    users: list[User],
+    *,
+    business_date: date | None = None,
+    now_local=None,
+) -> tuple[dict[uuid.UUID, AttendanceSession], dict[uuid.UUID, str]]:
+    """Build shift-aware session map and attendance status per user."""
+    if not users:
+        return {}, {}
+
+    now = now_local or pk_now()
+    shift_ids = {user.shift_id for user in users if user.shift_id}
+    shifts = (
+        {shift.id: shift for shift in db.query(Shift).filter(Shift.id.in_(shift_ids)).all()}
+        if shift_ids
+        else {}
+    )
+
+    if business_date is None:
+        session_by_user = current_shift_sessions_for_users(db, users, now)
+    else:
+        session_by_user = sessions_for_business_date(db, business_date, users)
+
+    statuses: dict[uuid.UUID, str] = {}
+    for user in users:
+        shift = shifts.get(user.shift_id) if user.shift_id else None
+        user_date = business_date if business_date is not None else resolve_current_shift_business_date(shift, now)
+        leave = approved_leaves_for_date(db, user_date).get(user.id)
+        statuses[user.id] = resolve_today_attendance_status(
+            session=session_by_user.get(user.id),
+            leave=leave,
+            shift=shift,
+            now_local=now if business_date is None else None,
+        )
+
+    return session_by_user, statuses

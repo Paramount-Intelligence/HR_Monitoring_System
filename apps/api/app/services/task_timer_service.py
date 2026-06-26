@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.enums import TaskStatus, TimerPauseReason, TimerSessionStatus, TimeLogSourceType, TimeLogStatus, UserRole
 from app.models.task import Task
@@ -53,8 +53,7 @@ class TaskTimerService:
             task.status = TaskStatus.IN_PROGRESS
 
         self.db.commit()
-        self.db.refresh(session)
-        return session
+        return self._reload_session(session.id)
 
     def pause_timer(self, task_id: uuid.UUID, actor: User, reason: TimerPauseReason = TimerPauseReason.MANUAL) -> TaskTimerSession:
         session = self.get_active_session(actor.id)
@@ -62,7 +61,7 @@ class TaskTimerService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Active task timer not found.")
         
         if session.status != TimerSessionStatus.RUNNING:
-            return session # Already paused
+            return self._reload_session(session.id)
 
         now = datetime.now(timezone.utc)
         delta = now - session.last_resumed_at.replace(tzinfo=timezone.utc) if session.last_resumed_at.tzinfo is None else now - session.last_resumed_at
@@ -73,8 +72,7 @@ class TaskTimerService:
         session.pause_reason = reason
 
         self.db.commit()
-        self.db.refresh(session)
-        return session
+        return self._reload_session(session.id)
 
     def resume_timer(self, task_id: uuid.UUID, actor: User) -> TaskTimerSession:
         # Rule: User must be checked in
@@ -89,7 +87,7 @@ class TaskTimerService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Paused task timer not found.")
         
         if session.status == TimerSessionStatus.RUNNING:
-            return session # Already running
+            return self._reload_session(session.id)
 
         now = datetime.now(timezone.utc)
         session.status = TimerSessionStatus.RUNNING
@@ -98,8 +96,7 @@ class TaskTimerService:
         session.pause_reason = None
 
         self.db.commit()
-        self.db.refresh(session)
-        return session
+        return self._reload_session(session.id)
 
     def stop_timer(self, task_id: uuid.UUID, actor: User, notes: str | None = None) -> TimeLog:
         session = self.get_active_session(actor.id)
@@ -144,7 +141,7 @@ class TaskTimerService:
 
     def get_active_session(self, user_id: uuid.UUID) -> TaskTimerSession | None:
         return (
-            self.db.query(TaskTimerSession)
+            self._session_query()
             .filter(
                 TaskTimerSession.user_id == user_id,
                 TaskTimerSession.status.in_([TimerSessionStatus.RUNNING, TimerSessionStatus.PAUSED])
@@ -155,6 +152,20 @@ class TaskTimerService:
     # ------------------------------------------------------------------
     # Internal Helpers
     # ------------------------------------------------------------------
+
+    def _session_query(self):
+        return (
+            self.db.query(TaskTimerSession)
+            .options(
+                joinedload(TaskTimerSession.task).joinedload(Task.project),
+            )
+        )
+
+    def _reload_session(self, session_id: uuid.UUID) -> TaskTimerSession:
+        session = self._session_query().filter(TaskTimerSession.id == session_id).first()
+        if not session:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task timer session not found.")
+        return session
 
     def _is_user_checked_in(self, user_id: uuid.UUID) -> bool:
         return self.db.query(AttendanceSession).filter(

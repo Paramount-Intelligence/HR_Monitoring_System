@@ -38,6 +38,10 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { MessagesWorkspaceSidebar } from '@/components/messages/MessagesWorkspaceSidebar';
 import {
+  hydratePresenceFromConversations,
+  hydratePresenceFromDirectory,
+} from '@/lib/presence/hydrate-presence';
+import {
   MessagesSettingsPanel,
   type MessagesLeftPanelMode,
 } from '@/components/messages/MessagesSettingsPanel';
@@ -47,7 +51,17 @@ import { MessageActionsMenu } from '@/components/messages/MessageActionsMenu';
 import { MessageReplyComposerPreview } from '@/components/messages/MessageReplyComposerPreview';
 import { MessageQuotedReply } from '@/components/messages/MessageQuotedReply';
 import { MessageInfoDialog } from '@/components/messages/MessageInfoDialog';
-import { MessageStatusIndicator } from '@/components/messages/MessageStatusIndicator';
+import {
+  mergeDeliveredUpdate,
+  mergeSeenUpdate,
+  applySeenBatchUpdate,
+} from '@/lib/messages/message-status';
+import {
+  queueMarkDelivered,
+  markConversationSeen,
+  markDeliveredThenSeen,
+  noteDeliveredMessages,
+} from '@/lib/messages/delivery-markers';
 import { MessageBody } from '@/components/messages/MessageBody';
 import {
   RichTextComposer,
@@ -438,7 +452,19 @@ function MessagesContent() {
         }
 
         if (!active || latestSelectedConvId.current !== convId) return;
-        setMessages(Array.isArray(data) ? data : []);
+        const thread = Array.isArray(data) ? data : [];
+        setMessages(thread);
+        if (user?.id) {
+          noteDeliveredMessages(
+            convId,
+            thread
+              .filter((m) => m.sender_id !== user.id)
+              .map((m) => m.id),
+          );
+        }
+        if (!document.hidden) {
+          void markConversationSeen(convId);
+        }
       } catch (err) {
         if (!active || latestSelectedConvId.current !== convId) return;
         setThreadLoadError(getConversationLoadError(err));
@@ -447,28 +473,43 @@ function MessagesContent() {
       }
     };
 
-    const markRead = async () => {
-      if (!canFetchProtectedData()) return;
-      try {
-        await messagesApi.markConversationRead(convId);
-        if (active) {
-          setConversations(prev => prev.map(c => c.id === convId ? { ...c, unread_count: 0 } : c));
-          window.dispatchEvent(new Event('pims-messages-unread-update'));
-        }
-      } catch (err) { logProtectedFetchError('[Messages] Mark read error', err); }
-    };
-
     const fetchMentionable = async () => {
       if (!canFetchProtectedData()) return;
       try {
         const data = await messagesApi.getMentionableUsers(convId);
         if (active) setMentionableUsers(data);
-      } catch (err) { logProtectedFetchError('[Messages] Mentionable users error', err); }
+      } catch (err) {
+        logProtectedFetchError('[Messages] Mentionable users error', err);
+      }
     };
 
-    fetchThread(); markRead(); fetchMentionable();
+    fetchThread();
+    fetchMentionable();
     return () => { active = false; };
-  }, [selectedConversationId, isAuthenticated]);
+  }, [selectedConversationId, isAuthenticated, user?.id]);
+
+  useEffect(() => {
+    if (!selectedConversationId || loadingMsgs || !isAuthenticated) return;
+    if (document.hidden) return;
+    const convId = selectedConversationId;
+    void markConversationSeen(convId).then(() => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c)),
+      );
+      window.dispatchEvent(new Event('pims-messages-unread-update'));
+    }).catch((err) => logProtectedFetchError('[Messages] Mark seen error', err));
+  }, [selectedConversationId, loadingMsgs, isAuthenticated]);
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') return;
+      const convId = latestSelectedConvId.current;
+      if (!convId || !canFetchProtectedData()) return;
+      void markConversationSeen(convId);
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     if (!hasNewMessagesBelow) {
@@ -484,6 +525,7 @@ function MessagesContent() {
       const sorted = [...data].sort(
         (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
       );
+      hydratePresenceFromConversations(sorted);
       setConversations(sorted);
       setError(null);
     } catch (err) { setError(getErrorMessage(err)); }
@@ -494,7 +536,9 @@ function MessagesContent() {
     if (!canFetchProtectedData()) return;
     try {
       const data = await usersApi.getActiveDirectory();
-      setUsersList(data.filter((u: any) => u.id !== user?.id));
+      const filtered = data.filter((u: { id: string }) => u.id !== user?.id);
+      hydratePresenceFromDirectory(filtered);
+      setUsersList(filtered);
     } catch (err) { logProtectedFetchError('[Messages] Directory error', err); }
   };
 
@@ -502,6 +546,7 @@ function MessagesContent() {
     if (!canFetchProtectedData()) return;
     try {
       const data = await messagesApi.getConversations();
+      hydratePresenceFromConversations(data);
       setConversations(data);
       const activeId = latestSelectedConvId.current;
       if (activeId) {
@@ -514,6 +559,7 @@ function MessagesContent() {
   useRealtimeEvent('new_message', (ev) => {
     const convId = String(ev.payload.conversation_id);
     const messageId = String(ev.payload.message_id);
+    const senderId = ev.payload.sender_id ? String(ev.payload.sender_id) : undefined;
 
     setConversations(prev =>
       prev.map(c =>
@@ -527,6 +573,13 @@ function MessagesContent() {
     );
     window.dispatchEvent(new CustomEvent('pims-messages-unread-update'));
 
+    if (senderId && user?.id && senderId !== user.id) {
+      queueMarkDelivered(convId, messageId, senderId, user.id);
+      if (convId === latestSelectedConvId.current && !document.hidden) {
+        void markDeliveredThenSeen(convId, messageId, senderId, user.id, true);
+      }
+    }
+
     if (convId !== latestSelectedConvId.current) return;
 
     if (isNearBottom()) {
@@ -535,7 +588,16 @@ function MessagesContent() {
           if (prev.some(m => m.id === messageId)) return prev;
           return fresh;
         });
+        if (user?.id) {
+          noteDeliveredMessages(
+            convId,
+            fresh.filter((m) => m.sender_id !== user.id).map((m) => m.id),
+          );
+        }
         setHasNewMessagesBelow(false);
+        if (!document.hidden) {
+          void markConversationSeen(convId);
+        }
       }).catch(() => {});
     } else {
       setHasNewMessagesBelow(true);
@@ -562,31 +624,46 @@ function MessagesContent() {
 
   useRealtimeEvent(['message_seen', 'message_delivered'], (ev) => {
     const convId = String(ev.payload.conversation_id);
-    const messageId = String(ev.payload.message_id);
-    if (convId !== latestSelectedConvId.current) return;
+    const batchIds = Array.isArray(ev.payload.message_ids)
+      ? ev.payload.message_ids.map((id: unknown) => String(id))
+      : ev.payload.message_id
+        ? [String(ev.payload.message_id)]
+        : [];
 
-    setMessages(prev =>
-      prev.map(m => {
-        if (m.id !== messageId || m.sender_id !== user?.id) return m;
-        const total = m.total_recipients ?? 1;
-        if (ev.type === 'message_delivered') {
-          const delivered = Math.min((m.delivered_count ?? 0) + 1, total);
-          return {
-            ...m,
-            delivered_count: delivered,
-            delivery_status: delivered >= total ? 'delivered' : 'delivered',
-          };
-        }
-        const seen = Math.min((m.seen_count ?? 0) + 1, total);
+    if (!batchIds.length) return;
+
+    const seenAt = typeof ev.payload.seen_at === 'string' ? ev.payload.seen_at : null;
+    const deliveredAt = typeof ev.payload.delivered_at === 'string' ? ev.payload.delivered_at : null;
+
+    setMessages((prev) => {
+      if (ev.type === 'message_seen') {
+        return applySeenBatchUpdate(prev, convId, batchIds, seenAt, deliveredAt, user?.id);
+      }
+      return prev.map((m) => {
+        if (!batchIds.includes(m.id) || m.sender_id !== user?.id) return m;
+        if (m.conversation_id && m.conversation_id !== convId) return m;
+        return mergeDeliveredUpdate(m, deliveredAt);
+      });
+    });
+
+    if (ev.type === 'message_seen' && messageInfoOpen && messageInfoTargetId && batchIds.includes(messageInfoTargetId)) {
+      const viewerUserId = ev.payload.user_id ? String(ev.payload.user_id) : null;
+      setMessageInfoData((prev) => {
+        if (!prev) return prev;
         return {
-          ...m,
-          seen_count: seen,
-          delivered_count: Math.max(m.delivered_count ?? 0, seen),
-          delivery_status: seen >= total ? 'seen' : m.delivery_status ?? 'delivered',
+          ...prev,
+          receipts: prev.receipts.map((receipt) => {
+            if (viewerUserId && receipt.user_id !== viewerUserId) return receipt;
+            return {
+              ...receipt,
+              seen_at: seenAt ?? receipt.seen_at,
+              delivered_at: deliveredAt ?? receipt.delivered_at ?? seenAt ?? receipt.delivered_at,
+            };
+          }),
         };
-      })
-    );
-  });
+      });
+    }
+  }, [user?.id, messageInfoOpen, messageInfoTargetId]);
 
   useRealtimeEvent('conversation_updated', () => {
     messagesApi.getConversations().then(data => {

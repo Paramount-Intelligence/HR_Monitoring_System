@@ -55,13 +55,9 @@ class AttendanceService:
         if actor.shift_id:
             shift = self.db.get(Shift, actor.shift_id)
             if shift:
-                # For overnight shifts (like 5 PM - 2 AM), if checking in between 12 AM and 10 AM PKT,
-                # it's likely the person is very late for "yesterday's" shift.
-                target_date = now_pk.date()
-                if shift.end_time < shift.start_time and now_pk.hour < 10:
-                    target_date = target_date - timedelta(days=1)
-                
-                # Calculate boundaries for the determined shift day
+                from app.services.shift_window_service import resolve_shift_business_date_for_timestamp
+
+                target_date = resolve_shift_business_date_for_timestamp(shift, now_pk)
                 expected_start, expected_end = ShiftService.get_shift_boundaries(target_date, shift)
                 
                 # Calculate late minutes based on these specific boundaries

@@ -5,6 +5,8 @@ export type RealtimeEventType =
   | 'new_message'
   | 'message_updated'
   | 'message_deleted'
+  | 'message_delivered'
+  | 'message_seen'
   | 'conversation_updated'
   | 'notification_created'
   | 'notification_read'

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session, joinedload
@@ -15,8 +15,13 @@ from app.models.communication import Conversation, ConversationParticipant, Mess
 from app.models.daily_stats import DailyStats
 from app.models.department import Department
 from app.models.eod_report import EODReport
+from app.models.alert import Alert
+from app.models.approval import Approval
 from app.models.enums import (
+    AlertStatus,
+    ApprovalStatus,
     LeaveStatus,
+    LeaveType,
     ProjectStatus,
     TaskStatus,
     TicketStatus,
@@ -33,8 +38,14 @@ from app.models.task import Task
 from app.models.time_log import TimeLog
 from app.models.user import User
 from app.schemas.dashboard import (
-    AdminAnalyticsAttendanceTrend,
+    AdminAnalyticsDashboard,
+    AdminAnalyticsDeptComparison,
+    AdminAnalyticsKPIs,
+    AdminAnalyticsPeopleException,
+    AdminAnalyticsProjectStats,
     AdminAnalyticsRecentActivity,
+    AdminAnalyticsTaskStats,
+    AdminAnalyticsAttendanceTrend,
     CommunicationAnalyticsDashboard,
     CommunicationAnalyticsSummary,
     DepartmentAttendanceItem,
@@ -57,6 +68,7 @@ from app.services.admin_user_management_service import (
     is_present_status,
     logged_hours_by_user,
     resolve_today_attendance_status,
+    roster_statuses_for_users,
     serialize_dt,
     sessions_for_business_date,
     task_counts_by_user,
@@ -74,6 +86,7 @@ def _serialize_dt(dt) -> str | None:
 
 
 CLOSED_TASK_STATUSES = (TaskStatus.COMPLETED, TaskStatus.REVIEWED)
+MAX_EMPLOYEE_PERFORMANCE_ROWS = 100
 
 
 def _is_open_task(status: TaskStatus) -> bool:
@@ -95,9 +108,252 @@ def _project_progress_from_tasks(tasks: list[Task]) -> float:
     return round((completed / len(tasks)) * 100, 2)
 
 
+def _attendance_trend_bulk(
+    db: Session,
+    *,
+    active_user_count: int,
+    days: int = 7,
+) -> list[AdminAnalyticsAttendanceTrend]:
+    """Build attendance trend from bulk session/leave queries (no per-user roster loop)."""
+    from collections import defaultdict
+
+    today = pk_today()
+    range_start = today - timedelta(days=days - 1)
+    sessions = (
+        db.query(AttendanceSession)
+        .filter(
+            AttendanceSession.check_in_at >= pk_day_start(range_start),
+            AttendanceSession.check_in_at < pk_day_end(today),
+        )
+        .all()
+    )
+
+    by_date_user: dict[date, dict[uuid.UUID, AttendanceSession]] = defaultdict(dict)
+    for session in sessions:
+        check_in = ensure_pk_datetime(session.check_in_at)
+        if check_in is None:
+            continue
+        day = check_in.date()
+        if day < range_start or day > today:
+            continue
+        existing = by_date_user[day].get(session.user_id)
+        if existing is None or check_in > ensure_pk_datetime(existing.check_in_at):
+            by_date_user[day][session.user_id] = session
+
+    leaves = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.status == LeaveStatus.APPROVED,
+            LeaveRequest.start_date <= today,
+            LeaveRequest.end_date >= range_start,
+        )
+        .all()
+    )
+
+    trend: list[AdminAnalyticsAttendanceTrend] = []
+    for offset in range(days - 1, -1, -1):
+        target = today - timedelta(days=offset)
+        day_sessions = by_date_user.get(target, {})
+        wfh_leave_users = {
+            leave.user_id
+            for leave in leaves
+            if leave.start_date <= target <= leave.end_date and leave.leave_type == LeaveType.WFH
+        }
+        on_leave_users = {
+            leave.user_id
+            for leave in leaves
+            if leave.start_date <= target <= leave.end_date and leave.leave_type != LeaveType.WFH
+        }
+        checked_users = set(day_sessions.keys()) | wfh_leave_users
+        checked = len(checked_users)
+        late = sum(1 for session in day_sessions.values() if session.is_late_login)
+        absent = max(0, active_user_count - checked - len(on_leave_users))
+        trend.append(
+            AdminAnalyticsAttendanceTrend(
+                date=target.strftime("%Y-%m-%d"),
+                checked_in=checked,
+                late=late,
+                absent=absent,
+            )
+        )
+    return trend
+
+
+def _task_stats_aggregate(db: Session) -> AdminAnalyticsTaskStats:
+    row = (
+        db.query(
+            func.count(Task.id),
+            func.sum(case((Task.status == TaskStatus.COMPLETED, 1), else_=0)),
+            func.sum(case((Task.status == TaskStatus.IN_PROGRESS, 1), else_=0)),
+            func.sum(case((Task.status == TaskStatus.CREATED, 1), else_=0)),
+            func.sum(case((Task.status == TaskStatus.BLOCKED, 1), else_=0)),
+        )
+        .one()
+    )
+    total, completed, in_progress, pending, rejected = row
+    return AdminAnalyticsTaskStats(
+        total=int(total or 0),
+        completed=int(completed or 0),
+        in_progress=int(in_progress or 0),
+        on_hold=0,
+        pending=int(pending or 0),
+        rejected=int(rejected or 0),
+    )
+
+
+def _project_stats_aggregate(db: Session) -> AdminAnalyticsProjectStats:
+    row = (
+        db.query(
+            func.count(Project.id),
+            func.sum(case((Project.project_status == ProjectStatus.APPROVED, 1), else_=0)),
+            func.sum(case((Project.project_status == ProjectStatus.PENDING_APPROVAL, 1), else_=0)),
+            func.sum(case((Project.project_status == ProjectStatus.REJECTED, 1), else_=0)),
+            func.sum(case((Project.project_status == ProjectStatus.ACTIVE, 1), else_=0)),
+        )
+        .one()
+    )
+    total, approved, pending, rejected, active = row
+    return AdminAnalyticsProjectStats(
+        total=int(total or 0),
+        approved=int(approved or 0),
+        pending=int(pending or 0),
+        rejected=int(rejected or 0),
+        active=int(active or 0),
+    )
+
+
 class AdminDashboardService:
     def __init__(self, db: Session):
         self.db = db
+
+    def overview_analytics(self) -> AdminAnalyticsDashboard:
+        active_roster_users = (
+            self.db.query(User)
+            .options(joinedload(User.dept))
+            .filter(User.status == UserStatus.ACTIVE)
+            .all()
+        )
+        active_user_count = len(active_roster_users)
+        total_employees = self.db.query(User).filter(User.status != UserStatus.INACTIVE).count()
+        total_projects = self.db.query(Project).count()
+        pending_approvals = (
+            self.db.query(Approval).filter(Approval.decision == ApprovalStatus.PENDING).count()
+        )
+
+        _, roster_statuses = roster_statuses_for_users(self.db, active_roster_users)
+        checked_in_today = sum(
+            1 for status in roster_statuses.values() if is_present_status(status)
+        )
+        late_today = sum(1 for status in roster_statuses.values() if status == "Late")
+        wfh_today = sum(1 for status in roster_statuses.values() if status == "WFH")
+        attendance_rate = (checked_in_today / total_employees * 100) if total_employees > 0 else 0.0
+
+        kpis = AdminAnalyticsKPIs(
+            total_employees=total_employees,
+            total_projects=total_projects,
+            pending_approvals=pending_approvals,
+            attendance_rate=round(attendance_rate, 1),
+            checked_in_today=checked_in_today,
+            late_today=late_today,
+            wfh_today=wfh_today,
+        )
+
+        attendance_trend = _attendance_trend_bulk(
+            self.db,
+            active_user_count=active_user_count,
+            days=7,
+        )
+        task_stats = _task_stats_aggregate(self.db)
+        project_stats = _project_stats_aggregate(self.db)
+
+        completed_tasks_by_user = {
+            uid: counts["completed"]
+            for uid, counts in task_counts_by_user(self.db).items()
+        }
+
+        departments = self.db.query(Department).filter(Department.is_active == True).all()
+        dept_comp: list[AdminAnalyticsDeptComparison] = []
+        for dept in departments:
+            dept_users = [user for user in active_roster_users if user.department_id == dept.id]
+            if not dept_users:
+                continue
+            dept_present = sum(
+                1
+                for user in dept_users
+                if is_present_status(roster_statuses.get(user.id, "Absent"))
+            )
+            dept_att_rate = (dept_present / len(dept_users) * 100) if dept_users else 0.0
+            user_ids = {user.id for user in dept_users}
+            dept_comp.append(
+                AdminAnalyticsDeptComparison(
+                    department_name=dept.name or "Unassigned",
+                    employee_count=len(dept_users),
+                    attendance_rate=round(dept_att_rate, 1),
+                    completed_tasks=sum(
+                        completed_tasks_by_user.get(uid, 0) for uid in user_ids
+                    ),
+                    pending_approvals=0,
+                )
+            )
+
+        user_lookup = {user.id: user for user in active_roster_users}
+        exceptions: list[AdminAnalyticsPeopleException] = []
+        for user_id, status in roster_statuses.items():
+            user = user_lookup.get(user_id)
+            if not user:
+                continue
+            dept_name = user.department_name or "Unassigned"
+            if status == "Late":
+                exceptions.append(
+                    AdminAnalyticsPeopleException(
+                        employee_name=user.full_name,
+                        department_name=dept_name,
+                        status="Late",
+                        details="Checked in late today",
+                    )
+                )
+            elif status == "Absent":
+                exceptions.append(
+                    AdminAnalyticsPeopleException(
+                        employee_name=user.full_name,
+                        department_name=dept_name,
+                        status="Absent",
+                        details="Has not checked in today",
+                    )
+                )
+
+        recent: list[AdminAnalyticsRecentActivity] = []
+        alerts = self.db.query(Alert).order_by(Alert.created_at.desc()).limit(3).all()
+        announcements = (
+            self.db.query(Announcement).order_by(Announcement.created_at.desc()).limit(2).all()
+        )
+        for alert in alerts:
+            recent.append(
+                AdminAnalyticsRecentActivity(
+                    title=f"Alert: {alert.title}",
+                    description=alert.message or "",
+                    created_at=_serialize_dt(alert.created_at) or "",
+                )
+            )
+        for ann in announcements:
+            recent.append(
+                AdminAnalyticsRecentActivity(
+                    title=f"Announcement: {ann.title}",
+                    description=ann.content or "",
+                    created_at=_serialize_dt(ann.created_at) or "",
+                )
+            )
+        recent.sort(key=lambda item: item.created_at, reverse=True)
+
+        return AdminAnalyticsDashboard(
+            kpis=kpis,
+            attendance_trend=attendance_trend,
+            task_statistics=task_stats,
+            project_statistics=project_stats,
+            department_comparison=dept_comp,
+            people_exceptions=exceptions[:15],
+            recent_activity=recent[:5],
+        )
 
     def users_analytics(self) -> UsersAnalyticsDashboard:
         try:
@@ -107,9 +363,6 @@ class AdminDashboardService:
             raise
 
     def _users_analytics_impl(self) -> UsersAnalyticsDashboard:
-        business_date = pk_today()
-        month_start = business_date.replace(day=1)
-
         active_users = (
             self.db.query(User)
             .options(joinedload(User.dept))
@@ -120,27 +373,21 @@ class AdminDashboardService:
             self.db.query(User).filter(User.status != UserStatus.INACTIVE).all()
         )
 
-        session_by_user = sessions_for_business_date(self.db, business_date)
-        leave_by_user = approved_leaves_for_date(self.db, business_date)
-
-        roster_statuses: dict[uuid.UUID, str] = {}
-        for user in active_users:
-            roster_statuses[user.id] = resolve_today_attendance_status(
-                session=session_by_user.get(user.id),
-                leave=leave_by_user.get(user.id),
-            )
+        session_by_user, roster_statuses = roster_statuses_for_users(self.db, active_users)
+        business_date = pk_today()
+        month_start = business_date.replace(day=1)
 
         present_today = sum(
-            1 for user in active_users if is_present_status(roster_statuses[user.id])
+            1 for user in active_users if is_present_status(roster_statuses.get(user.id, "Absent"))
         )
         late_today = sum(
-            1 for user in active_users if roster_statuses[user.id] == "Late"
+            1 for user in active_users if roster_statuses.get(user.id) == "Late"
         )
         on_leave_today = sum(
-            1 for user in active_users if roster_statuses[user.id] == "On Leave"
+            1 for user in active_users if roster_statuses.get(user.id) == "On Leave"
         )
         wfh_today = sum(
-            1 for user in active_users if roster_statuses[user.id] == "WFH"
+            1 for user in active_users if roster_statuses.get(user.id) == "WFH"
         )
 
         role_counts = {r.value: 0 for r in UserRole}
@@ -194,14 +441,15 @@ class AdminDashboardService:
             present = sum(
                 1
                 for user in dept_users
-                if is_present_status(roster_statuses[user.id])
+                if is_present_status(roster_statuses.get(user.id, "Absent"))
             )
-            late = sum(1 for user in dept_users if roster_statuses[user.id] == "Late")
+            late = sum(1 for user in dept_users if roster_statuses.get(user.id) == "Late")
             rate = round(present / len(dept_users) * 100) if dept_users else 0
-            attendance_rate_by_department.append(DistributionItem(label=dept.name, count=rate))
+            dept_label = dept.name or "Unassigned"
+            attendance_rate_by_department.append(DistributionItem(label=dept_label, count=rate))
             attendance_by_department.append(
                 DepartmentAttendanceItem(
-                    department=dept.name,
+                    department=dept_label,
                     active_users=len(dept_users),
                     present_today=present,
                     late_today=late,
@@ -209,32 +457,11 @@ class AdminDashboardService:
                 )
             )
 
-        employee_activity_trend = []
-        try:
-            for offset in range(6, -1, -1):
-                target_date = business_date - timedelta(days=offset)
-                day_sessions = sessions_for_business_date(self.db, target_date)
-                day_leaves = approved_leaves_for_date(self.db, target_date)
-                day_statuses = [
-                    resolve_today_attendance_status(
-                        session=day_sessions.get(user.id),
-                        leave=day_leaves.get(user.id),
-                    )
-                    for user in active_users
-                ]
-                checked = sum(1 for status in day_statuses if is_present_status(status))
-                late = sum(1 for status in day_statuses if status == "Late")
-                absent = sum(1 for status in day_statuses if status == "Absent")
-                employee_activity_trend.append(
-                    AdminAnalyticsAttendanceTrend(
-                        date=target_date.strftime("%Y-%m-%d"),
-                        checked_in=checked,
-                        late=late,
-                        absent=absent,
-                    )
-                )
-        except Exception:
-            logger.exception("employee_activity_trend failed")
+        employee_activity_trend = _attendance_trend_bulk(
+            self.db,
+            active_user_count=len(active_users),
+            days=7,
+        )
 
         tasks_by_user = task_counts_by_user(self.db)
         hours_by_user = logged_hours_by_user(self.db)
@@ -245,24 +472,25 @@ class AdminDashboardService:
             key=lambda item: ((item.department_name or "Unassigned").lower(), item.full_name.lower()),
         ):
             session = session_by_user.get(user.id)
-            attendance = roster_statuses[user.id]
+            attendance = roster_statuses.get(user.id, "Unknown")
             task_counts = tasks_by_user.get(user.id, {"active": 0, "completed": 0})
             roster.append(
                 EmployeeRosterItem(
                     id=user.id,
-                    full_name=user.full_name,
-                    email=user.email,
+                    full_name=user.full_name or "Unknown",
+                    email=user.email or "",
                     avatar_url=user.avatar_url or None,
-                    role=user.role.value,
-                    department=user.department_name,
-                    designation=user.designation,
-                    status=user.status.value,
+                    role=user.role.value if hasattr(user.role, "value") else str(user.role),
+                    department=user.department_name or "Unassigned",
+                    designation=user.designation or "N/A",
+                    status=user.status.value if hasattr(user.status, "value") else str(user.status),
+                    presence_status=getattr(user, "presence_status", None) or "active",
                     today_attendance=attendance,
                     check_in_at=serialize_dt(session.check_in_at) if session else None,
                     check_out_at=serialize_dt(session.check_out_at) if session else None,
-                    active_tasks=task_counts["active"],
-                    completed_tasks=task_counts["completed"],
-                    logged_hours=hours_by_user.get(user.id, 0.0),
+                    active_tasks=int(task_counts.get("active", 0) or 0),
+                    completed_tasks=int(task_counts.get("completed", 0) or 0),
+                    logged_hours=float(hours_by_user.get(user.id, 0.0) or 0.0),
                     productivity_score=None,
                     last_active=serialize_dt(user.updated_at),
                 )
@@ -415,9 +643,9 @@ class AdminDashboardService:
             items.append(
                 EmployeePerformanceItem(
                     id=u.id,
-                    full_name=u.full_name,
+                    full_name=u.full_name or "Unknown",
                     avatar_url=u.avatar_url or None,
-                    department=u.department_name,
+                    department=u.department_name or "Unassigned",
                     attendance_rate=att_rate,
                     task_completion_rate=completion_rate,
                     average_logged_hours=avg_hours,
@@ -428,7 +656,16 @@ class AdminDashboardService:
                     risk_flag=risk,
                 )
             )
-        return items
+
+        risk_rank = {"High": 0, "Medium": 1, None: 2}
+        items.sort(
+            key=lambda item: (
+                risk_rank.get(item.risk_flag, 2),
+                -item.late_count,
+                -item.current_workload,
+            )
+        )
+        return items[:MAX_EMPLOYEE_PERFORMANCE_ROWS]
 
     def _recent_user_activity(self, limit: int = 8) -> list[AdminAnalyticsRecentActivity]:
         recent_users = (

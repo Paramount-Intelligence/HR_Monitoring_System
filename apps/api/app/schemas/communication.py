@@ -11,6 +11,9 @@ class UserMinimal(BaseModel):
     email: str
     role: str
     avatar_url: str | None = None
+    presence_status: str | None = None
+    presence_updated_at: datetime | None = None
+    last_seen_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -25,6 +28,9 @@ class MessagingDirectoryEntryRead(BaseModel):
     designation: str | None = None
     profile_picture_url: str | None = None
     is_active: bool = True
+    presence_status: str | None = None
+    presence_updated_at: datetime | None = None
+    last_seen_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -96,6 +102,9 @@ class MessageRead(BaseModel):
     seen_count: int | None = None
     delivered_count: int | None = None
     total_recipients: int | None = None
+    sent_at: datetime | None = None
+    delivered_at: datetime | None = None
+    seen_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -170,6 +179,25 @@ class MessageCreate(BaseModel):
 class MessageEdit(BaseModel):
     body: str = Field(..., min_length=1)
     body_html: str | None = None
+
+
+class MessagesDeliveredRequest(BaseModel):
+    message_ids: list[UUID] = Field(..., min_length=1)
+
+
+class MessagesDeliveredResponse(BaseModel):
+    marked_count: int
+    message_ids: list[UUID]
+
+
+class MessagesSeenRequest(BaseModel):
+    message_ids: list[UUID] | None = None
+
+
+class MessagesSeenResponse(BaseModel):
+    seen_count: int
+    seen_at: datetime
+    message_ids: list[UUID]
 
 
 class MessageReceiptRead(BaseModel):

@@ -20,6 +20,9 @@ export interface User {
   profile_picture_updated_at?: string | null;
   profile_picture_content_type?: string | null;
   profile_picture_size?: number | null;
+  presence_status?: 'active' | 'away';
+  presence_updated_at?: string | null;
+  last_seen_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -34,6 +37,9 @@ export interface TokenUser {
   profile_picture_url?: string | null;
   profile_picture_updated_at?: string | null;
   avatar_updated_at?: string | null;
+  presence_status?: 'active' | 'away';
+  presence_updated_at?: string | null;
+  last_seen_at?: string | null;
 }
 
 export interface AuthResponse {

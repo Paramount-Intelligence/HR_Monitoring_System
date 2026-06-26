@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 import type { ConnectionStatus, RealtimeEvent } from '@/lib/realtime/events';
 import { ensureFreshAccessToken } from '@/lib/auth/token-utils';
 import { realtimeClient } from '@/lib/realtime/websocket-client';
+import { MessageReceiptListener } from '@/components/messages/MessageReceiptListener';
 
 interface RealtimeContextValue {
   status: ConnectionStatus;
@@ -82,7 +83,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>
+    <RealtimeContext.Provider value={value}>
+      <MessageReceiptListener />
+      {children}
+    </RealtimeContext.Provider>
   );
 }
 

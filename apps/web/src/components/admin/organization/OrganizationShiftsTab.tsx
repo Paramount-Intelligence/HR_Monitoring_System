@@ -410,7 +410,12 @@ export function OrganizationShiftsTab({ shifts, users, loading, error, onRefresh
                         )}
                       </TableCell>
                       <TableCell>{formatShiftTime(shift.start_time)}</TableCell>
-                      <TableCell>{formatShiftTime(shift.end_time)}</TableCell>
+                      <TableCell>
+                        {formatShiftTime(shift.end_time)}
+                        {isOvernightShift(shift.start_time, shift.end_time) && (
+                          <span className="ml-1 text-[10px] text-[var(--text-muted)]">next day</span>
+                        )}
+                      </TableCell>
                       <TableCell>{shift.grace_period_minutes ?? 0} min</TableCell>
                       <TableCell className="text-xs">{formatWorkingDays(shift.working_days)}</TableCell>
                       <TableCell>{countEmployeesInShift(shift.id, users)}</TableCell>
@@ -469,7 +474,13 @@ export function OrganizationShiftsTab({ shifts, users, loading, error, onRefresh
               </div>
               <div>
                 <p className="text-xs text-[var(--text-muted)] mb-1">End Time</p>
-                <p className="font-semibold">{formatShiftTime(selectedShift?.end_time)}</p>
+                <p className="font-semibold">
+                  {formatShiftTime(selectedShift?.end_time)}
+                  {selectedShift &&
+                    isOvernightShift(selectedShift.start_time, selectedShift.end_time) && (
+                      <span className="ml-1 text-xs font-normal text-[var(--text-muted)]">next day</span>
+                    )}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-[var(--text-muted)] mb-1">Grace Period</p>

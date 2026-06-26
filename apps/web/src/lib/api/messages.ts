@@ -20,6 +20,9 @@ export interface UserMinimal {
   email: string;
   role: string;
   avatar_url?: string | null;
+  presence_status?: 'active' | 'away';
+  presence_updated_at?: string | null;
+  last_seen_at?: string | null;
 }
 
 export interface ConversationParticipant {
@@ -82,6 +85,9 @@ export interface MessagingDirectoryUser {
   designation?: string | null;
   profile_picture_url?: string | null;
   is_active: boolean;
+  presence_status?: 'active' | 'away';
+  presence_updated_at?: string | null;
+  last_seen_at?: string | null;
 }
 
 export interface MessageMention {
@@ -116,6 +122,9 @@ export interface Message {
   seen_count?: number | null;
   delivered_count?: number | null;
   total_recipients?: number | null;
+  sent_at?: string | null;
+  delivered_at?: string | null;
+  seen_at?: string | null;
   is_edited: boolean;
   is_deleted: boolean;
   created_at: string;
@@ -285,6 +294,28 @@ export const messagesApi = {
   markConversationRead: async (conversationId: string): Promise<{ message: string }> => {
     const response = await apiClient.post<{ message: string }>(
       `/messages/conversations/${conversationId}/read`
+    );
+    return response.data;
+  },
+
+  markConversationSeen: async (
+    conversationId: string,
+    messageIds?: string[],
+  ): Promise<{ seen_count: number; seen_at: string; message_ids: string[] }> => {
+    const response = await apiClient.post<{ seen_count: number; seen_at: string; message_ids: string[] }>(
+      `/messages/conversations/${conversationId}/seen`,
+      messageIds?.length ? { message_ids: messageIds } : {},
+    );
+    return response.data;
+  },
+
+  markMessagesDelivered: async (
+    conversationId: string,
+    messageIds: string[],
+  ): Promise<{ marked_count: number; message_ids: string[] }> => {
+    const response = await apiClient.post<{ marked_count: number; message_ids: string[] }>(
+      `/messages/conversations/${conversationId}/delivered`,
+      { message_ids: messageIds },
     );
     return response.data;
   },

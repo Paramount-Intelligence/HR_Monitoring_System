@@ -27,6 +27,7 @@ import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { ProfilePictureUpload } from '@/components/user/ProfilePictureUpload';
 import { getProfilePictureUrl } from '@/lib/profile-picture';
 import { AdminUserControlPanel } from '@/components/admin/users/AdminUserControlPanel';
+import { hydratePresenceFromUsers } from '@/lib/presence/hydrate-presence';
 import { ALL_ROLES, ROLE_LABELS, ROLE_BADGE_COLORS } from '@/lib/admin-users/constants';
 import { getUserDepartmentDisplay, getUserManagerDisplay, makeDepartmentOptions, makeShiftOptions, makeManagerOptions, resolveOptionLabel } from '@/lib/display-labels';
 import { modalFormClass, modalFormFieldClass, modalFormGridClass } from '@/lib/modal-layout';
@@ -86,6 +87,7 @@ export default function AdminUsersPage() {
         shiftsApi.getShifts(true).catch(() => [])
       ]);
       setUsers(data);
+      hydratePresenceFromUsers(data);
       setDepartments(depts);
       setShifts(shiftsData);
     } catch (error) {
@@ -456,7 +458,7 @@ export default function AdminUsersPage() {
                     >
                       <TableCell>
                         <div className="flex items-center gap-3 min-w-0">
-                          <UserProfilePicture user={user} name={user.full_name} size="sm" />
+                          <UserProfilePicture user={user} userId={user.id} name={user.full_name} size="sm" showPresence />
                           <div className="min-w-0">
                             <p className="font-medium text-[var(--text-primary)] truncate">{user.full_name}</p>
                             <p className="text-xs text-[var(--text-muted)] truncate">{user.designation || '—'}</p>

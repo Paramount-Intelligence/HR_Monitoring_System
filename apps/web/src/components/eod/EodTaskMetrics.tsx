@@ -11,6 +11,7 @@ interface EodTaskMetricsProps {
 export function EodTaskMetrics({ eod }: EodTaskMetricsProps) {
   return (
     <EmployeeSectionCard title="Task Metrics" icon={CheckSquare}>
+      <p className="text-[10px] text-[var(--text-muted)] mb-3">For selected report date</p>
       <div className="space-y-3 text-sm">
         <div className="flex justify-between border-b border-[var(--border-subtle)] pb-2">
           <span className="text-[var(--text-muted)]">Tasks Worked On</span>

@@ -16,6 +16,10 @@ import { safeArray, safeNumber } from '@/lib/admin-dashboard/utils';
 import { attendanceBadgeClass, formatLoggedHours } from '@/lib/admin-dashboard/roster';
 import { AdminTabError } from './AdminTabError';
 import { UsersAnalyticsData } from '@/lib/admin-dashboard/types';
+import {
+  ADMIN_DASHBOARD_USERS_TAB_PATH,
+  buildAdminProfileHref,
+} from '@/lib/navigation/admin-profile-nav';
 
 const CHART_COLORS = ['#1E66C1', '#38BDF8', '#047857', '#B45309', '#B91C1C', '#607A99'];
 const CHART_MIN_HEIGHT = 200;
@@ -167,9 +171,11 @@ export function AdminUserManagementTab({ data, loading, error, onRetry }: AdminU
               header: '',
               render: (r) => (
                 <UserProfilePicture
-                  user={{ full_name: String(r.full_name || ''), profile_picture_url: r.avatar_url as string | null, avatar_url: r.avatar_url as string | null }}
+                  user={{ full_name: String(r.full_name || ''), profile_picture_url: r.avatar_url as string | null, avatar_url: r.avatar_url as string | null, presence_status: (r.presence_status as 'active' | 'away') || 'active' }}
+                  userId={String(r.id || '')}
                   name={String(r.full_name || '')}
                   size="sm"
+                  showPresence
                 />
               ),
             },
@@ -206,7 +212,12 @@ export function AdminUserManagementTab({ data, loading, error, onRetry }: AdminU
               key: 'actions',
               header: 'Actions',
               render: (r) => (
-                <Link href={`/admin/users/profile?id=${r.id}`} className="text-[10px] font-black text-[var(--accent-primary)] hover:underline">
+                <Link
+                  href={buildAdminProfileHref(String(r.id), {
+                    returnTo: ADMIN_DASHBOARD_USERS_TAB_PATH,
+                  })}
+                  className="text-[10px] font-black text-[var(--accent-primary)] hover:underline"
+                >
                   View
                 </Link>
               ),
@@ -226,9 +237,11 @@ export function AdminUserManagementTab({ data, loading, error, onRetry }: AdminU
               header: '',
               render: (r) => (
                 <UserProfilePicture
-                  user={{ full_name: String(r.full_name || ''), profile_picture_url: r.avatar_url as string | null, avatar_url: r.avatar_url as string | null }}
+                  user={{ full_name: String(r.full_name || ''), profile_picture_url: r.avatar_url as string | null, avatar_url: r.avatar_url as string | null, presence_status: (r.presence_status as 'active' | 'away') || 'active' }}
+                  userId={String(r.id || '')}
                   name={String(r.full_name || '')}
                   size="sm"
+                  showPresence
                 />
               ),
             },

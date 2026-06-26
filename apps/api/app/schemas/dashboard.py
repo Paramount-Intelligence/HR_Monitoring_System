@@ -196,6 +196,7 @@ class EmployeeRosterItem(BaseModel):
     department: str | None = None
     designation: str | None = None
     status: str
+    presence_status: str = "active"
     today_attendance: str
     check_in_at: str | None = None
     check_out_at: str | None = None

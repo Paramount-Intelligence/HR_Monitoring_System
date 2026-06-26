@@ -136,3 +136,13 @@ def schedule_emit_to_user(user_id: str, event: dict[str, Any]) -> None:
 
 def schedule_emit_to_users(user_ids: set[str] | list[str], event: dict[str, Any]) -> None:
     schedule_on_main_loop(emit_to_users({str(u) for u in user_ids}, event))
+
+
+async def broadcast_to_all_authenticated(event: dict[str, Any]) -> None:
+    from app.services.websocket_manager import ws_manager
+
+    await ws_manager.broadcast_to_all_authenticated(event)
+
+
+def schedule_broadcast_to_all_authenticated(event: dict[str, Any]) -> None:
+    schedule_on_main_loop(broadcast_to_all_authenticated(event))

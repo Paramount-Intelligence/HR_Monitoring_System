@@ -17,6 +17,9 @@ class TokenUser(BaseModel):
     designation: str | None = None
     avatar_url: str | None = None
     profile_picture_url: str | None = None
+    presence_status: str = "active"
+    presence_updated_at: str | None = None
+    last_seen_at: str | None = None
 
 
 class LoginResponse(BaseModel):

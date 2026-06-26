@@ -225,9 +225,11 @@ export function MessagesChatStream({
                       {item.showAvatar ? (
                         <UserProfilePicture
                           user={msg.sender}
+                          userId={msg.sender.id}
                           name={msg.sender.full_name}
                           size="sm"
                           className="h-8 w-8"
+                          showPresence
                         />
                       ) : (
                         <span className="block w-8" aria-hidden />
@@ -375,13 +377,13 @@ export function MessagesChatStream({
                         )}
                       >
                         <span>{formatMessageTime(msg.created_at)}</span>
-                        {isSelf && activeConv && (
+                        {isSelf && (
                           <MessageStatusIndicator
                             status={msg.delivery_status}
-                            seenCount={msg.seen_count}
-                            deliveredCount={msg.delivered_count}
-                            totalRecipients={msg.total_recipients}
-                            conversationType={activeConv.type}
+                            sentAt={msg.sent_at ?? msg.created_at}
+                            deliveredAt={msg.delivered_at}
+                            seenAt={msg.seen_at}
+                            createdAt={msg.created_at}
                           />
                         )}
                       </div>

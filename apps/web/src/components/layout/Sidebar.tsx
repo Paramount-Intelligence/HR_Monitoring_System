@@ -172,6 +172,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
           { title: 'Holidays', href: '/admin/holidays', icon: Calendar },
           { title: 'Announcements', href: '/admin/announcements', icon: Megaphone },
           { title: 'Permissions', href: '/admin/permissions', icon: Shield },
+          { title: 'EOD Reviews', href: '/admin/eod-reviews', icon: Activity },
           { title: 'Reports', href: '/admin/reports', icon: FileText },
           { title: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
           { title: 'Call Recordings', href: '/admin/call-recordings', icon: Activity, permission: 'call_recordings.view' },

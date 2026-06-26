@@ -2,13 +2,19 @@
 from __future__ import annotations
 
 import uuid
-from datetime import time, datetime, timedelta
+from datetime import date, time, datetime, timedelta
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
 from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.shift import ShiftCreate, ShiftUpdate
+from app.services.shift_window_service import (
+    get_shift_window_for_business_date,
+    is_overnight_shift,
+    resolve_shift_business_date_for_timestamp,
+)
+
 
 class ShiftService:
     def __init__(self, db: Session) -> None:
@@ -83,46 +89,30 @@ class ShiftService:
 
     @staticmethod
     def get_shift_boundaries(target_date: date, shift: Shift) -> tuple[datetime, datetime]:
-        """Calculate start and end datetimes for a shift on a given date in PKT."""
-        from app.core.time_utils import PK_TZ
-        
-        # Start is on the target date
-        start = datetime.combine(target_date, shift.start_time).replace(tzinfo=PK_TZ)
-        
-        # End calculation
-        if shift.end_time < shift.start_time:
-            # Overnight shift
-            end = datetime.combine(target_date + timedelta(days=1), shift.end_time).replace(tzinfo=PK_TZ)
-        else:
-            # Same day shift
-            end = datetime.combine(target_date, shift.end_time).replace(tzinfo=PK_TZ)
-            
-        return start, end
+        """Calculate start and end datetimes for a shift on a given business date."""
+        return get_shift_window_for_business_date(shift, target_date)
 
     @staticmethod
     def is_late(check_in: datetime, shift: Shift) -> tuple[bool, int]:
         """Detect if check-in is late, returns (is_late, minutes_late)."""
         if not check_in or not shift:
             return False, 0
-            
+
         from app.core.time_utils import ensure_pk_datetime
+
         check_in_pk = ensure_pk_datetime(check_in)
-        
-        # We need to determine which "shift day" this check-in belongs to.
-        # For a 5 PM shift, if checking in at 4 PM or 6 PM, it's today's shift.
-        # If checking in at 2 AM, it might be yesterday's shift if we are very late.
-        # But usually check_in starts a new session.
-        
-        shift_start, _ = ShiftService.get_shift_boundaries(check_in_pk.date(), shift)
-        
-        # Apply grace period
-        limit = shift_start + timedelta(minutes=shift.grace_period_minutes)
-        
+        business_date = resolve_shift_business_date_for_timestamp(shift, check_in_pk)
+        shift_start, _ = ShiftService.get_shift_boundaries(business_date, shift)
+        shift_start_pk = ensure_pk_datetime(shift_start)
+
+        limit = shift_start_pk + timedelta(minutes=shift.grace_period_minutes)
+
         if check_in_pk > limit:
-            diff = check_in_pk - shift_start
+            diff = check_in_pk - shift_start_pk
             return True, int(diff.total_seconds() // 60)
-            
+
         return False, 0
+
 
     @staticmethod
     def is_early_logout(check_out: datetime, shift: Shift, expected_end: datetime | None = None) -> tuple[bool, int]:

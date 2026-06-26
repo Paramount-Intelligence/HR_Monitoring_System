@@ -71,6 +71,16 @@ class UserPasswordChange(BaseModel):
     confirm_password: str = Field(..., min_length=8)
 
 
+class UserPresenceUpdate(BaseModel):
+    presence_status: str = Field(..., pattern="^(active|away)$")
+
+
+class UserPresenceRead(BaseModel):
+    presence_status: str
+    presence_updated_at: datetime | None = None
+    last_seen_at: datetime | None = None
+
+
 class UserRead(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -95,6 +105,9 @@ class UserRead(BaseModel):
     profile_picture_updated_at: datetime | None = None
     profile_picture_content_type: str | None = None
     profile_picture_size: int | None = None
+    presence_status: str = "active"
+    presence_updated_at: datetime | None = None
+    last_seen_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -132,6 +145,9 @@ class UserRead(BaseModel):
                 "profile_picture_updated_at": data.avatar_updated_at,
                 "profile_picture_content_type": getattr(data, "avatar_content_type", None),
                 "profile_picture_size": getattr(data, "avatar_size", None),
+                "presence_status": getattr(data, "presence_status", "active") or "active",
+                "presence_updated_at": getattr(data, "presence_updated_at", None),
+                "last_seen_at": getattr(data, "last_seen_at", None),
                 "created_at": data.created_at,
                 "updated_at": data.updated_at,
             }
@@ -150,6 +166,9 @@ class UserDirectoryRead(BaseModel):
     department_name: str | None = None
     avatar_url: str | None = None
     profile_picture_url: str | None = None
+    presence_status: str = "active"
+    presence_updated_at: datetime | None = None
+    last_seen_at: datetime | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -166,6 +185,9 @@ class UserDirectoryRead(BaseModel):
                 "department_name": dept,
                 "avatar_url": data.avatar_url,
                 "profile_picture_url": data.avatar_url,
+                "presence_status": getattr(data, "presence_status", "active") or "active",
+                "presence_updated_at": getattr(data, "presence_updated_at", None),
+                "last_seen_at": getattr(data, "last_seen_at", None),
             }
         if isinstance(data, dict):
             url = data.get("avatar_url") or data.get("profile_picture_url")

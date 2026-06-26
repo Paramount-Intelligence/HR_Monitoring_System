@@ -26,6 +26,15 @@ export function formatShiftTime(value: unknown): string {
   return `${h12}:${m} ${ampm}`;
 }
 
+export function formatShiftRange(startTime: string, endTime: string): string {
+  const start = formatShiftTime(startTime);
+  const end = formatShiftTime(endTime);
+  if (isOvernightShift(startTime, endTime)) {
+    return `${start} – ${end} next day`;
+  }
+  return `${start} – ${end}`;
+}
+
 export function formatAudience(audience: unknown): string {
   if (!audience || typeof audience !== 'string') return '—';
   if (audience === 'all') return 'All Employees';

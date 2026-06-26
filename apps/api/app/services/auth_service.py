@@ -88,6 +88,9 @@ class AuthService:
                 designation=user.designation,
                 avatar_url=user.avatar_url,
                 profile_picture_url=user.avatar_url,
+                presence_status=getattr(user, "presence_status", None) or "active",
+                presence_updated_at=user.presence_updated_at.isoformat() if user.presence_updated_at else None,
+                last_seen_at=user.last_seen_at.isoformat() if user.last_seen_at else None,
             ),
         )
 

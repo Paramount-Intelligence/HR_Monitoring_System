@@ -78,9 +78,11 @@ function ConversationListItem({
         {directUser ? (
           <UserProfilePicture
             user={directUser}
+            userId={directUser.id}
             name={directUser.full_name}
             size="lg"
             className="h-12 w-12"
+            showPresence
           />
         ) : (
           <div className="h-12 w-12 rounded-full bg-[#dfe5e7] dark:bg-[#374248] flex items-center justify-center text-[#54656f] dark:text-[#aebac1]">

@@ -390,18 +390,87 @@ export function getTaskTimerLabel(
   task: {
     id?: string;
     title?: string | null;
+    task_title?: string | null;
+    taskTitle?: string | null;
     project_title?: string | null;
+    project_name?: string | null;
+    projectName?: string | null;
     project_id?: string | null;
+    task?: { title?: string | null; name?: string | null; project?: { name?: string | null; title?: string | null } };
+    project?: { name?: string | null; title?: string | null };
   },
   projectsMap?: Map<string, { title?: string | null }>,
-  fallback = 'Unknown task'
+  fallback = 'Deleted or unavailable task'
 ): string {
-  const taskTitle = safeDisplayLabel(task.title, fallback, 'Timer task');
-  const projectTitle = getTaskProjectLabel(task, projectsMap, '');
+  const rawTitle =
+    task.task_title ||
+    task.taskTitle ||
+    task.title ||
+    task.task?.title ||
+    task.task?.name ||
+    '';
+  const taskTitle = safeDisplayLabel(rawTitle, fallback, 'Timer task');
+  const rawProject =
+    task.project_title ||
+    task.projectName ||
+    task.project_name ||
+    task.task?.project?.name ||
+    task.task?.project?.title ||
+    task.project?.name ||
+    task.project?.title ||
+    '';
+  const projectTitle =
+    safeDisplayLabel(rawProject, '', 'Timer project') ||
+    (task.project_id && projectsMap ? getTaskProjectLabel(task, projectsMap, '') : '');
   if (projectTitle && projectTitle !== 'Unknown project') {
     return `${taskTitle} — ${projectTitle}`;
   }
   return taskTitle;
+}
+
+export function getActiveTimerTaskTitle(
+  timer: {
+    title?: string | null;
+    task_title?: string | null;
+    taskTitle?: string | null;
+    task?: { title?: string | null; name?: string | null };
+  },
+  fallback = 'Deleted or unavailable task',
+): string {
+  const rawTitle =
+    timer.task_title ||
+    timer.taskTitle ||
+    timer.title ||
+    timer.task?.title ||
+    timer.task?.name ||
+    '';
+  return safeDisplayLabel(rawTitle, fallback, 'Timer task');
+}
+
+export function getActiveTimerProjectName(
+  timer: {
+    project_title?: string | null;
+    project_name?: string | null;
+    projectName?: string | null;
+    project_id?: string | null;
+    task?: { project?: { name?: string | null; title?: string | null } };
+    project?: { name?: string | null; title?: string | null };
+  },
+  projectsMap?: Map<string, { title?: string | null }>,
+): string | null {
+  const rawProject =
+    timer.project_title ||
+    timer.projectName ||
+    timer.project_name ||
+    timer.task?.project?.name ||
+    timer.task?.project?.title ||
+    timer.project?.name ||
+    timer.project?.title ||
+    '';
+  const projectTitle =
+    safeDisplayLabel(rawProject, '', 'Timer project') ||
+    (timer.project_id && projectsMap ? getTaskProjectLabel(timer, projectsMap, '') : '');
+  return projectTitle && projectTitle !== 'Unknown project' ? projectTitle : null;
 }
 
 export function makeTaskTimerOptions(

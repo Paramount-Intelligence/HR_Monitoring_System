@@ -355,3 +355,59 @@ def test_user_management_overview_alias(db, admin_token):
     )
     assert response.status_code == 200, response.text
     assert "employee_roster" in response.json()
+
+
+def test_admin_analytics_overview_returns_200(db, admin_token):
+    response = client.get(
+        f"{API}/dashboard/admin/analytics",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "kpis" in body
+    assert "attendance_trend" in body
+    assert "task_statistics" in body
+    assert "project_statistics" in body
+    assert isinstance(body["attendance_trend"], list)
+    assert isinstance(body["department_comparison"], list)
+    assert "total_employees" in body["kpis"]
+
+
+def test_admin_analytics_forbidden_for_employee(db, roster_context):
+    employee = roster_context["present_user"]
+    login = client.post(
+        f"{API}/auth/login",
+        json={"email": employee.email, "password": PASSWORD},
+    )
+    assert login.status_code == 200, login.text
+    token = login.json()["access_token"]
+    response = client.get(
+        f"{API}/dashboard/admin/analytics",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+
+
+def test_users_analytics_response_shape(db, admin_token):
+    response = client.get(
+        f"{API}/dashboard/admin/users-analytics",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert "summary" in body
+    assert "role_distribution" in body
+    assert "department_distribution" in body
+    assert "attendance_by_department" in body
+    assert "employee_roster" in body
+    assert isinstance(body["employee_roster"], list)
+    assert isinstance(body["employee_activity_trend"], list)
+    assert "business_date" in body
+    assert "timezone" in body
+    if body["employee_roster"]:
+        row = body["employee_roster"][0]
+        assert "full_name" in row
+        assert "today_attendance" in row
+        assert "department" in row
+        assert row.get("department") is not None
+

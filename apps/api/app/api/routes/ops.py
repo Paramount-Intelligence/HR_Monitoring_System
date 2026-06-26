@@ -9,7 +9,16 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db, require_admin_or_manager
 from app.core.time_utils import ensure_pk_datetime, pk_today
-from app.services.eod_service import format_eod_report_read
+from app.services.eod_service import (
+    SUBMITTABLE_STATUSES,
+    format_eod_report_read,
+    generate_or_refresh_eod,
+    get_user_eod_report,
+    notify_submitter_on_eod_review,
+    refresh_report_metrics,
+    resolve_report_date,
+    submit_user_eod,
+)
 from app.models.attendance_session import AttendanceSession
 from app.models.eod_report import EODReport
 from app.models.eod_revision import EODRevision
@@ -26,13 +35,6 @@ from app.schemas.ops import (
     EODReviewRequest,
     EODSubmitRequest,
 )
-from app.services.eod_service import (
-    generate_or_refresh_eod,
-    get_user_eod_report,
-    notify_submitter_on_eod_review,
-    resolve_report_date,
-    submit_user_eod,
-)
 
 router = APIRouter()
 
@@ -44,8 +46,35 @@ MANAGER_VISIBLE_EOD_STATUSES = (
 )
 
 
-def _format_eod(report: EODReport, user_name: str) -> EODReportRead:
-    return format_eod_report_read(report, user_name)
+def _direct_reports_for_reviewer(db: Session, actor: User) -> list[User]:
+    """Users who report directly to this manager/admin reviewer."""
+    return db.query(User).filter(User.manager_id == actor.id).order_by(User.full_name.asc()).all()
+
+
+def _can_review_eod_submitter(db: Session, actor: User, submitter_id: uuid.UUID) -> bool:
+    if actor.id == submitter_id:
+        return False
+    if actor.role == UserRole.HR_OPERATIONS:
+        return False
+    submitter = db.get(User, submitter_id)
+    if not submitter:
+        return False
+    return submitter.manager_id == actor.id
+
+
+def _format_eod(
+    report: EODReport,
+    user_name: str,
+    *,
+    db: Session | None = None,
+    actor: User | None = None,
+) -> EODReportRead:
+    metrics = None
+    if db is not None and actor is not None and report.status in SUBMITTABLE_STATUSES:
+        metrics = refresh_report_metrics(db, report, actor)
+        db.commit()
+        db.refresh(report)
+    return format_eod_report_read(report, user_name, metrics)
 
 
 @router.get("/duties", response_model=list[DutyRead], summary="Get my duties")
@@ -148,11 +177,11 @@ def get_my_eod(
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> EODReportRead | None:
-    target_date = resolve_report_date(report_date)
+    target_date = resolve_report_date(report_date, actor, db)
     report = get_user_eod_report(db, actor.id, target_date)
     if not report:
         return None
-    return _format_eod(report, actor.full_name)
+    return _format_eod(report, actor.full_name, db=db, actor=actor)
 
 
 @router.get("/eod/me/today", response_model=EODReportRead | None, summary="Get my EOD for today")
@@ -169,7 +198,7 @@ def generate_my_eod(
     actor: User = Depends(get_current_user),
 ) -> EODReportRead:
     report = generate_or_refresh_eod(db, actor)
-    return _format_eod(report, actor.full_name)
+    return _format_eod(report, actor.full_name, db=db, actor=actor)
 
 
 @router.post("/eod/me/submit", response_model=EODReportRead, summary="Submit my EOD")
@@ -189,28 +218,53 @@ def submit_my_eod(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    return _format_eod(report, actor.full_name)
+    return _format_eod(report, actor.full_name, db=db, actor=actor)
 
 
 @router.get("/eod/team", response_model=list[EODReportRead], summary="Get team EODs")
-def get_team_eods(db: Session = Depends(get_db), actor: User = Depends(require_admin_or_manager)) -> list[EODReportRead]:
-    if actor.role == UserRole.MANAGER:
-        team_members = db.query(User).filter(User.manager_id == actor.id).all()
-    else:
-        team_members = db.query(User).all()
-    user_map = {u.id: u.full_name for u in team_members}
+def get_team_eods(
+    db: Session = Depends(get_db),
+    actor: User = Depends(require_admin_or_manager),
+    search: str | None = Query(None),
+    status_filter: str | None = Query(None, alias="status"),
+    report_date: date | None = Query(None),
+) -> list[EODReportRead]:
+    team_members = _direct_reports_for_reviewer(db, actor)
+    if not team_members:
+        return []
+
+    if search:
+        term = f"%{search.strip()}%"
+        team_members = [
+            member
+            for member in team_members
+            if (
+                (member.full_name and search.strip().lower() in member.full_name.lower())
+                or (member.email and search.strip().lower() in member.email.lower())
+                or search.strip().lower() in str(member.role).lower()
+                or (member.department and search.strip().lower() in member.department.lower())
+                or (member.designation and search.strip().lower() in member.designation.lower())
+            )
+        ]
+
+    user_map = {member.id: member.full_name for member in team_members}
     if not user_map:
         return []
-    reports = (
+
+    query = (
         db.query(EODReport)
         .filter(
             EODReport.user_id.in_(list(user_map.keys())),
             EODReport.user_id != actor.id,
             EODReport.status.in_(MANAGER_VISIBLE_EOD_STATUSES),
         )
-        .order_by(EODReport.report_date.desc(), EODReport.created_at.desc())
-        .all()
     )
+    if status_filter:
+        query = query.filter(EODReport.status == status_filter)
+    if report_date:
+        query = query.filter(EODReport.report_date == report_date)
+
+    reports = query.order_by(EODReport.report_date.desc(), EODReport.created_at.desc()).all()
     return [_format_eod(report, user_map.get(report.user_id, "Unknown User")) for report in reports]
 
 
@@ -226,10 +280,8 @@ def review_eod(report_id: uuid.UUID, payload: EODReviewRequest, db: Session = De
             detail="Cannot review your own EOD",
         )
 
-    if actor.role == UserRole.MANAGER:
-        employee = db.get(User, report.user_id)
-        if not employee or employee.manager_id != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to review this EOD")
+    if not _can_review_eod_submitter(db, actor, report.user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to review this EOD")
 
     if payload.action not in {"Approved", "Rejected", "Needs Revision", "Pending Approval", "Generated"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid review action")

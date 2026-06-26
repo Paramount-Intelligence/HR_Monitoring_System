@@ -328,15 +328,19 @@ class RealtimeService:
         user_id: uuid.UUID,
         seen_at: str,
         sender_id: uuid.UUID,
+        delivered_at: str | None = None,
     ) -> None:
+        payload = {
+            "conversation_id": str(conversation_id),
+            "message_id": str(message_id),
+            "user_id": str(user_id),
+            "seen_at": seen_at,
+        }
+        if delivered_at:
+            payload["delivered_at"] = delivered_at
         event = RealtimeService.event(
             "message_seen",
-            {
-                "conversation_id": str(conversation_id),
-                "message_id": str(message_id),
-                "user_id": str(user_id),
-                "seen_at": seen_at,
-            },
+            payload,
             conversation_id=conversation_id,
             entity_type="message",
             entity_id=message_id,
@@ -533,3 +537,23 @@ class RealtimeService:
             route=f"/messages?conversation_id={conversation_id}",
         )
         RealtimeService.emit_to_users(target_user_ids, event)
+
+    @staticmethod
+    def emit_user_presence_updated(user: User) -> None:
+        from app.models.enums import PresenceStatus
+        from app.services.realtime_bridge import schedule_broadcast_to_all_authenticated
+
+        payload = {
+            "user_id": str(user.id),
+            "presence_status": user.presence_status or PresenceStatus.ACTIVE.value,
+            "presence_updated_at": user.presence_updated_at.isoformat() if user.presence_updated_at else None,
+            "last_seen_at": user.last_seen_at.isoformat() if user.last_seen_at else None,
+        }
+        event = RealtimeService.event(
+            "user_presence_updated",
+            payload,
+            actor_id=user.id,
+            entity_type="user",
+            entity_id=user.id,
+        )
+        schedule_broadcast_to_all_authenticated(event)

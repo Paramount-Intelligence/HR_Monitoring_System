@@ -76,6 +76,14 @@ export function MyEodPage({ roleContext }: MyEodPageProps) {
     void loadReportingManager();
   }, [loadEOD, loadReportingManager]);
 
+  useEffect(() => {
+    if (!eod || !['Generated', 'Draft', 'Needs Revision'].includes(eod.status)) return;
+    const interval = window.setInterval(() => {
+      void eodApi.generateMyEOD().then((fresh) => setEod(fresh)).catch(() => undefined);
+    }, 60000);
+    return () => window.clearInterval(interval);
+  }, [eod?.status, eod?.date]);
+
   async function handleGenerate() {
     try {
       setIsGenerating(true);

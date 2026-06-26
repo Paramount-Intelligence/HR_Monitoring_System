@@ -24,6 +24,8 @@ import {
   makeTaskTimerOptions,
   resolveOptionLabel,
   getTaskTimerLabel,
+  getActiveTimerTaskTitle,
+  getActiveTimerProjectName,
   safeDisplayLabel,
   getTaskProjectLabel,
 } from '@/lib/display-labels';
@@ -342,8 +344,13 @@ export default function TimeLogsPage() {
                     {activeTimer.status === 'running' ? 'Currently tracking' : getPauseLabel(activeTimer.pause_reason)}
                   </span>
                   <span className="font-bold text-[var(--text-primary)] text-base block truncate">
-                    {getTaskTimerLabel(activeTimer)}
+                    {getActiveTimerTaskTitle(activeTimer)}
                   </span>
+                  {getActiveTimerProjectName(activeTimer) && (
+                    <p className="text-sm text-[var(--text-secondary)] truncate">
+                      Project: {getActiveTimerProjectName(activeTimer)}
+                    </p>
+                  )}
                   <p className="text-[11px] text-[var(--text-secondary)]">
                     Started {formatDateTime(activeTimer.started_at)}
                   </p>

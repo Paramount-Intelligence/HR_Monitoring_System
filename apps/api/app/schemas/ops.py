@@ -48,6 +48,7 @@ class EODReportRead(BaseModel):
     logout_time: datetime | None
     work_mode: str
     total_hours: float
+    logged_hours: float | None = None
     tasks_worked_on: int
     completed_tasks: int
     pending_tasks: int
@@ -62,3 +63,6 @@ class EODReportRead(BaseModel):
     submitted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
+    attendance_status: str | None = None
+    window_start: datetime | None = None
+    window_end: datetime | None = None

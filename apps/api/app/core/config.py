@@ -151,6 +151,7 @@ class Settings(BaseSettings):
 
     attendance_max_active_hours: int = 16
     attendance_auto_close_grace_minutes: int = 60
+    business_timezone: str = "Asia/Karachi"
 
     @model_validator(mode="after")
     def apply_storage_and_aws_aliases(self) -> "Settings":

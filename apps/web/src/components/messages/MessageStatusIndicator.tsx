@@ -1,64 +1,41 @@
 'use client';
 
-import { Check, CheckCheck } from 'lucide-react';
 import type { ConversationType, MessageDeliveryStatus } from '@/lib/api/messages';
+import { getMessageDeliveryStatus } from '@/lib/messages/message-status';
+import { MessageStatusTicks } from '@/components/messages/MessageStatusTicks';
 import { cn } from '@/lib/utils';
 
 interface MessageStatusIndicatorProps {
-  status: MessageDeliveryStatus | null | undefined;
+  status?: MessageDeliveryStatus | null;
   seenCount?: number | null;
   deliveredCount?: number | null;
   totalRecipients?: number | null;
-  conversationType: ConversationType;
+  conversationType?: ConversationType;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  seenAt?: string | null;
+  createdAt?: string | null;
   className?: string;
 }
 
+/** WhatsApp-style delivery ticks for outgoing messages. */
 export function MessageStatusIndicator({
   status,
-  seenCount,
-  deliveredCount,
-  totalRecipients,
-  conversationType,
+  sentAt,
+  deliveredAt,
+  seenAt,
+  createdAt,
   className,
 }: MessageStatusIndicatorProps) {
-  if (!status) return null;
+  const resolved = getMessageDeliveryStatus({
+    delivery_status: status,
+    sent_at: sentAt,
+    delivered_at: deliveredAt,
+    seen_at: seenAt,
+    created_at: createdAt,
+  });
 
-  const isDirect = conversationType === 'direct';
-  const isSeen = status === 'seen';
-  const isDelivered = status === 'delivered' || isSeen;
+  if (resolved === 'pending' && !sentAt && !createdAt) return null;
 
-  if (!isDirect && totalRecipients != null && totalRecipients > 1) {
-    if (seenCount != null && seenCount > 0) {
-      return (
-        <span className={cn('text-[10px] text-white/70 tabular-nums', className)}>
-          Seen by {seenCount}
-        </span>
-      );
-    }
-    if (deliveredCount != null && deliveredCount > 0) {
-      return (
-        <span className={cn('text-[10px] text-white/70 tabular-nums', className)}>
-          Delivered to {deliveredCount}
-        </span>
-      );
-    }
-  }
-
-  return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-0.5 text-[10px]',
-        isSeen ? 'text-sky-200' : 'text-white/70',
-        className
-      )}
-      title={isSeen ? 'Seen' : isDelivered ? 'Delivered' : 'Sent'}
-    >
-      {isDelivered ? (
-        <CheckCheck className={cn('h-3 w-3', isSeen && 'text-sky-200')} />
-      ) : (
-        <Check className="h-3 w-3" />
-      )}
-      <span className="sr-only">{isSeen ? 'Seen' : isDelivered ? 'Delivered' : 'Sent'}</span>
-    </span>
-  );
+  return <MessageStatusTicks status={resolved} className={cn('shrink-0', className)} />;
 }

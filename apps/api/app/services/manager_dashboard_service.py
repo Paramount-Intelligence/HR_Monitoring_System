@@ -8,6 +8,14 @@ from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.time_utils import ensure_pk_datetime, pk_day_start, pk_now, pk_today
+from app.services.admin_user_management_service import roster_statuses_for_users
+from app.services.shift_window_service import (
+    current_shift_sessions_for_users,
+    get_shift_window_for_business_date,
+    resolve_current_shift_business_date,
+    sessions_for_business_date,
+    shift_window_to_utc,
+)
 from app.models.attendance_correction import AttendanceCorrection
 from app.models.attendance_session import AttendanceSession
 from app.models.eod_report import EODReport
@@ -112,18 +120,8 @@ class ManagerDashboardService:
     def _member_ids(self, actor: User) -> list:
         return [m.id for m in self._team_members(actor)]
 
-    def _today_sessions_map(self, member_ids: list, today_start) -> dict:
-        if not member_ids:
-            return {}
-        sessions = (
-            self.db.query(AttendanceSession)
-            .filter(
-                AttendanceSession.user_id.in_(member_ids),
-                AttendanceSession.check_in_at >= today_start,
-            )
-            .all()
-        )
-        return {s.user_id: s for s in sessions}
+    def _today_sessions_map(self, team: list[User]) -> dict:
+        return current_shift_sessions_for_users(self.db, team)
 
     def _task_counts_by_user(self, member_ids: list) -> dict:
         if not member_ids:
@@ -171,9 +169,8 @@ class ManagerDashboardService:
     def overview(self, actor: User) -> ManagerOverviewDashboard:
         team = self._team_members(actor)
         member_ids = [m.id for m in team]
-        today_start = pk_day_start()
         today = pk_today()
-        session_map = self._today_sessions_map(member_ids, today_start)
+        session_map = self._today_sessions_map(team)
 
         present = sum(1 for uid in member_ids if uid in session_map)
         late = sum(
@@ -255,21 +252,9 @@ class ManagerDashboardService:
         attendance_trend = []
         for i in range(6, -1, -1):
             target_date = pk_today() - timedelta(days=i)
-            target_start = pk_day_start(target_date)
-            target_end = target_start + timedelta(days=1)
-            sessions = (
-                self.db.query(AttendanceSession)
-                .filter(
-                    AttendanceSession.user_id.in_(member_ids),
-                    AttendanceSession.check_in_at >= target_start,
-                    AttendanceSession.check_in_at < target_end,
-                )
-                .all()
-                if member_ids
-                else []
-            )
-            checked = len(sessions)
-            late_count = sum(1 for s in sessions if s.is_late_login)
+            day_sessions = sessions_for_business_date(self.db, target_date, team) if team else {}
+            checked = len(day_sessions)
+            late_count = sum(1 for s in day_sessions.values() if s.is_late_login)
             absent = max(0, len(team) - checked)
             attendance_trend.append(
                 AdminAnalyticsAttendanceTrend(
@@ -428,8 +413,7 @@ class ManagerDashboardService:
     def team_analytics(self, actor: User) -> ManagerTeamAnalyticsDashboard:
         team = self._team_members(actor)
         member_ids = [m.id for m in team]
-        today_start = pk_day_start()
-        session_map = self._today_sessions_map(member_ids, today_start)
+        session_map, roster_statuses = roster_statuses_for_users(self.db, team)
         task_counts = self._task_counts_by_user(member_ids)
         logged_hours = self._logged_hours_by_user(member_ids)
 
@@ -497,9 +481,7 @@ class ManagerDashboardService:
         roster: list[EmployeeRosterItem] = []
         for m in team:
             sess = session_map.get(m.id)
-            today_att = "Present" if sess else "Absent"
-            if sess and sess.is_late_login:
-                today_att = "Late"
+            today_att = roster_statuses.get(m.id, "Absent")
             tc = task_counts.get(m.id, {})
             roster.append(
                 EmployeeRosterItem(

@@ -37,6 +37,15 @@ export const usersApi = {
     return response.data;
   },
 
+  updateMyPresence: async (presence_status: 'active' | 'away') => {
+    const response = await apiClient.patch<{
+      presence_status: 'active' | 'away';
+      presence_updated_at: string | null;
+      last_seen_at: string | null;
+    }>('/users/me/presence', { presence_status });
+    return response.data;
+  },
+
   createUser: async (data: Partial<User>) => {
     const response = await apiClient.post<User>('/users', data);
     return response.data;
