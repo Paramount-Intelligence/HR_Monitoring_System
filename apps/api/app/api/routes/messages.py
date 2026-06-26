@@ -8,7 +8,7 @@ from sqlalchemy import and_, or_, func, cast, String
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.deps import get_current_user, get_db
-from app.models.enums import ConversationType, ConversationParticipantRole, MessageType, NotificationType, UserRole
+from app.models.enums import ConversationType, ConversationParticipantRole, MessageType, NotificationType, UserRole, UserStatus
 from app.models.user import User
 from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction, MessageAttachment, CallSession, CallParticipant, CallSignal
 from app.models.task import Task
@@ -37,6 +37,10 @@ from app.schemas.communication import (
     ContextThreadCreate,
     UserMinimal,
     AddParticipantsRequest,
+    AddParticipantsResponse,
+    AddedParticipantSummary,
+    AvailableMembersResponse,
+    AvailableConversationMemberRead,
     UpdateParticipantRoleRequest,
     ConversationSettingsUpdate,
     ConversationParticipantRead,
@@ -55,6 +59,58 @@ from app.schemas.communication import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+PLATFORM_PARTICIPANT_MANAGERS = frozenset(
+    {UserRole.ADMIN, UserRole.HR_OPERATIONS, UserRole.MANAGER}
+)
+_CONVERSATION_ADMIN_ROLES = {
+    ConversationParticipantRole.OWNER,
+    ConversationParticipantRole.ADMIN,
+}
+
+
+def _can_manage_participants(
+    conv: Conversation,
+    caller_part: ConversationParticipant | None,
+    current_user: User,
+) -> bool:
+    if conv.type == ConversationType.DIRECT:
+        return False
+    if current_user.role in PLATFORM_PARTICIPANT_MANAGERS:
+        return True
+    if caller_part and caller_part.role in _CONVERSATION_ADMIN_ROLES:
+        return True
+    return conv.who_can_add_members == "all_members"
+
+
+def _require_participant_manage_access(
+    db: Session,
+    conversation_id: uuid.UUID,
+    current_user: User,
+) -> tuple[Conversation, ConversationParticipant]:
+    conv = db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    if conv.type == ConversationType.DIRECT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot add participants to a direct conversation",
+        )
+
+    caller_part = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not caller_part:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a participant.")
+
+    if not _can_manage_participants(conv, caller_part, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only group/channel admins can add members.",
+        )
+
+    return conv, caller_part
 
 
 def _populate_conversation_read(
@@ -1161,7 +1217,7 @@ def _notify_user(db: Session, user_id: uuid.UUID, title: str, message: str, conv
 
 @router.post(
     "/conversations/{conversation_id}/participants",
-    response_model=list[ConversationParticipantRead],
+    response_model=AddParticipantsResponse,
     status_code=status.HTTP_200_OK,
 )
 def add_participants(
@@ -1169,40 +1225,10 @@ def add_participants(
     payload: AddParticipantsRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[ConversationParticipant]:
-    """Add members to an existing group or channel conversation."""
-    conv = db.get(Conversation, conversation_id)
-    if not conv:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+) -> AddParticipantsResponse:
+    """Add members to an existing group, channel, or thread conversation."""
+    conv, _caller_part = _require_participant_manage_access(db, conversation_id, current_user)
 
-    # Only groups and channels support adding members
-    if conv.type == ConversationType.DIRECT:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot add members to a direct message. Create a group instead.",
-        )
-
-    # Caller must be a participant
-    caller_part = db.query(ConversationParticipant).filter_by(
-        conversation_id=conversation_id, user_id=current_user.id
-    ).first()
-    if not caller_part:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a participant.")
-
-    admin_roles = {ConversationParticipantRole.OWNER, ConversationParticipantRole.ADMIN}
-
-    # Check add-member permission
-    can_add = (
-        caller_part.role in admin_roles
-        or conv.who_can_add_members == "all_members"
-    )
-    if not can_add:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only group/channel admins can add members.",
-        )
-
-    # Existing participant user_ids
     existing_ids = {
         p.user_id
         for p in db.query(ConversationParticipant)
@@ -1211,39 +1237,159 @@ def add_participants(
     }
 
     conv_title = conv.title or "the conversation"
-    added = []
+    added: list[tuple[ConversationParticipant, User]] = []
+    now = datetime.now(timezone.utc)
+
     for uid in payload.user_ids:
         if uid in existing_ids:
-            continue  # Skip duplicates silently
+            continue
         target_user = db.get(User, uid)
-        if not target_user or target_user.status in ["inactive", "suspended"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"User {uid} is not active or does not exist.",
-            )
+        if not target_user or target_user.status != UserStatus.ACTIVE:
+            continue
         new_part = ConversationParticipant(
             conversation_id=conversation_id,
             user_id=uid,
             role=ConversationParticipantRole.MEMBER,
-            last_read_at=datetime.now(timezone.utc),
+            last_read_at=now,
         )
         db.add(new_part)
-        added.append(uid)
+        added.append((new_part, target_user))
+        existing_ids.add(uid)
+
+    if added:
+        names = ", ".join(user.full_name for _part, user in added)
+        system_body = f"{current_user.full_name} added {names} to {conv_title}"
+        db.add(
+            Message(
+                id=uuid.uuid4(),
+                conversation_id=conversation_id,
+                sender_id=current_user.id,
+                body=system_body,
+                message_type=MessageType.SYSTEM,
+                is_edited=False,
+                is_deleted=False,
+                created_at=now,
+                updated_at=now,
+            )
+        )
 
     db.commit()
 
-    # Notify newly added users
-    for uid in added:
+    added_user_ids = [user.id for _part, user in added]
+    for uid in added_user_ids:
         _notify_user(
-            db, uid,
+            db,
+            uid,
             title=f"You were added to {conv_title}",
             message=f"{current_user.full_name} added you to {conv_title}.",
             conv_id=conversation_id,
         )
-    if added:
+    if added_user_ids:
         db.commit()
 
-    return _get_participant_list(db, conversation_id)
+    participant_summaries = [
+        AddedParticipantSummary(
+            user_id=user.id,
+            name=user.full_name,
+            email=user.email,
+            role=ConversationParticipantRole.MEMBER.value,
+            presence_status=getattr(user, "presence_status", None) or "active",
+            avatar_url=user.avatar_url,
+        )
+        for _part, user in added
+    ]
+
+    if participant_summaries:
+        try:
+            RealtimeService.emit_conversation_participants_added(
+                db,
+                conversation_id,
+                added_by_id=current_user.id,
+                added_by_name=current_user.full_name,
+                participants=[
+                    {
+                        "user_id": str(item.user_id),
+                        "name": item.name,
+                        "email": item.email,
+                        "role": item.role,
+                        "presence_status": item.presence_status,
+                    }
+                    for item in participant_summaries
+                ],
+            )
+            RealtimeService.emit_conversation_updated(db, conversation_id)
+        except Exception:
+            logger.exception("Failed to emit participants-added realtime event")
+
+    return AddParticipantsResponse(
+        conversation_id=conversation_id,
+        added_count=len(participant_summaries),
+        participants=participant_summaries,
+    )
+
+
+@router.get(
+    "/conversations/{conversation_id}/available-members",
+    response_model=AvailableMembersResponse,
+)
+def get_available_conversation_members(
+    conversation_id: uuid.UUID,
+    search: str | None = Query(None, max_length=120),
+    limit: int = Query(20, ge=1, le=50),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AvailableMembersResponse:
+    """Search active users who can be added to a conversation."""
+    _conv, _caller_part = _require_participant_manage_access(db, conversation_id, current_user)
+
+    from app.services.directory_service import DirectoryService
+
+    existing_ids = {
+        p.user_id
+        for p in db.query(ConversationParticipant)
+        .filter_by(conversation_id=conversation_id)
+        .all()
+    }
+
+    query = db.query(User).filter(User.status == UserStatus.ACTIVE)
+    if existing_ids:
+        query = query.filter(~User.id.in_(existing_ids))
+
+    if current_user.role not in PLATFORM_PARTICIPANT_MANAGERS:
+        allowed_ids = DirectoryService(db).get_messageable_user_ids(current_user)
+        allowed_ids -= existing_ids
+        if not allowed_ids:
+            return AvailableMembersResponse(users=[])
+        query = query.filter(User.id.in_(allowed_ids))
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                User.full_name.ilike(term),
+                User.email.ilike(term),
+                cast(User.role, String).ilike(term),
+                User.department.ilike(term),
+                User.designation.ilike(term),
+            )
+        )
+
+    users = query.order_by(User.full_name.asc()).limit(limit).all()
+    return AvailableMembersResponse(
+        users=[
+            AvailableConversationMemberRead(
+                id=user.id,
+                name=user.full_name,
+                email=user.email,
+                role=str(user.role.value if hasattr(user.role, "value") else user.role),
+                department=user.department,
+                designation=user.designation,
+                avatar_url=user.avatar_url,
+                presence_status=getattr(user, "presence_status", None) or "active",
+            )
+            for user in users
+        ]
+    )
 
 
 @router.delete(

@@ -1,5 +1,6 @@
 import type { Notification } from '@/lib/api/notifications';
 import type { NotificationPreferences } from './notification-preferences';
+import { organizationTabHref } from '@/lib/navigation/organization-nav';
 
 function parseTime(value: string | null | undefined): { hours: number; minutes: number } | null {
   if (!value) return null;
@@ -116,7 +117,7 @@ export function getNotificationRoute(notification: Notification): string {
     return '/help-support';
   }
   if (notification.related_entity_type === 'task') return '/admin/tasks';
-  if (notification.related_entity_type === 'announcement') return '/admin/announcements';
+  if (notification.related_entity_type === 'announcement') return organizationTabHref('announcements');
   if (notification.related_entity_type === 'leave_request') return '/leaves';
   return '/';
 }

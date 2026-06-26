@@ -13,6 +13,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
+import { organizationTabHref } from '@/lib/navigation/organization-nav';
 import { safeArray, safeNumber } from '@/lib/admin-dashboard/utils';
 
 const CHART_COLORS = ['#1E66C1', '#38BDF8', '#047857', '#B45309', '#B91C1C', '#607A99'];
@@ -41,7 +42,7 @@ export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabPr
 
   const quickActions = [
     { label: 'Add User', href: '/admin/users', icon: UserPlus, color: 'text-emerald-600' },
-    { label: 'Announcement', href: '/admin/announcements', icon: Megaphone, color: 'text-blue-600' },
+    { label: 'Announcement', href: organizationTabHref('announcements'), icon: Megaphone, color: 'text-blue-600' },
     { label: 'Create Meeting', href: '/calendar', icon: Video, color: 'text-purple-600' },
     { label: 'Assign Task', href: '/admin/tasks', icon: ClipboardPlus, color: 'text-orange-600' },
   ];
@@ -221,8 +222,8 @@ export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabPr
 
       <DashboardOverviewUpdatesSection
         limit={5}
-        announcementsViewAllHref="/admin/announcements"
-        holidaysViewAllHref="/admin/holidays"
+        announcementsViewAllHref={organizationTabHref('announcements')}
+        holidaysViewAllHref={organizationTabHref('holidays')}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import { DashboardOverviewUpdatesSection } from '@/components/dashboard/Dashboar
 import { dashboardApi } from '@/lib/api/dashboard';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/api/client';
+import { organizationTabHref } from '@/lib/navigation/organization-nav';
 
 export default function HRDashboardPage() {
   const { user } = useAuth();
@@ -84,8 +85,8 @@ export default function HRDashboardPage() {
 
       <DashboardOverviewUpdatesSection
         limit={5}
-        announcementsViewAllHref="/admin/announcements"
-        holidaysViewAllHref="/admin/holidays"
+        announcementsViewAllHref={organizationTabHref('announcements')}
+        holidaysViewAllHref={organizationTabHref('holidays')}
       />
 
       <div className="grid gap-8 md:grid-cols-3">

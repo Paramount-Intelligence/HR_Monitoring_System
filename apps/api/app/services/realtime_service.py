@@ -389,6 +389,30 @@ class RealtimeService:
         )
 
     @staticmethod
+    def emit_conversation_participants_added(
+        db: Session,
+        conversation_id: uuid.UUID,
+        *,
+        added_by_id: uuid.UUID,
+        added_by_name: str,
+        participants: list[dict[str, Any]],
+    ) -> None:
+        payload = {
+            "conversation_id": str(conversation_id),
+            "added_by": {"id": str(added_by_id), "name": added_by_name},
+            "participants": participants,
+        }
+        event = RealtimeService.event(
+            "conversation_participants_added",
+            payload,
+            actor_id=added_by_id,
+            conversation_id=conversation_id,
+            entity_type="conversation",
+            entity_id=conversation_id,
+        )
+        RealtimeService.emit_to_conversation_participants(db, conversation_id, event)
+
+    @staticmethod
     def emit_announcement(
         event_type: str,
         *,

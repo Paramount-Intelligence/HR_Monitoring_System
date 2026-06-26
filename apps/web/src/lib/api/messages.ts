@@ -192,6 +192,36 @@ export interface AddParticipantsParams {
   user_ids: string[];
 }
 
+export interface AddedParticipantSummary {
+  user_id: string;
+  name: string;
+  email: string;
+  role: string;
+  presence_status?: string | null;
+  avatar_url?: string | null;
+}
+
+export interface AddParticipantsResponse {
+  conversation_id: string;
+  added_count: number;
+  participants: AddedParticipantSummary[];
+}
+
+export interface AvailableConversationMember {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department?: string | null;
+  designation?: string | null;
+  avatar_url?: string | null;
+  presence_status?: string | null;
+}
+
+export interface AvailableMembersResponse {
+  users: AvailableConversationMember[];
+}
+
 export interface UpdateParticipantRoleParams {
   role: ConversationParticipantRole;
 }
@@ -342,10 +372,21 @@ export const messagesApi = {
   addConversationParticipants: async (
     conversationId: string,
     userIds: string[]
-  ): Promise<ConversationParticipant[]> => {
-    const response = await apiClient.post<ConversationParticipant[]>(
+  ): Promise<AddParticipantsResponse> => {
+    const response = await apiClient.post<AddParticipantsResponse>(
       `/messages/conversations/${conversationId}/participants`,
       { user_ids: userIds }
+    );
+    return response.data;
+  },
+
+  getAvailableConversationMembers: async (
+    conversationId: string,
+    search?: string
+  ): Promise<AvailableMembersResponse> => {
+    const response = await apiClient.get<AvailableMembersResponse>(
+      `/messages/conversations/${conversationId}/available-members`,
+      { params: search ? { search } : undefined }
     );
     return response.data;
   },

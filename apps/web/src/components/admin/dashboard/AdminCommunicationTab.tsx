@@ -10,6 +10,7 @@ import { LiveCalendar } from '@/components/calendar/LiveCalendar';
 import { Meeting } from '@/lib/api/meetings';
 import { safeArray, safeNumber } from '@/lib/admin-dashboard/utils';
 import { CommunicationAnalyticsData } from '@/lib/admin-dashboard/types';
+import { organizationTabHref } from '@/lib/navigation/organization-nav';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -83,7 +84,7 @@ export function AdminCommunicationTab({
           Create Meeting
         </Link>
         <Link
-          href="/admin/announcements"
+          href={organizationTabHref('announcements')}
           className="flex items-center justify-center rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3 text-xs font-black text-[var(--accent-primary)] hover:shadow-md transition-all min-h-[44px]"
         >
           Send Announcement

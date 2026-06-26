@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { OrganizationTabs, OrganizationTabId } from '@/components/admin/organization/OrganizationTabs';
 import { OrganizationDepartmentsTab } from '@/components/admin/organization/OrganizationDepartmentsTab';
@@ -14,13 +15,17 @@ import { announcementsApi, Announcement } from '@/lib/api/announcements';
 import { usersApi } from '@/lib/api/users';
 import { getErrorMessage } from '@/lib/api/client';
 import { Shift } from '@/types';
+import { parseOrganizationTab } from '@/lib/navigation/organization-nav';
 
 type TabState<T> = { data: T; loading: boolean; error: string | null };
 
 const initialTabState = <T,>(): TabState<T> => ({ data: [] as unknown as T, loading: true, error: null });
 
 export default function AdminOrgPage() {
-  const [activeTab, setActiveTab] = useState<OrganizationTabId>('departments');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = parseOrganizationTab(searchParams.get('tab'));
+  const [activeTab, setActiveTab] = useState<OrganizationTabId>(tabFromUrl ?? 'departments');
   const [users, setUsers] = useState<Record<string, unknown>[]>([]);
 
   const [deptState, setDeptState] = useState<TabState<Department[]>>(initialTabState());
@@ -78,6 +83,20 @@ export default function AdminOrgPage() {
   }, []);
 
   useEffect(() => {
+    if (tabFromUrl && tabFromUrl !== activeTab) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl, activeTab]);
+
+  const handleTabChange = useCallback(
+    (tab: OrganizationTabId) => {
+      setActiveTab(tab);
+      router.replace(`/admin/organization?tab=${tab}`, { scroll: false });
+    },
+    [router]
+  );
+
+  useEffect(() => {
     loadUsers();
     loadDepartments();
   }, [loadUsers, loadDepartments]);
@@ -101,7 +120,7 @@ export default function AdminOrgPage() {
         </p>
       </div>
 
-      <OrganizationTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <OrganizationTabs activeTab={activeTab} onTabChange={handleTabChange} />
 
       <div className="pt-2">
         {activeTab === 'departments' && (

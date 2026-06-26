@@ -238,6 +238,36 @@ class AddParticipantsRequest(BaseModel):
     user_ids: list[UUID] = Field(..., min_length=1)
 
 
+class AddedParticipantSummary(BaseModel):
+    user_id: UUID
+    name: str
+    email: str
+    role: str
+    presence_status: str | None = None
+    avatar_url: str | None = None
+
+
+class AddParticipantsResponse(BaseModel):
+    conversation_id: UUID
+    added_count: int
+    participants: list[AddedParticipantSummary]
+
+
+class AvailableConversationMemberRead(BaseModel):
+    id: UUID
+    name: str
+    email: str
+    role: str
+    department: str | None = None
+    designation: str | None = None
+    avatar_url: str | None = None
+    presence_status: str | None = None
+
+
+class AvailableMembersResponse(BaseModel):
+    users: list[AvailableConversationMemberRead]
+
+
 class UpdateParticipantRoleRequest(BaseModel):
     role: ConversationParticipantRole = Field(
         ...,

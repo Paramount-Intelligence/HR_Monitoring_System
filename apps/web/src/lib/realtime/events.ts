@@ -8,6 +8,7 @@ export type RealtimeEventType =
   | 'message_delivered'
   | 'message_seen'
   | 'conversation_updated'
+  | 'conversation_participants_added'
   | 'notification_created'
   | 'notification_read'
   | 'notifications_count_updated'

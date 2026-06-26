@@ -89,6 +89,9 @@ import {
   type ConversationLoadError,
 } from '@/components/messages/messages-utils';
 import { StartConversationModal } from '@/components/messages/StartConversationModal';
+import { AddConversationMemberModal } from '@/components/messages/AddConversationMemberModal';
+import { canManageConversationParticipants } from '@/components/messages/conversation-participants-utils';
+import { toast } from 'sonner';
 import { VoiceMessageRecorder } from '@/components/messages/VoiceMessageRecorder';
 import { VoiceMessageBubble } from '@/components/messages/VoiceMessageBubble';
 import { isVoiceNoteAttachment, isVoiceNoteMessage } from '@/lib/messages/voice-messages';
@@ -297,6 +300,7 @@ function MessagesContent() {
 
   // ─── Manage Members Modal state ──────────────────────────────────────────
   const [showManageModal, setShowManageModal] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [addMemberSelection, setAddMemberSelection] = useState<string[]>([]);
   const [isAddingMembers, setIsAddingMembers] = useState(false);
@@ -320,9 +324,12 @@ function MessagesContent() {
   const isMeAdminOrOwner = isAdminOrOwner(myRole);
   const canISend = canSend(activeConv, myRole);
   const sendRestrictionMsg = sendBlockedReason(activeConv, myRole);
-  const canIAddMembers = isMeAdminOrOwner || activeConv?.who_can_add_members === 'all_members';
+  const canIAddMembers = canManageConversationParticipants(activeConv, user?.role, myRole);
   const canIManageSettings = isMeAdminOrOwner;
-  const isGroupOrChannel = activeConv?.type === 'group' || activeConv?.type === 'channel';
+  const isGroupOrChannel =
+    activeConv?.type === 'group' ||
+    activeConv?.type === 'channel' ||
+    (activeConv?.type?.endsWith('_thread') ?? false);
 
   const {
     handleStartCall,
@@ -671,6 +678,69 @@ function MessagesContent() {
     }).catch(() => {});
   });
 
+  useRealtimeEvent('conversation_participants_added', (ev) => {
+    const convId = String(ev.payload.conversation_id || ev.conversation_id || '');
+    if (!convId) return;
+
+    const addedParticipants = Array.isArray(ev.payload.participants)
+      ? (ev.payload.participants as Array<{
+          user_id: string;
+          name: string;
+          email?: string;
+          role?: string;
+          presence_status?: string;
+          avatar_url?: string | null;
+        }>)
+      : [];
+
+    const currentUserAdded = addedParticipants.some((p) => p.user_id === user?.id);
+
+    if (currentUserAdded) {
+      messagesApi.getConversations().then((data) => {
+        hydratePresenceFromConversations(data);
+        setConversations(data);
+      }).catch(() => {});
+      return;
+    }
+
+    if (convId !== latestSelectedConvId.current) {
+      messagesApi.getConversations().then((data) => {
+        hydratePresenceFromConversations(data);
+        setConversations(data);
+      }).catch(() => {});
+      return;
+    }
+
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id !== convId) return conv;
+        const existingIds = new Set(conv.participants.map((p) => p.user_id));
+        const newParticipants = addedParticipants
+          .filter((p) => !existingIds.has(p.user_id))
+          .map((p, index) => ({
+            id: `rt-${p.user_id}-${index}`,
+            conversation_id: convId,
+            user_id: p.user_id,
+            role: (p.role as ConversationParticipantRole) || 'member',
+            last_read_at: null,
+            is_muted: false,
+            joined_at: new Date().toISOString(),
+            left_at: null,
+            user: {
+              id: p.user_id,
+              full_name: p.name,
+              email: p.email || '',
+              role: p.role || 'member',
+              avatar_url: p.avatar_url ?? null,
+              presence_status: (p.presence_status as 'active' | 'away') || 'active',
+            },
+          }));
+        if (newParticipants.length === 0) return conv;
+        return { ...conv, participants: [...conv.participants, ...newParticipants] };
+      })
+    );
+  });
+
   useRealtimeReconnect(() => {
     pollUpdates();
   });
@@ -854,12 +924,22 @@ function MessagesContent() {
     if (!activeConv || addMemberSelection.length === 0) return;
     try {
       setIsAddingMembers(true); setManageError(null);
-      await messagesApi.addConversationParticipants(activeConv.id, addMemberSelection);
-      setManageSuccess('Members added successfully.');
+      const result = await messagesApi.addConversationParticipants(activeConv.id, addMemberSelection);
+      if (result.added_count > 0) {
+        setManageSuccess('Members added successfully.');
+        toast.success('Members added');
+      } else {
+        setManageSuccess('Selected users are already members.');
+      }
       setAddMemberSelection([]);
       await refreshActiveConv();
     } catch (err) { setManageError(getErrorMessage(err)); }
     finally { setIsAddingMembers(false); }
+  };
+
+  const handleAddMembersFromDetails = async () => {
+    await refreshActiveConv();
+    toast.success('Members added');
   };
 
   const handleRemoveMember = async (userId: string) => {
@@ -1299,9 +1379,33 @@ function MessagesContent() {
                   )}
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
-                    Participants ({activeConv.participants.length})
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                      Participants ({activeConv.participants.length})
+                    </p>
+                    {canIAddMembers && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 px-2.5 text-[10px] font-bold uppercase gap-1.5 rounded-lg"
+                        onClick={() => setShowAddMemberModal(true)}
+                      >
+                        <UserPlus className="h-3.5 w-3.5" />
+                        Add Member
+                      </Button>
+                    )}
+                  </div>
+                  {activeConv.type === 'direct' && (
+                    <p className="text-[10px] text-[var(--text-muted)] mb-2">
+                      Direct chats cannot have additional members. Create a group to include more people.
+                    </p>
+                  )}
+                  {activeConv.participants.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-[var(--border-subtle)] p-4 text-center text-xs text-[var(--text-muted)]">
+                      No participants yet.
+                    </div>
+                  ) : (
                   <div className="space-y-2">
                     {activeConv.participants.map((p) => (
                       <div key={p.id} className="flex items-center gap-3 p-2 rounded-lg border border-[var(--border-subtle)]">
@@ -1316,6 +1420,7 @@ function MessagesContent() {
                       </div>
                     ))}
                   </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1348,6 +1453,15 @@ function MessagesContent() {
         onCreated={handleCreateConversationSuccess}
         getConvIcon={getConvIcon}
       />
+
+      {activeConv && (
+        <AddConversationMemberModal
+          open={showAddMemberModal}
+          conversationId={activeConv.id}
+          onClose={() => setShowAddMemberModal(false)}
+          onAdded={handleAddMembersFromDetails}
+        />
+      )}
 
       {/* ═══ Manage Members Modal ═══ */}
       {showManageModal && activeConv && (

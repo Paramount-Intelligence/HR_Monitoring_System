@@ -7,46 +7,14 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { canFetchProtectedData } from '@/lib/auth/session';
 import { logProtectedFetchError } from '@/lib/api/fetch-errors';
-import { 
-  LayoutDashboard, 
-  Clock, 
-  Briefcase, 
-  CheckSquare, 
-  ClipboardCheck, 
-  Users, 
-  Activity, 
-  Bell, 
-  ShieldCheck, 
-  BarChart3,
-  X,
-  LogOut,
-  Calendar,
-  Award,
-  TrendingUp,
-  Building,
-  Megaphone,
-  Palmtree,
-  Shield,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Settings,
-  HelpCircle,
-  MessageSquare,
-} from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getSidebarNavItems, isSidebarNavItemActive } from '@/lib/navigation/sidebar-nav';
 import { Button } from '@/components/ui/button';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { messagesApi } from '@/lib/api/messages';
 import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
-
-interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ElementType;
-  permission?: string;
-}
 
 interface SidebarProps {
   isOpen: boolean;
@@ -107,89 +75,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     junior_employee: { label: 'Junior', color: 'bg-[var(--bg-subtle)] text-[var(--text-secondary)] border-[var(--border-default)]' },
   };
 
-  const getNavLinks = (): NavItem[] => {
-    let baseLinks: NavItem[] = [];
-    switch (role) {
-      case 'employee':
-      case 'intern':
-      case 'junior_employee':
-        baseLinks = [
-          { title: 'Dashboard', href: '/employee/dashboard', icon: LayoutDashboard },
-          { title: 'Attendance', href: '/employee/attendance', icon: Clock },
-          { title: 'Projects', href: '/employee/projects', icon: Briefcase, permission: 'projects.create' },
-          { title: 'Tasks', href: '/employee/tasks', icon: CheckSquare },
-          { title: 'Time Logs', href: '/employee/time-logs', icon: Activity },
-          { title: 'My EOD', href: '/employee/eod', icon: ShieldCheck },
-          { title: 'Leaves', href: '/employee/leaves', icon: Palmtree },
-          { title: 'My Growth', href: '/employee/growth', icon: Award },
-        ];
-        break;
-      case 'team_lead':
-        baseLinks = [
-          { title: 'Dashboard', href: '/team-lead/dashboard', icon: LayoutDashboard },
-          { title: 'My Attendance', href: '/employee/attendance', icon: Clock },
-          { title: 'My Tasks', href: '/employee/tasks', icon: CheckSquare },
-          { title: 'Team Tasks', href: '/manager/tasks', icon: CheckSquare, permission: 'tasks.view_team' },
-          { title: 'My EOD', href: '/employee/eod', icon: ShieldCheck },
-          { title: 'Leaves', href: '/employee/leaves', icon: Palmtree },
-          { title: 'My Growth', href: '/employee/growth', icon: Award },
-        ];
-        break;
-      case 'manager':
-        baseLinks = [
-          { title: 'Dashboard', href: '/manager/dashboard', icon: LayoutDashboard },
-          { title: 'Team Members', href: '/manager/team', icon: Users },
-          { title: 'Projects', href: '/manager/projects', icon: Briefcase },
-          { title: 'Tasks', href: '/manager/tasks', icon: CheckSquare },
-          { title: 'Reports', href: '/manager/reports', icon: BarChart3 },
-          { title: 'Settings', href: '/profile', icon: Settings },
-          { title: 'My Attendance', href: '/manager/my-attendance', icon: Clock },
-          { title: 'My Tasks', href: '/manager/my-tasks', icon: CheckSquare },
-          { title: 'Approvals', href: '/manager/approvals', icon: ClipboardCheck },
-          { title: 'My EOD', href: '/manager/eod', icon: ShieldCheck },
-          { title: 'EOD Reviews', href: '/manager/eod-reviews', icon: Activity },
-        ];
-        break;
-      case 'hr_operations':
-        baseLinks = [
-          { title: 'HR Dashboard', href: '/hr/dashboard', icon: LayoutDashboard },
-          { title: 'All Users', href: '/admin/users', icon: Users },
-          { title: 'Attendance & Leaves', href: '/manager/approvals', icon: Clock },
-          { title: 'Organization', href: '/admin/organization', icon: Building },
-          { title: 'Holidays', href: '/admin/holidays', icon: Calendar },
-          { title: 'Announcements', href: '/admin/announcements', icon: Megaphone },
-          { title: 'Reports', href: '/admin/reports', icon: FileText },
-          { title: 'Alerts', href: '/admin/alerts', icon: Bell },
-        ];
-        break;
-      case 'admin':
-        baseLinks = [
-          { title: 'Org Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-          { title: 'Users & Teams', href: '/admin/users', icon: Users },
-          { title: 'All Projects', href: '/admin/projects', icon: Briefcase },
-          { title: 'Tasks', href: '/admin/tasks', icon: CheckSquare },
-          { title: 'Organization', href: '/admin/organization', icon: Building },
-          { title: 'Holidays', href: '/admin/holidays', icon: Calendar },
-          { title: 'Announcements', href: '/admin/announcements', icon: Megaphone },
-          { title: 'Permissions', href: '/admin/permissions', icon: Shield },
-          { title: 'EOD Reviews', href: '/admin/eod-reviews', icon: Activity },
-          { title: 'Reports', href: '/admin/reports', icon: FileText },
-          { title: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
-          { title: 'Call Recordings', href: '/admin/call-recordings', icon: Activity, permission: 'call_recordings.view' },
-          { title: 'Alerts', href: '/admin/alerts', icon: Bell },
-        ];
-        break;
-      default:
-        break;
-    }
-
-    return [
-      ...baseLinks,
-      { title: 'Messages', href: '/messages', icon: MessageSquare },
-      { title: 'Calendar', href: '/calendar', icon: Calendar },
-      { title: 'Help & Support', href: '/help-support', icon: HelpCircle },
-    ];
-  };
+  const getNavLinks = () => getSidebarNavItems(role);
 
   const navLinks = getNavLinks().filter(item => 
     !item.permission || hasPermission(item.permission)
@@ -232,7 +118,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className="flex-1 overflow-y-auto py-4 px-3 custom-scrollbar">
         <nav className="space-y-0.5">
           {navLinks.map((item) => {
-            const isActive = pathname?.startsWith(item.href);
+            const isActive = isSidebarNavItemActive(pathname, item);
             const Icon = item.icon;
             return (
               <Link
