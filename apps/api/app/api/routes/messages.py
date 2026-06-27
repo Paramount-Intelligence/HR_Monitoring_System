@@ -155,6 +155,23 @@ def _populate_conversation_read(
     return conv
 
 
+def _enrich_conversation_read(db: Session, conv: Conversation) -> ConversationRead:
+    """Attach live online state to participant user summaries."""
+    from app.services.user_online_enricher import UserOnlineEnricher
+
+    read = ConversationRead.model_validate(conv)
+    if not read.participants:
+        return read
+    user_ids = [part.user_id for part in read.participants]
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    minimal_map = UserOnlineEnricher(db).enrich_user_minimals(users)
+    parts = []
+    for part in read.participants:
+        enriched = minimal_map.get(part.user_id)
+        parts.append(part.model_copy(update={"user": enriched}) if enriched else part)
+    return read.model_copy(update={"participants": parts})
+
+
 def check_thread_access(db: Session, user: User, relation_type: str, relation_id: uuid.UUID) -> bool:
     """Helper to verify context thread access based on user's role and relations."""
     # Admins and HR have broad access to context threads
@@ -447,7 +464,7 @@ def get_conversations(
 
         results.append(conv)
 
-    return results
+    return [_enrich_conversation_read(db, conv) for conv in results]
 
 
 @router.post("/conversations", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)
@@ -552,7 +569,8 @@ def get_conversation(
         )
 
     # Populate fields
-    return _populate_conversation_read(conv, db, current_user)
+    populated = _populate_conversation_read(conv, db, current_user)
+    return _enrich_conversation_read(db, populated)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])

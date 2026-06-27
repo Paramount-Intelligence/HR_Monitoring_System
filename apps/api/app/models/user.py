@@ -55,6 +55,8 @@ class User(Base, TimestampMixin):
         DateTime(timezone=True), nullable=True, default=None
     )
 
+    presence_sessions = relationship("UserPresenceSession", back_populates="user", cascade="all, delete-orphan")
+
     # Relationships
     manager = relationship("User", remote_side=[id], foreign_keys=[manager_id])
     shift = relationship("Shift", foreign_keys=[shift_id])

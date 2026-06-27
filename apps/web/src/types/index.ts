@@ -23,6 +23,8 @@ export interface User {
   presence_status?: 'active' | 'away';
   presence_updated_at?: string | null;
   last_seen_at?: string | null;
+  online_state?: 'online' | 'offline';
+  is_online?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +42,8 @@ export interface TokenUser {
   presence_status?: 'active' | 'away';
   presence_updated_at?: string | null;
   last_seen_at?: string | null;
+  online_state?: 'online' | 'offline';
+  is_online?: boolean;
 }
 
 export interface AuthResponse {

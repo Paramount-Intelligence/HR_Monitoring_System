@@ -303,10 +303,13 @@ def serialize_message(db: Session, msg: Message, viewer_id: uuid.UUID) -> Messag
     if not msg.is_deleted and msg.attachments:
         attachments = [MessageAttachmentRead.model_validate(a) for a in msg.attachments]
 
-    sender = UserMinimal.model_validate(msg.sender) if msg.sender else None
-    if not sender:
-        sender_user = db.get(User, msg.sender_id)
-        sender = UserMinimal.model_validate(sender_user) if sender_user else UserMinimal(
+    sender_user = msg.sender or db.get(User, msg.sender_id)
+    if sender_user:
+        from app.services.user_online_enricher import UserOnlineEnricher
+
+        sender = UserOnlineEnricher(db).enrich_user_minimal(sender_user)
+    else:
+        sender = UserMinimal(
             id=msg.sender_id,
             full_name="Unknown",
             email="",

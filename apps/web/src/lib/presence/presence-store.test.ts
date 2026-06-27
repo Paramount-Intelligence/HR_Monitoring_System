@@ -21,4 +21,19 @@ describe('presence store', () => {
     setUserPresence('user-2', { presence_status: 'away' });
     assert.equal(getUserPresence('user-2')?.presence_status, 'away');
   });
+
+  it('preserves away status when online state updates', () => {
+    hydrateUserPresence('user-3', {
+      presence_status: 'away',
+      online_state: 'online',
+      is_online: true,
+    });
+    setUserPresence('user-3', {
+      online_state: 'online',
+      is_online: true,
+      last_seen_at: '2026-06-09T12:00:00.000Z',
+    });
+    assert.equal(getUserPresence('user-3')?.presence_status, 'away');
+    assert.equal(getUserPresence('user-3')?.online_state, 'online');
+  });
 });

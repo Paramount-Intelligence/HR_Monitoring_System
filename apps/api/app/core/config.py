@@ -123,6 +123,7 @@ class Settings(BaseSettings):
     bootstrap_admin_name: str = "HR Admin"
     
     api_v1_prefix: str = "/api/v1"
+    online_presence_ttl_seconds: int = 90
     cors_origins: list[str] = ["*"]
 
     profile_image_storage: str = ""

@@ -44,6 +44,7 @@ from app.models.notifications import Notification  # noqa: F401
 from app.models.support import SupportTicket, SupportTicketComment  # noqa: F401
 from app.models.communication import Conversation, ConversationParticipant, Message, MessageMention, MessageReaction, MessageAttachment, CallSession, CallParticipant, CallSignal, CallRecording  # noqa: F401
 from app.models.user_device_token import UserDeviceToken  # noqa: F401
+from app.models.user_presence_session import UserPresenceSession  # noqa: F401
 from app.models.user_notification_preferences import UserNotificationPreferences  # noqa: F401
 from app.models.web_push_subscription import WebPushSubscription  # noqa: F401
 

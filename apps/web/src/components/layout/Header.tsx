@@ -147,7 +147,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
         last_seen_at: result.last_seen_at ?? undefined,
       });
       hydrateUserPresence(user.id, result);
-      toast.success(next === 'away' ? 'Set yourself as away' : 'Set yourself as active');
+      toast.success(next === 'away' ? 'Status set to Away' : 'Status set to Active');
     } catch (err) {
       logProtectedFetchError('[Header] Failed to update presence', err);
       toast.error('Could not update your status');

@@ -23,6 +23,8 @@ export interface UserMinimal {
   presence_status?: 'active' | 'away';
   presence_updated_at?: string | null;
   last_seen_at?: string | null;
+  online_state?: 'online' | 'offline';
+  is_online?: boolean;
 }
 
 export interface ConversationParticipant {

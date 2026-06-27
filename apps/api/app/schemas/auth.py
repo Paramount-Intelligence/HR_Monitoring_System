@@ -20,6 +20,8 @@ class TokenUser(BaseModel):
     presence_status: str = "active"
     presence_updated_at: str | None = None
     last_seen_at: str | None = None
+    online_state: str = "offline"
+    is_online: bool = False
 
 
 class LoginResponse(BaseModel):

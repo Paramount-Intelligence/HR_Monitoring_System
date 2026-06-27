@@ -96,3 +96,44 @@ def test_active_directory_includes_presence_status(db, presence_user):
     assert response.status_code == 200, response.text
     entry = next(item for item in response.json() if item["id"] == str(presence_user.id))
     assert entry["presence_status"] == "away"
+
+
+def test_heartbeat_does_not_change_presence_status_while_away(db, presence_user):
+    presence_user.presence_status = "away"
+    db.commit()
+    token = _login(presence_user.email)
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.post(
+        f"{API}/presence/heartbeat",
+        headers=headers,
+        json={"device_id": "web-away-test", "platform": "web", "app_state": "foreground"},
+    )
+    assert response.status_code == 200, response.text
+    db.refresh(presence_user)
+    assert presence_user.presence_status == "away"
+    me = client.get(f"{API}/users/me", headers=headers)
+    assert me.status_code == 200
+    body = me.json()
+    assert body["presence_status"] == "away"
+    assert body["online_state"] == "online"
+    assert body["is_online"] is True
+
+
+def test_me_includes_both_presence_and_online_fields(db, presence_user):
+    token = _login(presence_user.email)
+    client.patch(
+        f"{API}/users/me/presence",
+        json={"presence_status": "away"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    client.post(
+        f"{API}/presence/heartbeat",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"device_id": "web-fields-1", "platform": "web"},
+    )
+    response = client.get(f"{API}/users/me", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    body = response.json()
+    assert body["presence_status"] == "away"
+    assert body["online_state"] == "online"
+    assert body["is_online"] is True

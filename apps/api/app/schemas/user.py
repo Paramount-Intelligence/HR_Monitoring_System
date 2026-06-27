@@ -108,6 +108,8 @@ class UserRead(BaseModel):
     presence_status: str = "active"
     presence_updated_at: datetime | None = None
     last_seen_at: datetime | None = None
+    online_state: str = "offline"
+    is_online: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -169,6 +171,8 @@ class UserDirectoryRead(BaseModel):
     presence_status: str = "active"
     presence_updated_at: datetime | None = None
     last_seen_at: datetime | None = None
+    online_state: str = "offline"
+    is_online: bool = False
 
     @model_validator(mode="before")
     @classmethod

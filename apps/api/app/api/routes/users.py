@@ -56,13 +56,16 @@ def list_users(
     db: Session = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> list[UserRead]:
-    return UserService(db).list_users(
+    from app.services.user_online_enricher import UserOnlineEnricher
+
+    users = UserService(db).list_users(
         role=role,
         manager_id=manager_id,
         status_filter=status_filter,
         department=department,
         actor=actor,
     )
+    return UserOnlineEnricher(db).enrich_user_reads(users)
 
 
 @router.get("/active-directory", response_model=list[UserDirectoryRead], summary="List scoped active users for messaging")
@@ -72,14 +75,20 @@ def list_active_directory(
 ) -> list[UserDirectoryRead]:
     """Return users the caller may message, with minimal fields."""
     from app.services.directory_service import DirectoryService
+    from app.services.user_online_enricher import UserOnlineEnricher
 
     entries = DirectoryService(db).list_active_directory(current_user)
-    return [UserDirectoryRead.model_validate(entry) for entry in entries]
+    return UserOnlineEnricher(db).enrich_directory_reads(entries)
 
 
 @router.get("/me", response_model=UserRead, summary="Get current user profile")
-def get_me(current_user: User = Depends(get_current_user)) -> UserRead:
-    return current_user
+def get_me(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserRead:
+    from app.services.user_online_enricher import UserOnlineEnricher
+
+    return UserOnlineEnricher(db).enrich_user_read(current_user)
 
 
 @router.patch("/me/presence", response_model=UserPresenceRead, summary="Update current user presence")

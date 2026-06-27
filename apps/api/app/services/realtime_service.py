@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -579,5 +580,31 @@ class RealtimeService:
             actor_id=user.id,
             entity_type="user",
             entity_id=user.id,
+        )
+        schedule_broadcast_to_all_authenticated(event)
+
+    @staticmethod
+    def emit_user_online_state_updated(
+        *,
+        user_id: uuid.UUID,
+        online_state: str,
+        last_seen_at: datetime | None = None,
+        platforms: list[str] | None = None,
+    ) -> None:
+        from app.services.realtime_bridge import schedule_broadcast_to_all_authenticated
+
+        payload = {
+            "user_id": str(user_id),
+            "online_state": online_state,
+            "is_online": online_state == "online",
+            "last_seen_at": last_seen_at.isoformat() if last_seen_at else None,
+            "platforms": platforms or [],
+        }
+        event = RealtimeService.event(
+            "user_online_state_updated",
+            payload,
+            actor_id=user_id,
+            entity_type="user",
+            entity_id=user_id,
         )
         schedule_broadcast_to_all_authenticated(event)

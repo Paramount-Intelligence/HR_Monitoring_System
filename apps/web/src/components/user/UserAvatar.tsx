@@ -9,6 +9,11 @@ import {
   markAvatarUrlFailed,
 } from '@/lib/profile-picture';
 import type { PresenceStatus } from '@/lib/presence/types';
+import {
+  AVAILABILITY_DOT_CLASSES,
+  getAvailabilityAriaLabel,
+  getAvailabilityDot,
+} from '@/lib/presence/availability';
 
 export function getUserInitials(name: string): string {
   if (!name?.trim()) return '?';
@@ -28,7 +33,13 @@ export interface UserAvatarProps {
   size?: 'xs' | 'sm' | 'default' | 'lg' | 'xl';
   className?: string;
   fallbackClassName?: string;
+  /** Manual Active/Away status — combined with online state for dot color. */
   presenceStatus?: PresenceStatus;
+  showOnlineIndicator?: boolean;
+  showPresenceIndicator?: boolean;
+  isOnline?: boolean;
+  onlineState?: 'online' | 'offline';
+  /** @deprecated Use showOnlineIndicator or showPresenceIndicator. */
   showPresence?: boolean;
 }
 
@@ -56,6 +67,10 @@ export function UserAvatar({
   className,
   fallbackClassName,
   presenceStatus,
+  showOnlineIndicator = false,
+  showPresenceIndicator = false,
+  isOnline = false,
+  onlineState,
   showPresence = false,
 }: UserAvatarProps) {
   const [imageFailed, setImageFailed] = useState(
@@ -64,12 +79,13 @@ export function UserAvatar({
   const showImage = Boolean(avatarUrl) && !imageFailed;
   const initials = getUserInitials(name);
   const imageAlt = alt || `${name} profile picture`;
-  const presenceLabel =
-    presenceStatus === 'away'
-      ? `${name} is away`
-      : presenceStatus === 'active'
-        ? `${name} is active`
-        : undefined;
+  const availabilityDot = getAvailabilityDot({
+    presenceStatus,
+    onlineState,
+    isOnline,
+  });
+  const showDot = showOnlineIndicator || showPresenceIndicator || showPresence;
+  const ariaLabel = showDot ? getAvailabilityAriaLabel(name, availabilityDot) : undefined;
 
   useEffect(() => {
     if (!avatarUrl) {
@@ -80,7 +96,7 @@ export function UserAvatar({
   }, [avatarUrl]);
 
   return (
-    <span className="relative inline-flex shrink-0" aria-label={showPresence ? presenceLabel : undefined}>
+    <span className="relative inline-flex shrink-0" aria-label={ariaLabel}>
       <Avatar size={size === 'xs' || size === 'xl' ? 'default' : size === 'lg' ? 'lg' : size} className={cn(sizeClasses[size], className)}>
         {showImage && (
           <AvatarImage
@@ -106,12 +122,12 @@ export function UserAvatar({
           {initials}
         </AvatarFallback>
       </Avatar>
-      {showPresence && presenceStatus && (
+      {showDot && (
         <span
           className={cn(
             'absolute bottom-0 right-0 rounded-full border-[var(--bg-elevated)]',
             dotSizeClasses[size],
-            presenceStatus === 'away' ? 'bg-amber-400' : 'bg-emerald-500'
+            AVAILABILITY_DOT_CLASSES[availabilityDot],
           )}
           aria-hidden="true"
         />

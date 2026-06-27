@@ -14,6 +14,8 @@ class UserMinimal(BaseModel):
     presence_status: str | None = None
     presence_updated_at: datetime | None = None
     last_seen_at: datetime | None = None
+    online_state: str = "offline"
+    is_online: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -11,6 +11,8 @@ import {
   isSessionExpired,
   resetSessionState,
 } from '@/lib/auth/session';
+import { sendPresenceOffline, stopOnlinePresenceHeartbeat } from '@/lib/presence/online-presence';
+import { clearPresenceStore } from '@/lib/presence/presence-store';
 
 // Roles that map to a dashboard path
 const ROLE_DASHBOARD_MAP: Record<string, string> = {
@@ -133,6 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async (redirect = true) => {
     try {
       if (!isSessionExpired()) {
+        await sendPresenceOffline();
         const refreshToken = localStorage.getItem('refresh_token');
         if (refreshToken) {
           await apiClient.post('/auth/logout', { refresh_token: refreshToken });
@@ -141,6 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     } finally {
+      stopOnlinePresenceHeartbeat();
+      clearPresenceStore();
       clearStoredAuth();
       setUser(null);
       setPermissions([]);

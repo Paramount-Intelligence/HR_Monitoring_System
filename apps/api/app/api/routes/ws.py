@@ -12,6 +12,7 @@ from app.db.session import SessionLocal
 from app.models.enums import UserStatus
 from app.models.user import User
 from app.services.realtime_service import RealtimeService
+from app.services.online_presence_service import OnlinePresenceService
 from app.services.websocket_manager import ws_manager
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ def _authenticate_websocket_user(ticket: str | None, db: Session) -> tuple[User 
 async def websocket_endpoint(websocket: WebSocket) -> None:
     db = SessionLocal()
     user: User | None = None
+    connection_id: str | None = None
     try:
         if websocket.query_params.get("token"):
             logger.warning("[WS_AUTH] rejected reason=jwt_query_not_allowed")
@@ -60,6 +62,21 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 logger.warning("[WS_AUTH] rejected reason=%s", reject_reason)
             await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
             return
+
+        connection_id = str(uuid.uuid4())
+        ws_platform = (websocket.query_params.get("platform") or "web").strip().lower()
+        if ws_platform not in {"web", "mobile"}:
+            ws_platform = "web"
+
+        try:
+            OnlinePresenceService(db).ws_connected(
+                user,
+                connection_id=connection_id,
+                platform=ws_platform,
+                user_agent=websocket.headers.get("user-agent"),
+            )
+        except Exception:
+            logger.exception("[WS] failed to mark user online user_id=%s", user.id)
 
         await ws_manager.connect(
             websocket,
@@ -104,6 +121,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         finally:
             ping_task.cancel()
             await ws_manager.disconnect(websocket)
+            if user:
+                try:
+                    if connection_id:
+                        OnlinePresenceService(db).ws_disconnected(user, connection_id=connection_id)
+                except Exception:
+                    logger.exception("[WS] failed to mark user offline user_id=%s", user.id)
     except Exception as exc:
         logger.exception("WebSocket error: %s", exc)
         try:

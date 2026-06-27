@@ -77,6 +77,9 @@ class AuthService:
         if request is not None:
             AuthRateLimitService(self.db).record_login_success(request, payload.email)
 
+        from app.services.user_online_enricher import UserOnlineEnricher
+
+        online = UserOnlineEnricher(self.db).offline_defaults()
         return LoginResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -91,6 +94,8 @@ class AuthService:
                 presence_status=getattr(user, "presence_status", None) or "active",
                 presence_updated_at=user.presence_updated_at.isoformat() if user.presence_updated_at else None,
                 last_seen_at=user.last_seen_at.isoformat() if user.last_seen_at else None,
+                online_state=online["online_state"],
+                is_online=online["is_online"],
             ),
         )
 

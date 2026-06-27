@@ -1,10 +1,14 @@
 'use client';
 
 import { ArrowLeft, Hash, Phone, Search, Settings, Users, Video } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 import type { Conversation, ConversationParticipantRole } from '@/lib/api/messages';
 import { Button } from '@/components/ui/button';
 import { UserProfilePicture } from '@/components/user/UserProfilePicture';
 import { cn } from '@/lib/utils';
+import { AVAILABILITY_DOT_CLASSES } from '@/lib/presence/availability';
+import { resolveAvailabilityDot } from '@/lib/presence/resolve-availability';
+import { subscribePresence } from '@/lib/presence/presence-store';
 import { getDirectParticipant } from './messages-utils';
 import type { getCallButtonState } from '@/lib/calls/call-ui-utils';
 
@@ -48,6 +52,21 @@ export function MessagesConversationHeader({
   roleBadge,
 }: MessagesConversationHeaderProps) {
   const directUser = getDirectParticipant(activeConv, currentUserId);
+  const directAvailabilityDot = useSyncExternalStore(
+    subscribePresence,
+    () =>
+      resolveAvailabilityDot(directUser?.id, {
+        presence_status: directUser?.presence_status,
+        online_state: directUser?.online_state,
+        is_online: directUser?.is_online,
+      }),
+    () =>
+      resolveAvailabilityDot(directUser?.id, {
+        presence_status: directUser?.presence_status,
+        online_state: directUser?.online_state,
+        is_online: directUser?.is_online,
+      }),
+  );
   const subtitle =
     activeConv.type === 'direct'
       ? [directUser?.role, directUser?.designation].filter(Boolean).join(' · ') ||
@@ -92,7 +111,15 @@ export function MessagesConversationHeader({
             {activeConvName}
           </h2>
           <p className="text-xs text-[#667781] dark:text-[#8696a0] truncate flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#25d366] shrink-0" />
+            {activeConv.type === 'direct' && (
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full shrink-0',
+                  AVAILABILITY_DOT_CLASSES[directAvailabilityDot],
+                )}
+                aria-hidden="true"
+              />
+            )}
             {subtitle}
             {myRole && (
               <span
