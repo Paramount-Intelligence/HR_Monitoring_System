@@ -77,6 +77,14 @@ export function MyEodPage({ roleContext }: MyEodPageProps) {
   }, [loadEOD, loadReportingManager]);
 
   useEffect(() => {
+    const handleRefresh = () => {
+      void loadEOD();
+    };
+    window.addEventListener('pims-eod-refresh', handleRefresh);
+    return () => window.removeEventListener('pims-eod-refresh', handleRefresh);
+  }, [loadEOD]);
+
+  useEffect(() => {
     if (!eod || !['Generated', 'Draft', 'Needs Revision'].includes(eod.status)) return;
     const interval = window.setInterval(() => {
       void eodApi.generateMyEOD().then((fresh) => setEod(fresh)).catch(() => undefined);

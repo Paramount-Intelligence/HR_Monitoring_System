@@ -234,6 +234,15 @@ export default function TaskDetailPage() {
                 {task.due_date ? format(parseISO(task.due_date), 'MMM d, yyyy') : 'No deadline'}
               </p>
             </div>
+            {task.completed_at && (
+              <div className="space-y-1 sm:col-span-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-[var(--text-muted)]">Completed</span>
+                <p className="text-sm font-semibold text-[var(--text-primary)]">
+                  {format(parseISO(task.completed_at), 'MMM d, yyyy h:mm a')}
+                  {task.completed_by_name ? ` · ${task.completed_by_name}` : ''}
+                </p>
+              </div>
+            )}
           </div>
 
           {isActiveOnThisTask && activeTimer && (

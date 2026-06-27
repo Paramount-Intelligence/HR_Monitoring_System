@@ -59,9 +59,14 @@ class TaskRead(BaseModel):
     blocked_reason: str | None
     due_date: date | None
     completed_at: datetime | None
+    completed_by: uuid.UUID | None = None
+    completed_by_name: str | None = None
     created_at: datetime
     updated_at: datetime
     pending_completion_request: TaskCompletionRequestSummary | None = None
+    can_complete: bool = False
+    can_update_status: bool = False
+    can_start_timer: bool = False
 
 class TaskCommentCreate(BaseModel):
     content: str = Field(..., min_length=1)

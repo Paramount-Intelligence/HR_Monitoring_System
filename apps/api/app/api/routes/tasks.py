@@ -25,8 +25,13 @@ router = APIRouter()
 
 
 def _enrich_task_read(task: Task, db: Session, actor: User) -> TaskRead:
+    service = TaskService(db)
     read = TaskRead.model_validate(task)
     read.pending_completion_request = TaskCompletionRequestService(db).get_summary_for_task(task.id, actor)
+    flags = service.task_action_flags(task, actor)
+    read.can_complete = flags["can_complete"]
+    read.can_update_status = flags["can_update_status"]
+    read.can_start_timer = flags["can_start_timer"]
     return read
 
 
@@ -128,6 +133,12 @@ def get_task(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = De
 @router.patch("/{task_id}", response_model=TaskRead, summary="Update task")
 def update_task(task_id: uuid.UUID, payload: TaskUpdate, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
     task = TaskService(db).update_task(task_id, payload, actor)
+    return _enrich_task_read(task, db, actor)
+
+
+@router.post("/{task_id}/complete", response_model=TaskRead, summary="Mark task as completed")
+def complete_task(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> TaskRead:
+    task = TaskService(db).complete_task(task_id, actor)
     return _enrich_task_read(task, db, actor)
 
 

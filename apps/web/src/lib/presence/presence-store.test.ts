@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {
   getUserPresence,
   hydrateUserPresence,
-  setUserPresence,
+  setUserManualPresence,
+  setUserOnlineState,
 } from './presence-store';
 
 describe('presence store', () => {
@@ -17,8 +18,8 @@ describe('presence store', () => {
   });
 
   it('updates presence status', () => {
-    setUserPresence('user-2', { presence_status: 'active' });
-    setUserPresence('user-2', { presence_status: 'away' });
+    setUserManualPresence('user-2', { presence_status: 'active' });
+    setUserManualPresence('user-2', { presence_status: 'away' });
     assert.equal(getUserPresence('user-2')?.presence_status, 'away');
   });
 
@@ -28,7 +29,7 @@ describe('presence store', () => {
       online_state: 'online',
       is_online: true,
     });
-    setUserPresence('user-3', {
+    setUserOnlineState('user-3', {
       online_state: 'online',
       is_online: true,
       last_seen_at: '2026-06-09T12:00:00.000Z',

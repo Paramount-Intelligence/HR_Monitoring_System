@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -137,3 +138,20 @@ def test_me_includes_both_presence_and_online_fields(db, presence_user):
     assert body["presence_status"] == "away"
     assert body["online_state"] == "online"
     assert body["is_online"] is True
+
+
+@patch("app.services.realtime_bridge.schedule_broadcast_to_all_authenticated")
+def test_presence_update_emits_user_presence_updated(mock_broadcast, db, presence_user):
+    token = _login(presence_user.email)
+    response = client.patch(
+        f"{API}/users/me/presence",
+        json={"presence_status": "away"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200, response.text
+    assert mock_broadcast.called
+    event = mock_broadcast.call_args[0][0]
+    assert event["type"] == "user_presence_updated"
+    assert event["payload"]["user_id"] == str(presence_user.id)
+    assert event["payload"]["presence_status"] == "away"
+    assert "online_state" not in event["payload"]

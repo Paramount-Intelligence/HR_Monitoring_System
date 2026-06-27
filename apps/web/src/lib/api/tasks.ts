@@ -19,11 +19,16 @@ export interface Task {
   blocked_reason: string | null;
   due_date: string | null;
   completed_at: string | null;
+  completed_by?: string | null;
+  completed_by_name?: string | null;
   created_at: string;
   updated_at: string;
   created_by_name?: string;
   assigned_to_role?: string;
   pending_completion_request?: TaskCompletionRequestSummary | null;
+  can_complete?: boolean;
+  can_update_status?: boolean;
+  can_start_timer?: boolean;
 }
 
 export const tasksApi = {
@@ -44,6 +49,11 @@ export const tasksApi = {
 
   updateTask: async (id: string, data: Partial<Task> & { project_id?: string; assigned_to?: string }) => {
     const response = await apiClient.patch<Task>(`/tasks/${id}`, data);
+    return response.data;
+  },
+
+  completeTask: async (id: string) => {
+    const response = await apiClient.post<Task>(`/tasks/${id}/complete`);
     return response.data;
   },
 

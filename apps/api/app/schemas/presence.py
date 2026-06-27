@@ -21,6 +21,8 @@ class PresenceOfflineRequest(BaseModel):
 class OnlinePresenceRead(BaseModel):
     online_state: str
     is_online: bool
+    presence_status: str = "active"
+    presence_updated_at: datetime | None = None
     last_seen_at: datetime | None = None
     platforms: list[str] = Field(default_factory=list)
 

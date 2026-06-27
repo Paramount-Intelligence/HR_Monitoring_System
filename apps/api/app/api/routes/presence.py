@@ -65,10 +65,28 @@ def get_users_online_presence(
         part = part.strip()
         if part:
             user_ids.append(uuid.UUID(part))
-    states = OnlinePresenceService(db).get_users_online_state(user_ids)
-    return BatchOnlinePresenceResponse(
-        users={
-            str(uid): OnlinePresenceRead(**state)
-            for uid, state in states.items()
-        }
-    )
+    if not user_ids:
+        return BatchOnlinePresenceResponse(users={})
+
+    online_states = OnlinePresenceService(db).get_users_online_state(user_ids)
+    users = db.query(User).filter(User.id.in_(user_ids)).all()
+    user_map = {user.id: user for user in users}
+
+    merged: dict[str, OnlinePresenceRead] = {}
+    for uid in user_ids:
+        online = online_states.get(uid, {
+            "online_state": "offline",
+            "is_online": False,
+            "last_seen_at": None,
+            "platforms": [],
+        })
+        user = user_map.get(uid)
+        merged[str(uid)] = OnlinePresenceRead(
+            online_state=online["online_state"],
+            is_online=online["is_online"],
+            presence_status=(user.presence_status if user else "active") or "active",
+            presence_updated_at=user.presence_updated_at if user else None,
+            last_seen_at=online.get("last_seen_at") or (user.last_seen_at if user else None),
+            platforms=online.get("platforms") or [],
+        )
+    return BatchOnlinePresenceResponse(users=merged)

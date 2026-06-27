@@ -5,12 +5,14 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.audit_log import AuditLog
-from app.models.enums import ProjectStatus, TaskStatus, UserRole
+from app.models.enums import ProjectStatus, TaskStatus, TimerSessionStatus, UserRole
 
 TASK_FULL_ACCESS_ROLES = frozenset({UserRole.ADMIN, UserRole.HR_OPERATIONS})
+CLOSED_TASK_STATUSES = frozenset({TaskStatus.COMPLETED, TaskStatus.REVIEWED, TaskStatus.ARCHIVED})
 from app.models.project import Project
 from app.models.task import Task
 from app.models.task_comment import TaskComment
@@ -94,7 +96,9 @@ class TaskService:
         if not include_archived or actor.role not in TASK_FULL_ACCESS_ROLES:
             q = q.filter(Task.status != TaskStatus.ARCHIVED)
         if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
-            q = q.filter(Task.assigned_to == actor.id)
+            q = q.filter(
+                or_(Task.assigned_to == actor.id, Task.created_by == actor.id)
+            )
         elif actor.role == UserRole.MANAGER:
             q = q.filter(Task.assigned_to.in_(self._manager_task_user_ids(actor)))
         if project_id:
@@ -146,10 +150,37 @@ class TaskService:
                 )
         for field, value in changes.items():
             setattr(task, field, value)
+        was_completed = old_snapshot["status"] == TaskStatus.COMPLETED.value
         becoming_completed = task.status == TaskStatus.COMPLETED
+        if task.status == TaskStatus.ARCHIVED:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Archived tasks cannot be updated",
+            )
+        if becoming_completed and actor.role in (
+            UserRole.EMPLOYEE,
+            UserRole.INTERN,
+            UserRole.JUNIOR_EMPLOYEE,
+        ):
+            from app.services.task_timer_service import TaskTimerService
+
+            active = TaskTimerService(self.db).get_active_session(actor.id)
+            if (
+                active
+                and active.task_id == task.id
+                and active.status in (TimerSessionStatus.RUNNING, TimerSessionStatus.PAUSED)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Stop the timer before marking this task complete",
+                )
         if becoming_completed and not task.completed_at:
             task.completed_at = datetime.now(timezone.utc)
-        if becoming_completed and old_snapshot["status"] != TaskStatus.COMPLETED.value:
+            task.completed_by = actor.id
+        if was_completed and not becoming_completed:
+            task.completed_at = None
+            task.completed_by = None
+        if becoming_completed and not was_completed:
             from app.services.task_completion_request_service import TaskCompletionRequestService
 
             TaskCompletionRequestService(self.db).supersede_pending_for_task(task.id, actor=actor)
@@ -168,6 +199,59 @@ class TaskService:
             status=task.status.value if hasattr(task.status, "value") else str(task.status),
         )
         return task
+
+    def complete_task(self, task_id: uuid.UUID, actor: User) -> Task:
+        task = self.get_task(task_id, actor)
+        if not self.can_complete_task(task, actor):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not authorized to complete this task",
+            )
+        from app.services.task_timer_service import TaskTimerService
+
+        timer_service = TaskTimerService(self.db)
+        active = timer_service.get_active_session(actor.id)
+        if (
+            active
+            and active.task_id == task.id
+            and active.status in (TimerSessionStatus.RUNNING, TimerSessionStatus.PAUSED)
+        ):
+            timer_service.stop_timer(task.id, actor)
+        return self.update_task(task_id, TaskUpdate(status=TaskStatus.COMPLETED), actor)
+
+    def can_complete_task(self, task: Task, actor: User) -> bool:
+        if task.status in CLOSED_TASK_STATUSES:
+            return False
+        try:
+            self._assert_can_modify(task, actor)
+        except HTTPException:
+            return False
+        return True
+
+    def task_action_flags(self, task: Task, actor: User) -> dict[str, bool]:
+        can_modify = False
+        try:
+            self._assert_can_modify(task, actor)
+            can_modify = True
+        except HTTPException:
+            pass
+        is_open = task.status not in CLOSED_TASK_STATUSES
+        can_complete = is_open and can_modify
+        can_update_status = can_modify and (
+            actor.role in TASK_FULL_ACCESS_ROLES
+            or actor.role == UserRole.MANAGER
+            or actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE)
+        )
+        can_start_timer = (
+            is_open
+            and task.assigned_to == actor.id
+            and actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE, UserRole.MANAGER)
+        )
+        return {
+            "can_complete": can_complete,
+            "can_update_status": can_update_status,
+            "can_start_timer": can_start_timer,
+        }
 
     def archive_task(self, task_id: uuid.UUID, actor: User) -> Task:
         task = self.get_task(task_id, actor)
@@ -223,8 +307,10 @@ class TaskService:
     def _check_read_access(self, task: Task, actor: User) -> None:
         if actor.role in TASK_FULL_ACCESS_ROLES:
             return
-        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE) and task.assigned_to != actor.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
+            if task.assigned_to != actor.id and task.created_by != actor.id:
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            return
         if actor.role == UserRole.MANAGER:
             if task.assigned_to not in self._manager_task_user_ids(actor):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
@@ -237,7 +323,7 @@ class TaskService:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not authorized to modify this task")
             return
         if actor.role in (UserRole.EMPLOYEE, UserRole.INTERN, UserRole.JUNIOR_EMPLOYEE):
-            if task.assigned_to != actor.id:
+            if task.assigned_to != actor.id and task.created_by != actor.id:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
             return
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")

@@ -30,7 +30,7 @@ import { PROFILE_NOTIFICATIONS_PATH } from '@/lib/profile/profile-section';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 import { usersApi } from '@/lib/api/users';
-import { hydrateUserPresence, setUserPresence } from '@/lib/presence/presence-store';
+import { hydrateUserPresence, setUserManualPresence } from '@/lib/presence/presence-store';
 
 
 interface HeaderProps {
@@ -105,19 +105,23 @@ export function Header({ onMenuToggle }: HeaderProps) {
   useRealtimeEvent(['user_presence_updated'], (event) => {
     const payload = event.payload as {
       user_id?: string;
+      userId?: string;
       presence_status?: 'active' | 'away';
+      presenceStatus?: 'active' | 'away';
       presence_updated_at?: string | null;
       last_seen_at?: string | null;
     };
-    if (!payload?.user_id) return;
-    setUserPresence(payload.user_id, {
-      presence_status: payload.presence_status,
+    const userId = payload?.user_id ?? payload?.userId;
+    const presenceStatus = payload?.presence_status ?? payload?.presenceStatus;
+    if (!userId) return;
+    setUserManualPresence(String(userId), {
+      presence_status: presenceStatus,
       presence_updated_at: payload.presence_updated_at,
       last_seen_at: payload.last_seen_at,
     });
-    if (user?.id === payload.user_id) {
+    if (user?.id === userId) {
       updateUser({
-        presence_status: payload.presence_status,
+        presence_status: presenceStatus,
         presence_updated_at: payload.presence_updated_at ?? undefined,
         last_seen_at: payload.last_seen_at ?? undefined,
       });
@@ -138,7 +142,10 @@ export function Header({ onMenuToggle }: HeaderProps) {
   const handlePresenceToggle = async () => {
     if (!user || presenceUpdating) return;
     const next = myPresence === 'active' ? 'away' : 'active';
+    const previous = user.presence_status ?? 'active';
     setPresenceUpdating(true);
+    updateUser({ presence_status: next });
+    setUserManualPresence(user.id, { presence_status: next });
     try {
       const result = await usersApi.updateMyPresence(next);
       updateUser({
@@ -149,6 +156,8 @@ export function Header({ onMenuToggle }: HeaderProps) {
       hydrateUserPresence(user.id, result);
       toast.success(next === 'away' ? 'Status set to Away' : 'Status set to Active');
     } catch (err) {
+      updateUser({ presence_status: previous as 'active' | 'away' });
+      setUserManualPresence(user.id, { presence_status: previous as 'active' | 'away' });
       logProtectedFetchError('[Header] Failed to update presence', err);
       toast.error('Could not update your status');
     } finally {

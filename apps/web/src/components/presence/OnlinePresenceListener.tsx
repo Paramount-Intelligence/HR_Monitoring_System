@@ -2,8 +2,13 @@
 
 import { useAuth } from '@/lib/auth/AuthContext';
 import { hydrateFromUserLike } from '@/lib/presence/hydrate-presence';
-import { setUserOnlineState, setUserPresence } from '@/lib/presence/presence-store';
-import { useRealtimeEvent, useRealtimeStatus } from '@/hooks/useRealtime';
+import {
+  parseUserOnlineStateUpdatedPayload,
+  parseUserPresenceUpdatedPayload,
+} from '@/lib/presence/parse-realtime-presence';
+import { setUserManualPresence, setUserOnlineState } from '@/lib/presence/presence-store';
+import { schedulePresenceRefetch } from '@/lib/presence/refetch-presence';
+import { useRealtimeEvent, useRealtimeReconnect, useRealtimeStatus } from '@/hooks/useRealtime';
 import {
   sendPresenceHeartbeat,
   startOnlinePresenceHeartbeat,
@@ -36,38 +41,37 @@ export function OnlinePresenceListener() {
   useEffect(() => {
     if (isConnected && user?.id) {
       void sendPresenceHeartbeat('foreground');
+      schedulePresenceRefetch();
     }
   }, [isConnected, user?.id]);
 
+  useRealtimeReconnect(() => {
+    schedulePresenceRefetch();
+  });
+
+  useEffect(() => {
+    const onFocus = () => schedulePresenceRefetch();
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
   useRealtimeEvent('user_online_state_updated', (event) => {
-    const payload = event.payload as {
-      user_id?: string;
-      online_state?: 'online' | 'offline';
-      is_online?: boolean;
-      last_seen_at?: string | null;
-    };
-    const userId = payload.user_id ? String(payload.user_id) : null;
-    if (!userId) return;
-    setUserOnlineState(userId, {
-      online_state: payload.online_state ?? (payload.is_online ? 'online' : 'offline'),
-      is_online: Boolean(payload.is_online ?? payload.online_state === 'online'),
-      last_seen_at: payload.last_seen_at ?? null,
+    const parsed = parseUserOnlineStateUpdatedPayload(event.payload);
+    if (!parsed) return;
+    setUserOnlineState(parsed.userId, {
+      online_state: parsed.onlineState,
+      is_online: parsed.isOnline,
+      last_seen_at: parsed.lastSeenAt ?? null,
     });
   });
 
   useRealtimeEvent('user_presence_updated', (event) => {
-    const payload = event.payload as {
-      user_id?: string;
-      presence_status?: 'active' | 'away';
-      presence_updated_at?: string | null;
-      last_seen_at?: string | null;
-    };
-    const userId = payload.user_id ? String(payload.user_id) : null;
-    if (!userId) return;
-    setUserPresence(userId, {
-      presence_status: payload.presence_status,
-      presence_updated_at: payload.presence_updated_at,
-      last_seen_at: payload.last_seen_at,
+    const parsed = parseUserPresenceUpdatedPayload(event.payload);
+    if (!parsed) return;
+    setUserManualPresence(parsed.userId, {
+      presence_status: parsed.presenceStatus,
+      presence_updated_at: parsed.presenceUpdatedAt,
+      last_seen_at: parsed.lastSeenAt,
     });
   });
 

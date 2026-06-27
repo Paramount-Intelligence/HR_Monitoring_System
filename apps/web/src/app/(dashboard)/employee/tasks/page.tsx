@@ -385,7 +385,7 @@ export default function EmployeeTasksPage() {
                     <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Project</TableHead>
                     <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Status</TableHead>
                     <TableHead className="font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Priority</TableHead>
-                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Timer</TableHead>
+                    <TableHead className="text-right pr-10 font-black text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -432,7 +432,15 @@ export default function EmployeeTasksPage() {
                         <StatusBadge status={task.priority} />
                       </TableCell>
                       <TableCell className="text-right pr-10">
-                        <div className="flex justify-end">
+                        <div className="flex justify-end items-center gap-2 flex-wrap">
+                            <TaskCompleteRequestButton
+                              task={task}
+                              role={user?.role}
+                              currentUserId={user?.id}
+                              activeTimer={activeTimer}
+                              onSuccess={fetchData}
+                              compact
+                            />
                             {activeTimer && activeTimer.task_id === task.id ? (
                                 <div className="flex items-center gap-2">
                                     {activeTimer.status === 'running' ? (
@@ -522,6 +530,15 @@ export default function EmployeeTasksPage() {
                     <span className="text-[var(--text-muted)] block mb-0.5">Assigned To</span>
                     <span className="font-semibold">{selectedTask.assigned_to_name || 'Unassigned'}</span>
                   </div>
+                  {selectedTask.completed_at && (
+                    <div className="col-span-2">
+                      <span className="text-[var(--text-muted)] block mb-0.5">Completed</span>
+                      <span className="font-semibold">
+                        {format(parseISO(selectedTask.completed_at), 'MMM d, yyyy h:mm a')}
+                        {selectedTask.completed_by_name ? ` · ${selectedTask.completed_by_name}` : ''}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </DialogBody>
               <DialogFooter className="flex-wrap gap-2">

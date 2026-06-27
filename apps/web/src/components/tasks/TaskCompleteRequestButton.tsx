@@ -5,9 +5,10 @@ import { CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Task } from '@/lib/api/tasks';
 import type { TaskTimerSession } from '@/lib/api/timeLogs';
-import { taskCompletionRequestsApi } from '@/lib/api/taskCompletionRequests';
+import { tasksApi } from '@/lib/api/tasks';
 import { getErrorMessage } from '@/lib/api/client';
 import {
+  dispatchTaskAndEodRefresh,
   getCompleteTaskButtonLabel,
   getCompleteTaskButtonState,
 } from '@/lib/tasks/completion-request-utils';
@@ -21,7 +22,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 interface TaskCompleteRequestButtonProps {
@@ -32,8 +32,11 @@ interface TaskCompleteRequestButtonProps {
   onSuccess?: () => void;
   className?: string;
   size?: 'sm' | 'default';
+  /** Compact styling for task table rows */
+  compact?: boolean;
 }
 
+/** Mark own/assigned tasks complete immediately — no manager approval required. */
 export function TaskCompleteRequestButton({
   task,
   role,
@@ -42,17 +45,16 @@ export function TaskCompleteRequestButton({
   onSuccess,
   className,
   size = 'sm',
+  compact = false,
 }: TaskCompleteRequestButtonProps) {
-  const [open, setOpen] = useState(false);
-  const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const state = getCompleteTaskButtonState({
     role,
     task,
     currentUserId,
     activeTimer,
-    pendingCompletionRequest: task.pending_completion_request,
   });
 
   if (state === 'hidden') {
@@ -60,18 +62,17 @@ export function TaskCompleteRequestButton({
   }
 
   const label = getCompleteTaskButtonLabel(state);
-  const canClick = state === 'complete' || state === 'rejected';
+  const canClick = state === 'complete' || state === 'stop_and_complete';
   const isDisabled = !canClick || submitting;
 
-  const handleSubmit = async () => {
+  const handleComplete = async () => {
+    if (!canClick) return;
     setSubmitting(true);
     try {
-      await taskCompletionRequestsApi.create(task.id, {
-        request_note: note.trim() || undefined,
-      });
-      toast.success('Completion request sent to your manager.');
-      setOpen(false);
-      setNote('');
+      await tasksApi.completeTask(task.id);
+      toast.success('Task marked as completed.');
+      setConfirmOpen(false);
+      dispatchTaskAndEodRefresh();
       onSuccess?.();
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -85,47 +86,48 @@ export function TaskCompleteRequestButton({
       <Button
         type="button"
         size={size}
-        variant={state === 'complete' || state === 'rejected' ? 'default' : 'outline'}
+        variant={canClick ? 'default' : 'outline'}
         className={cn(
-          'rounded-lg font-semibold',
-          (state === 'pending' || state === 'completed') && 'pointer-events-none opacity-80',
-          className
+          compact
+            ? 'h-9 rounded-xl font-black text-[10px] uppercase tracking-[0.15em] px-3'
+            : 'rounded-lg font-semibold',
+          state === 'completed' && 'pointer-events-none opacity-80',
+          className,
         )}
         disabled={isDisabled}
-        title={state === 'timer_active' ? label : undefined}
         onClick={() => {
-          if (canClick) setOpen(true);
+          if (!canClick) return;
+          if (state === 'stop_and_complete') {
+            setConfirmOpen(true);
+            return;
+          }
+          void handleComplete();
         }}
       >
-        {state === 'complete' || state === 'rejected' ? (
-          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+        {submitting ? (
+          <Loader2 className={cn('h-3.5 w-3.5 animate-spin', !compact && 'mr-1.5')} />
+        ) : canClick ? (
+          <CheckCircle2 className={cn('h-3.5 w-3.5', !compact && 'mr-1.5')} />
         ) : null}
         {label}
       </Button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Request Task Completion</DialogTitle>
+            <DialogTitle>Stop timer and complete?</DialogTitle>
             <DialogDescription>
-              Your manager will review this request before the task is marked completed.
+              The active timer on &quot;{task.title}&quot; will be stopped and the task marked as completed.
             </DialogDescription>
           </DialogHeader>
-          <DialogBody>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Optional note for your manager…"
-              className="min-h-[96px] resize-none rounded-lg"
-            />
-          </DialogBody>
+          <DialogBody />
           <DialogFooter>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" size="sm" onClick={handleSubmit} disabled={submitting}>
+            <Button type="button" size="sm" onClick={() => void handleComplete()} disabled={submitting}>
               {submitting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-              Send Request
+              Stop &amp; Complete
             </Button>
           </DialogFooter>
         </DialogContent>

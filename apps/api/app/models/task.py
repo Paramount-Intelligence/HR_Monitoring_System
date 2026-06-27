@@ -43,11 +43,15 @@ class Task(Base, TimestampMixin):
     blocked_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
     
     # Relationships
     project = relationship("Project", foreign_keys=[project_id], lazy="select")
     assignee = relationship("User", foreign_keys=[assigned_to], lazy="select")
     creator = relationship("User", foreign_keys=[created_by], lazy="select")
+    completer = relationship("User", foreign_keys=[completed_by], lazy="select")
 
     @property
     def project_title(self) -> str | None:
@@ -66,3 +70,7 @@ class Task(Base, TimestampMixin):
     @property
     def created_by_name(self) -> str | None:
         return self.creator.full_name if self.creator else None
+
+    @property
+    def completed_by_name(self) -> str | None:
+        return self.completer.full_name if self.completer else None
