@@ -30,6 +30,14 @@ import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
 import { EmployeeMetricCard } from '@/components/employee/EmployeeMetricCard';
 import { EmployeeSectionCard } from '@/components/employee/EmployeeSectionCard';
 import { AttendanceSession } from '@/lib/api/attendance';
+import { useAuth } from '@/lib/auth/AuthContext';
+import {
+  getActiveTimerProjectName,
+  getActiveTimerTaskTitle,
+  makeTaskTimerOptions,
+  resolveOptionLabel,
+} from '@/lib/display-labels';
+import { canTrackTaskForTimer } from '@/lib/time-logs/timer-utils';
 
 const manualLogSchema = z.object({
   task_id: z.string().min(1, 'Task is required'),
@@ -41,6 +49,7 @@ const manualLogSchema = z.object({
 type ManualLogValues = z.infer<typeof manualLogSchema>;
 
 export default function TimeLogsPage() {
+  const { user } = useAuth();
   const [logs, setLogs] = useState<TimeLog[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activeTimer, setActiveTimer] = useState<TaskTimerSession | null>(null);
@@ -153,6 +162,40 @@ export default function TimeLogsPage() {
     },
   });
 
+  const manualSelectedTaskId = manualForm.watch('task_id');
+
+  const trackableTasks = useMemo(
+    () => tasks.filter((task) => canTrackTaskForTimer(task, user?.id)),
+    [tasks, user?.id]
+  );
+
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
+    [tasks, selectedTaskId]
+  );
+
+  const taskTimerOptions = useMemo(
+    () =>
+      makeTaskTimerOptions(trackableTasks, undefined, {
+        id: selectedTaskId || activeTimer?.task_id,
+        title: activeTimer?.task_title || selectedTask?.title,
+        project_title: activeTimer?.project_title || selectedTask?.project_title,
+        project_id: selectedTask?.project_id,
+      }),
+    [trackableTasks, selectedTaskId, activeTimer, selectedTask]
+  );
+
+  const manualTaskOptions = useMemo(
+    () =>
+      makeTaskTimerOptions(trackableTasks, undefined, {
+        id: manualSelectedTaskId,
+        title: tasks.find((task) => task.id === manualSelectedTaskId)?.title,
+        project_title: tasks.find((task) => task.id === manualSelectedTaskId)?.project_title,
+        project_id: tasks.find((task) => task.id === manualSelectedTaskId)?.project_id,
+      }),
+    [trackableTasks, manualSelectedTaskId, tasks]
+  );
+
   const onManualSubmit = async (data: ManualLogValues) => {
     try {
       await timeLogsApi.createManualLog({
@@ -254,11 +297,23 @@ export default function TimeLogsPage() {
                       <FormItem>
                         <FormLabel className="text-xs">Task</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="Select task" /></SelectTrigger></FormControl>
+                          <FormControl>
+                            <SelectTrigger className="h-9 rounded-lg">
+                              <SelectValue placeholder="Select task">
+                                {resolveOptionLabel(manualTaskOptions, field.value, 'Select task')}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent>
-                            {tasks.filter(t => t.status !== 'completed').map(t => (
-                              <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                            ))}
+                            {isLoading ? (
+                              <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">Loading tasks...</div>
+                            ) : manualTaskOptions.length === 0 ? (
+                              <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">No tasks available</div>
+                            ) : (
+                              manualTaskOptions.map((option) => (
+                                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -316,7 +371,12 @@ export default function TimeLogsPage() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   {activeTimer.status === 'running' ? 'Currently tracking' : getPauseLabel(activeTimer.pause_reason)}
                 </p>
-                <p className="text-sm font-semibold truncate">{activeTimer.task_title || 'General Execution'}</p>
+                <p className="text-sm font-semibold truncate">{getActiveTimerTaskTitle(activeTimer)}</p>
+                {getActiveTimerProjectName(activeTimer) && (
+                  <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                    Project: {getActiveTimerProjectName(activeTimer)}
+                  </p>
+                )}
                 <p className="text-[11px] text-[var(--text-secondary)]">
                   Started {formatDateTime(activeTimer.started_at)}
                 </p>
@@ -324,12 +384,20 @@ export default function TimeLogsPage() {
             ) : (
               <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
                 <SelectTrigger className="h-9 rounded-lg bg-[var(--bg-subtle)] border-[var(--border-default)] text-sm">
-                  <SelectValue placeholder="Select a task to track..." />
+                  <SelectValue placeholder="Select a task to track...">
+                    {resolveOptionLabel(taskTimerOptions, selectedTaskId, 'Select a task to track...')}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {tasks.filter((t) => t.status !== 'completed').map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                  ))}
+                  {isLoading ? (
+                    <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">Loading tasks...</div>
+                  ) : taskTimerOptions.length === 0 ? (
+                    <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">No tasks available</div>
+                  ) : (
+                    taskTimerOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             )}

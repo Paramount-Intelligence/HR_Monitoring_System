@@ -267,3 +267,37 @@ def test_employee_cannot_get_unrelated_task(db, users):
     token = _login(users["report"].email)
     response = client.get(f"{API}/tasks/{task.id}", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 403
+
+
+def test_task_eligible_projects_return_title_not_uuid(db, users):
+    project = _seed_project(db, users["manager"])
+    token = _login(users["manager"].email)
+    response = client.get(f"{API}/projects/task-eligible", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    rows = response.json()
+    assert len(rows) >= 1
+    match = next((row for row in rows if row["id"] == str(project.id)), None)
+    assert match is not None
+    assert match["title"] == project.title
+    assert match["title"] != match["id"]
+
+
+def test_task_list_returns_title_and_project_name(db, users):
+    project = _seed_project(db, users["manager"])
+    task = Task(
+        project_id=project.id,
+        assigned_to=users["report"].id,
+        created_by=users["manager"].id,
+        title="Delegated task",
+        status=TaskStatus.IN_PROGRESS,
+    )
+    db.add(task)
+    db.commit()
+
+    token = _login(users["report"].email)
+    response = client.get(f"{API}/tasks", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200, response.text
+    row = next((item for item in response.json() if item["title"] == "Delegated task"), None)
+    assert row is not None
+    assert row["id"] != row["title"]
+    assert row["project_title"] == project.title

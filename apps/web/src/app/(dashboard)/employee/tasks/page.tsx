@@ -41,6 +41,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { TableSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPKDate } from '@/lib/time';
+import { makeProjectOptions, resolveOptionLabel } from '@/lib/display-labels';
 import { EmployeePageHeader } from '@/components/employee/EmployeePageHeader';
 import { EmployeePageShell } from '@/components/employee/EmployeePageShell';
 import { EmployeeMetricGrid } from '@/components/employee/EmployeeMetricGrid';
@@ -121,6 +122,17 @@ export default function EmployeeTasksPage() {
       due_date: '',
     },
   });
+
+  const selectedProjectId = form.watch('project_id');
+
+  const projectOptions = useMemo(
+    () =>
+      makeProjectOptions(projects, {
+        id: selectedProjectId,
+        title: projects.find((p) => p.id === selectedProjectId)?.title,
+      }),
+    [projects, selectedProjectId]
+  );
 
   const onSubmit = async (data: TaskFormValues) => {
     if (!user) return;
@@ -296,11 +308,23 @@ export default function EmployeeTasksPage() {
                       <FormItem>
                         <FormLabel className="text-xs">Project</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl><SelectTrigger className="h-9 rounded-lg"><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                          <FormControl>
+                            <SelectTrigger className="h-9 rounded-lg">
+                              <SelectValue placeholder="Select project">
+                                {resolveOptionLabel(projectOptions, field.value, 'Select project')}
+                              </SelectValue>
+                            </SelectTrigger>
+                          </FormControl>
                           <SelectContent>
-                            {projects.map(p => (
-                              <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>
-                            ))}
+                            {isLoading ? (
+                              <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">Loading projects...</div>
+                            ) : projectOptions.length === 0 ? (
+                              <div className="px-2 py-1.5 text-xs text-[var(--text-muted)]">No projects available</div>
+                            ) : (
+                              projectOptions.map((p) => (
+                                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage />

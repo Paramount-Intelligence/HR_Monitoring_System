@@ -256,9 +256,28 @@ export function resolveOptionLabel(
 
 export function getProjectLabel(
   project: { title?: string | null; name?: string | null },
-  fallback = 'Unknown project'
+  fallback = 'Untitled Project'
 ): string {
   return safeDisplayLabel(project.title ?? project.name, fallback, 'Project');
+}
+
+/** Alias for dropdown/display helpers — prefers human-readable project name. */
+export function getProjectDisplayName(
+  project: { title?: string | null; name?: string | null; project_name?: string | null },
+  fallback = 'Untitled Project'
+): string {
+  return getProjectLabel(
+    { title: project.title ?? project.project_name, name: project.name },
+    fallback
+  );
+}
+
+/** Alias for dropdown/display helpers — prefers human-readable task title. */
+export function getTaskDisplayName(
+  task: { title?: string | null; task_title?: string | null; name?: string | null },
+  fallback = 'Untitled Task'
+): string {
+  return safeDisplayLabel(task.title ?? task.task_title ?? task.name, fallback, 'Task');
 }
 
 export function getAssigneeLabel(
