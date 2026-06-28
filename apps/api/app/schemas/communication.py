@@ -61,7 +61,9 @@ class MessageAttachmentRead(BaseModel):
     file_name: str
     original_file_name: str
     mime_type: str
+    attachment_type: str = "file"
     file_size: int
+    duration_seconds: int | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

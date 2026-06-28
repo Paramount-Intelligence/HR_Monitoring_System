@@ -214,7 +214,9 @@ class MessageAttachment(Base):
     file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     original_file_name: Mapped[str] = mapped_column(String(255), nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    attachment_type: Mapped[str] = mapped_column(String(50), nullable=False, default="file")
     file_size: Mapped[int] = mapped_column(nullable=False)
+    duration_seconds: Mapped[int | None] = mapped_column(nullable=True)
     storage_path: Mapped[str] = mapped_column(Text, nullable=False)
     storage_name: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(

@@ -3,7 +3,7 @@ import os
 import shutil
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, status, UploadFile, File, Form
 from sqlalchemy import and_, or_, func, cast, String
 from sqlalchemy.orm import Session, joinedload
 
@@ -46,6 +46,7 @@ from app.schemas.communication import (
     ConversationParticipantRead,
     MessageAttachmentRead,
     MessageInfoRead,
+    MessageReceiptRead,
     MessagingDirectoryEntryRead,
     MessagesDeliveredRequest,
     MessagesDeliveredResponse,
@@ -59,6 +60,18 @@ from app.schemas.communication import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+VOICE_NOTE_ALLOWED_TYPES = {
+    "audio/webm",
+    "audio/webm;codecs=opus",
+    "audio/ogg",
+    "audio/ogg;codecs=opus",
+    "audio/mp4",
+    "audio/mpeg",
+    "audio/aac",
+}
+VOICE_NOTE_MAX_SIZE = 5 * 1024 * 1024
+VOICE_NOTE_MAX_DURATION_SECONDS = 60
 
 PLATFORM_PARTICIPANT_MANAGERS = frozenset(
     {UserRole.ADMIN, UserRole.HR_OPERATIONS, UserRole.MANAGER}
@@ -919,6 +932,25 @@ def get_message_info(
             detail="You do not have permission to view this message info.",
         )
     return MessageInfoRead.model_validate(info)
+
+
+@router.get("/messages/{message_id}/receipts", response_model=list[MessageReceiptRead])
+def get_message_receipts(
+    message_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[MessageReceiptRead]:
+    """Get per-recipient receipt rows for a message."""
+    try:
+        info = receipt_svc.get_message_info(db, message_id, current_user)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Message not found")
+    except PermissionError:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view message receipts.",
+        )
+    return [MessageReceiptRead.model_validate(row) for row in info.get("receipts", [])]
 
 
 @router.post("/conversations/{conversation_id}/delivered", response_model=MessagesDeliveredResponse)
@@ -1795,7 +1827,208 @@ def download_attachment(
     )
 
 
+@router.post(
+    "/conversations/{conversation_id}/voice-notes",
+    response_model=MessageRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def send_voice_note(
+    conversation_id: uuid.UUID,
+    file: UploadFile = File(...),
+    duration_seconds: int = Form(...),
+    caption: str | None = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> MessageRead:
+    """Upload and send a voice-note message for a conversation participant."""
+    participant = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not participant:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to send voice notes to this conversation.",
+        )
+
+    conv = db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Voice note file is required.")
+
+    mime_type = (file.content_type or "").lower()
+    if mime_type not in VOICE_NOTE_ALLOWED_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Voice note format is not supported.")
+
+    if duration_seconds <= 0 or duration_seconds > VOICE_NOTE_MAX_DURATION_SECONDS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Voice note duration must be between 1 and {VOICE_NOTE_MAX_DURATION_SECONDS} seconds.",
+        )
+
+    file.file.seek(0, os.SEEK_END)
+    size = file.file.tell()
+    file.file.seek(0)
+    if size > VOICE_NOTE_MAX_SIZE:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Voice note file is too large.")
+
+    ext = (file.filename.split(".")[-1].lower() if "." in file.filename else "webm")
+    storage_dir = "storage/message-attachments"
+    os.makedirs(storage_dir, exist_ok=True)
+    storage_name = f"{uuid.uuid4()}.{ext}"
+    storage_path = os.path.join(storage_dir, storage_name)
+
+    try:
+        with open(storage_path, "wb") as output_file:
+            shutil.copyfileobj(file.file, output_file)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unable to save voice note. {str(exc)}",
+        )
+
+    voice_attachment = MessageAttachment(
+        conversation_id=conversation_id,
+        uploader_id=current_user.id,
+        file_name=storage_name,
+        original_file_name=file.filename,
+        mime_type=mime_type,
+        attachment_type="voice",
+        file_size=size,
+        duration_seconds=duration_seconds,
+        storage_path=storage_path,
+        storage_name=storage_name,
+    )
+    db.add(voice_attachment)
+    db.flush()
+
+    new_msg = Message(
+        conversation_id=conversation_id,
+        sender_id=current_user.id,
+        body=(caption or "").strip(),
+        message_type=MessageType.VOICE,
+    )
+    db.add(new_msg)
+    db.flush()
+
+    voice_attachment.message_id = new_msg.id
+    conv.updated_at = datetime.now(timezone.utc)
+    read_at = datetime.now(timezone.utc)
+    participant.last_read_at = read_at
+
+    receipt_svc.create_receipts_for_message(db, new_msg)
+    seen_updates = receipt_svc.mark_seen_for_conversation_read(
+        db, conversation_id, current_user.id, read_at
+    )
+    db.commit()
+    db.refresh(new_msg)
+
+    if seen_updates:
+        receipt_svc.emit_seen_updates(db, conversation_id, seen_updates)
+
+    other_participants = (
+        db.query(ConversationParticipant)
+        .filter(ConversationParticipant.conversation_id == conversation_id)
+        .filter(ConversationParticipant.user_id != current_user.id)
+        .all()
+    )
+    participant_ids = [op.user_id for op in other_participants]
+    created_notifications = create_message_notifications(
+        db,
+        participants=participant_ids,
+        sender_id=current_user.id,
+        sender_name=current_user.full_name,
+        conversation_id=conversation_id,
+        conversation_title=conv.title,
+        conversation_type=conv.type,
+        body_preview="Sent a voice note",
+        mentioned_user_ids=[],
+    )
+    db.commit()
+    for notif in created_notifications:
+        db.refresh(notif)
+
+    try:
+        RealtimeService.emit_new_message(
+            db,
+            conversation_id=conversation_id,
+            message_id=new_msg.id,
+            sender_id=current_user.id,
+            sender_name=current_user.full_name,
+            preview="Sent a voice note",
+            created_at=new_msg.created_at.isoformat() if new_msg.created_at else datetime.now(timezone.utc).isoformat(),
+        )
+        RealtimeService.emit_conversation_updated(db, conversation_id)
+    except Exception:
+        logger.exception("Failed to emit realtime events for voice note %s", new_msg.id)
+
+    loaded = (
+        db.query(Message)
+        .filter(Message.id == new_msg.id)
+        .options(
+            joinedload(Message.sender),
+            joinedload(Message.mentions).joinedload(MessageMention.mentioned_user),
+            joinedload(Message.reactions).joinedload(MessageReaction.user),
+            joinedload(Message.attachments),
+        )
+        .first()
+    )
+    return receipt_svc.serialize_message(db, loaded, current_user.id)
+
+
 # ─── WebRTC Call and Signaling Routes ─────────────────────────────────────────
+
+@router.get("/calls/history")
+def get_call_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[dict]:
+    """Return call history entries scoped to the authenticated user."""
+    sessions = (
+        db.query(CallSession)
+        .join(CallParticipant, CallParticipant.call_session_id == CallSession.id)
+        .filter(CallParticipant.user_id == current_user.id)
+        .options(
+            joinedload(CallSession.started_by),
+            joinedload(CallSession.participants).joinedload(CallParticipant.user),
+        )
+        .order_by(CallSession.created_at.desc())
+        .limit(100)
+        .all()
+    )
+
+    history: list[dict] = []
+    for session in sessions:
+        other_participant = next(
+            (participant for participant in session.participants if participant.user_id != current_user.id),
+            None,
+        )
+        other_user = other_participant.user if other_participant else session.started_by
+        started_at = session.started_at or session.created_at
+        ended_at = session.ended_at
+        duration_seconds = 0
+        if started_at and ended_at:
+            duration_seconds = max(int((ended_at - started_at).total_seconds()), 0)
+        direction = "outgoing" if session.started_by_id == current_user.id else "incoming"
+        status_value = session.status
+        if status_value in {"declined", "missed"}:
+            direction = "missed" if direction == "incoming" and status_value == "missed" else direction
+
+        history.append(
+            {
+                "participant_name": other_user.full_name if other_user else "Unknown",
+                "participant_role": other_user.role.value if other_user and hasattr(other_user.role, "value") else None,
+                "call_type": session.call_type,
+                "direction": direction,
+                "status": status_value,
+                "started_at": started_at,
+                "ended_at": ended_at,
+                "duration_seconds": duration_seconds,
+            }
+        )
+    return history
+
 
 @router.post("/conversations/{conversation_id}/calls/start", response_model=CallSessionRead)
 def start_call(

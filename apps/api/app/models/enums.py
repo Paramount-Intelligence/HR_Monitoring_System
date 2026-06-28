@@ -307,6 +307,7 @@ class ConversationParticipantRole(str, enum.Enum):
 
 class MessageType(str, enum.Enum):
     TEXT = "text"
+    VOICE = "voice"
     SYSTEM = "system"
     LINK = "link"
     STATUS_UPDATE = "status_update"
