@@ -18,6 +18,12 @@ from app.schemas.attendance import (
     AttendanceBreakRead,
     AttendanceBreakStartRequest
 )
+from app.schemas.attendance_exception import (
+    AttendanceExceptionDismissRequest,
+    AttendanceExceptionResolveRequest,
+    AttendanceExceptionsResponse,
+)
+from app.services.attendance_exception_service import AttendanceExceptionService
 from app.services.attendance_service import AttendanceService
 
 router = APIRouter()
@@ -56,6 +62,56 @@ def get_team_sessions(
     actor: User = Depends(get_current_user),
 ) -> list[AttendanceSessionRead]:
     return AttendanceService(db).get_team_sessions(actor, date_from=date_from, date_to=date_to)
+
+
+@router.get("/exceptions", response_model=AttendanceExceptionsResponse, summary="Attendance exceptions center")
+def list_attendance_exceptions(
+    date: date | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+    status: str = Query("open"),
+    type: str | None = Query(None),
+    user_id: uuid.UUID | None = Query(None),
+    department_id: uuid.UUID | None = Query(None),
+    search: str | None = Query(None),
+    scope: str = Query("my_team"),
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> AttendanceExceptionsResponse:
+    return AttendanceExceptionService(db).list_exceptions(
+        actor=actor,
+        business_date=date,
+        start_date=start_date,
+        end_date=end_date,
+        status_filter=status,
+        type_filter=type,
+        user_id=user_id,
+        department_id=department_id,
+        search=search,
+        scope=scope,
+    )
+
+
+@router.post("/exceptions/{exception_id}/resolve", summary="Resolve an attendance exception")
+def resolve_attendance_exception(
+    exception_id: uuid.UUID,
+    payload: AttendanceExceptionResolveRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    AttendanceExceptionService(db).resolve(exception_id, actor, payload.resolution_note)
+    return {"status": "resolved"}
+
+
+@router.post("/exceptions/{exception_id}/dismiss", summary="Dismiss an attendance exception")
+def dismiss_attendance_exception(
+    exception_id: uuid.UUID,
+    payload: AttendanceExceptionDismissRequest,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+):
+    AttendanceExceptionService(db).dismiss(exception_id, actor, payload.resolution_note)
+    return {"status": "dismissed"}
 
 
 @router.patch("/{session_id}/correction-request", response_model=AttendanceSessionRead, summary="Request correction for a session")

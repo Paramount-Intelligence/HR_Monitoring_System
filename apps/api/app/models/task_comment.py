@@ -1,6 +1,8 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Text, Uuid
+from datetime import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -17,3 +19,4 @@ class TaskComment(Base, TimestampMixin):
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

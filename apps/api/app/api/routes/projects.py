@@ -10,6 +10,8 @@ from app.core.deps import get_current_user, get_db
 from app.models.enums import ApprovalStatus, ProjectStatus
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectDecision, ProjectRead, ProjectUpdate
+from app.schemas.project_health import ProjectHealthResponse
+from app.services.project_health_service import ProjectHealthService
 from app.services.project_service import ProjectService
 
 router = APIRouter()
@@ -51,6 +53,11 @@ def list_task_eligible_projects(
 @router.get("/{project_id}", response_model=ProjectRead, summary="Get project by ID")
 def get_project(project_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> ProjectRead:
     return ProjectService(db).get_project(project_id, actor)
+
+
+@router.get("/{project_id}/health", response_model=ProjectHealthResponse, summary="Project health dashboard")
+def get_project_health(project_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> ProjectHealthResponse:
+    return ProjectHealthService(db).get_health(project_id, actor)
 
 
 @router.patch("/{project_id}", response_model=ProjectRead, summary="Update a project")

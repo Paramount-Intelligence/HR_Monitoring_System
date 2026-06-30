@@ -18,6 +18,26 @@ export interface Project {
   updated_at: string;
 }
 
+export interface ProjectHealth {
+  project_id: string;
+  project_name: string;
+  summary: {
+    total_tasks: number;
+    completed_tasks: number;
+    in_progress_tasks: number;
+    blocked_tasks: number;
+    overdue_tasks: number;
+    total_logged_hours: number;
+    active_members: number;
+    completion_rate: number;
+    risk_level: string;
+  };
+  recent_activity: { title: string; description: string; created_at: string | null }[];
+  members: { id: string; name: string; department: string | null; active_tasks: number; logged_hours: number }[];
+  overdue_tasks: { id: string; title: string; assignee_name: string | null; status: string; due_date: string | null }[];
+  blocked_tasks: { id: string; title: string; assignee_name: string | null; status: string; due_date: string | null }[];
+}
+
 export const projectsApi = {
   getProjects: async (params?: Record<string, any>) => {
     const response = await apiClient.get<Project[]>('/projects', { params });
@@ -61,6 +81,11 @@ export const projectsApi = {
 
   archiveProject: async (id: string) => {
     const response = await apiClient.patch<Project>(`/projects/${id}/archive`);
+    return response.data;
+  },
+
+  getProjectHealth: async (id: string) => {
+    const response = await apiClient.get<ProjectHealth>(`/projects/${id}/health`);
     return response.data;
   },
 };

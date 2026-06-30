@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { eodApi, EODReport } from '@/lib/api/eod';
+import { eodApi, EODReport, approveEodReport, rejectEodReport, requestEodRevision } from '@/lib/api/eod';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -104,7 +104,11 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
     try {
       setReviewAction(action);
       setIsSubmitting(true);
-      const updated = await eodApi.reviewEOD(selectedEod.id, action, comments);
+      const updated = action === 'Approved'
+        ? await approveEodReport(selectedEod.id, comments || 'Approved.')
+        : action === 'Rejected'
+          ? await rejectEodReport(selectedEod.id, comments)
+          : await requestEodRevision(selectedEod.id, comments);
       setEods((current) => current.map((e) => (e.id === updated.id ? updated : e)));
       toast.success(`EOD ${action}`);
       setIsReviewOpen(false);

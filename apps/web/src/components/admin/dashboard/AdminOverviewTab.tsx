@@ -1,11 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import {
-  Users, CheckCircle2, Clock, Calendar, HelpCircle, Activity,
-  UserPlus, Megaphone, Video, ClipboardPlus,
-} from 'lucide-react';
-import { AdminMetricCard } from './AdminMetricCard';
 import { AdminChartCard } from './AdminChartCard';
 import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 import {
@@ -35,17 +30,7 @@ function hasAttendanceData(trend: Record<string, unknown>[]) {
 }
 
 export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabProps) {
-  const kpis = data?.kpis || {};
   const taskStats = data?.task_statistics || {};
-  const openTickets = tickets.filter((t) => !['resolved', 'closed'].includes(t.status)).length;
-  const upcomingMeetings = meetings.filter((m) => m.status === 'scheduled').length;
-
-  const quickActions = [
-    { label: 'Add User', href: '/admin/users', icon: UserPlus, color: 'text-emerald-600' },
-    { label: 'Announcement', href: organizationTabHref('announcements'), icon: Megaphone, color: 'text-blue-600' },
-    { label: 'Create Meeting', href: '/calendar', icon: Video, color: 'text-purple-600' },
-    { label: 'Assign Task', href: '/admin/tasks', icon: ClipboardPlus, color: 'text-orange-600' },
-  ];
 
   const attendanceTrend = safeArray<Record<string, unknown>>(data?.attendance_trend);
   const showAttendanceChart = attendanceTrend.length > 0 && hasAttendanceData(attendanceTrend);
@@ -63,36 +48,7 @@ export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabPr
 
   return (
     <div className="space-y-4">
-      {/* Section 1: Quick actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <Link
-              key={action.label}
-              href={action.href}
-              className="flex items-center gap-2.5 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2.5 hover:shadow-md transition-all min-h-[52px] h-full"
-            >
-              <div className={`h-8 w-8 shrink-0 rounded-md bg-[var(--bg-subtle)] flex items-center justify-center ${action.color}`}>
-                <Icon className="h-3.5 w-3.5" />
-              </div>
-              <span className="text-xs font-semibold text-[var(--text-primary)]">{action.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Section 2: KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
-        <AdminMetricCard title="Total Employees" value={safeNumber(kpis.total_employees)} icon={Users} subtitle={`${safeNumber(kpis.checked_in_today)} checked in`} />
-        <AdminMetricCard title="Present Today" value={safeNumber(kpis.checked_in_today)} icon={CheckCircle2} subtitle={`${safeNumber(kpis.attendance_rate)}% rate`} />
-        <AdminMetricCard title="Pending Approvals" value={safeNumber(kpis.pending_approvals)} icon={Clock} subtitle="Awaiting review" />
-        <AdminMetricCard title="Active Tasks" value={safeNumber(taskStats.in_progress)} icon={Activity} subtitle={`${safeNumber(taskStats.total)} total`} />
-        <AdminMetricCard title="Open Tickets" value={openTickets} icon={HelpCircle} subtitle="Support feed" />
-        <AdminMetricCard title="Upcoming Meetings" value={upcomingMeetings} icon={Calendar} subtitle="Scheduled" />
-      </div>
-
-      {/* Section 3: Main analytics grid */}
+      {/* Main analytics grid */}
       <div className="grid grid-cols-1 xl:grid-cols-[2fr_1fr] gap-3">
         <AdminChartCard
           title="Attendance Trend"

@@ -15,6 +15,15 @@ export interface DashboardSummary {
   tasks_due_soon: number;
 }
 
+export interface DashboardAlertCard {
+  key: string;
+  title: string;
+  count: number;
+  href: string;
+  severity: string;
+  empty_text: string;
+}
+
 export const dashboardApi = {
   getEmployeeSummary: async () => {
     // This expects the backend GET /dashboard/employee
@@ -31,6 +40,11 @@ export const dashboardApi = {
   
   getAdminSummary: async () => {
     const response = await apiClient.get('/dashboard/admin');
+    return response.data;
+  },
+
+  getAlertCards: async () => {
+    const response = await apiClient.get<{ cards: DashboardAlertCard[] }>('/dashboard/alerts-summary');
     return response.data;
   },
   

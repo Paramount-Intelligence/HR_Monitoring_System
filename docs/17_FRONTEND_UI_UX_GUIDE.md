@@ -4,7 +4,7 @@ The Workforce Intelligence & Execution OS features a premium, professional, and 
 
 ## 1. Design Language
 *   **Branding**: Paramount Intelligence branding with a clean, deep neutral/slate palette.
-*   **Typography**: Uses the **Inter** font family for maximum legibility. High contrast for primary text, muted slate for helper text.
+*   **Typography**: Uses the **Google Sans -> Roboto -> Arial -> sans-serif** font stack for maximum legibility. High contrast for primary text, muted slate for helper text.
 *   **Surfaces**: Soft-shadowed rounded cards (`rounded-xl`) and subtle glassmorphism effects for modals and drawers.
 *   **Color Palette**:
     *   **Primary**: Deep Blue / Indigo for actions.

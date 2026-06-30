@@ -2,20 +2,17 @@
 
 import Link from 'next/link';
 import {
-  Activity, Timer, CheckSquare, AlertCircle, PlayCircle,
+  Timer, CheckSquare,
   Clock, FileText, Palmtree, MessageSquare, Calendar, Bell, ArrowRight,
 } from 'lucide-react';
-import { AdminMetricCard } from '@/components/admin/dashboard/AdminMetricCard';
 import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
 import { DashboardSummary } from '@/lib/api/dashboard';
 import { EODReport } from '@/lib/api/eod';
 import { Meeting } from '@/lib/api/meetings';
 import { Notification } from '@/lib/api/notifications';
-import { cn, formatSafeDurationFromSeconds } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { formatPKDateTime } from '@/lib/time';
 import { format, parseISO, isValid } from 'date-fns';
-import { buttonVariants } from '@/components/ui/button';
-import { EmptyState } from '@/components/ui/empty-state';
 
 const QUICK_LINKS = [
   { href: '/employee/attendance', icon: Clock, label: 'Attendance' },
@@ -26,12 +23,6 @@ const QUICK_LINKS = [
   { href: '/messages', icon: MessageSquare, label: 'Messages' },
   { href: '/calendar', icon: Calendar, label: 'Calendar' },
 ];
-
-function formatMinutes(minutes: number): string {
-  const m = Number(minutes);
-  if (!Number.isFinite(m) || m < 0) return '—';
-  return formatSafeDurationFromSeconds(m * 60);
-}
 
 function formatMeetingTime(meeting: Meeting): string {
   const raw = meeting.start_at;
@@ -56,40 +47,10 @@ export function EmployeeOverviewTab({
   notifications,
   unreadCount,
 }: EmployeeOverviewTabProps) {
-  const isActive = summary.attendance_status === 'active';
-  const eodLabel = eod?.status ?? 'Not Started';
   const recentNotifications = notifications.slice(0, 5);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        <AdminMetricCard
-          title="Attendance Status"
-          value={isActive ? 'Online' : 'Offline'}
-          subtitle={isActive ? 'Shift active' : 'Awaiting check-in'}
-          icon={Activity}
-          trend={isActive ? 'Clocked in' : 'Standby'}
-        />
-        <AdminMetricCard
-          title="Today Logged Hours"
-          value={formatMinutes(summary.total_time_today)}
-          subtitle={`Productive: ${formatMinutes(summary.productive_time_today)}`}
-          icon={Timer}
-        />
-        <AdminMetricCard
-          title="Tasks In Progress"
-          value={summary.tasks_in_progress}
-          subtitle="Active assignments"
-          icon={CheckSquare}
-        />
-        <AdminMetricCard
-          title="Critical Tasks"
-          value={summary.tasks_due_soon}
-          subtitle={summary.tasks_due_soon > 0 ? 'Due within 48h' : 'None overdue'}
-          icon={AlertCircle}
-        />
-      </div>
-
       <div className="grid gap-3 lg:grid-cols-12">
         <div className="lg:col-span-7 space-y-3">
           <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-soft)]">
@@ -177,74 +138,6 @@ export function EmployeeOverviewTab({
         </div>
 
         <div className="lg:col-span-5 space-y-3">
-          <div
-            className={cn(
-              'rounded-xl border bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-soft)]',
-              summary.active_timer_task_id
-                ? 'border-amber-300/50 ring-1 ring-amber-400/30'
-                : 'border-[var(--border-default)]'
-            )}
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <PlayCircle
-                className={cn(
-                  'h-4 w-4',
-                  summary.active_timer_task_id ? 'text-amber-500 animate-pulse' : 'text-[var(--text-muted)]'
-                )}
-              />
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                Active Task
-              </span>
-            </div>
-            {summary.active_timer_task_id ? (
-              <div className="space-y-3">
-                <p className="text-sm font-semibold text-[var(--text-primary)] line-clamp-2">
-                  {summary.active_timer_task_title || 'Task in progress'}
-                </p>
-                <Link
-                  href="/employee/time-logs"
-                  className={cn(buttonVariants({ variant: 'default', size: 'sm' }), 'w-full rounded-lg text-xs')}
-                >
-                  Open Time Logs
-                </Link>
-              </div>
-            ) : (
-              <EmptyState
-                title="No active task"
-                description="Start a timer from My Tasks to track work."
-                icon={CheckSquare}
-                className="py-4"
-                action={
-                  <Link
-                    href="/employee/tasks"
-                    className={cn(buttonVariants({ variant: 'outline', size: 'sm' }), 'rounded-lg text-xs')}
-                  >
-                    View Tasks
-                  </Link>
-                }
-              />
-            )}
-          </div>
-
-          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--accent-primary)]/90 p-4 text-white shadow-[var(--shadow-soft)]">
-            <p className="text-[10px] font-bold uppercase tracking-wider opacity-80 mb-1">EOD Status</p>
-            <p className="text-lg font-bold tracking-tight mb-2">{eodLabel}</p>
-            <p className="text-xs opacity-80 mb-3 leading-relaxed">
-              {eod?.status === 'Approved' || eod?.status === 'Pending Approval'
-                ? 'Your daily report has been submitted.'
-                : 'Review and submit your end-of-day report before checkout.'}
-            </p>
-            <Link
-              href="/employee/eod"
-              className={cn(
-                buttonVariants({ variant: 'secondary', size: 'sm' }),
-                'w-full rounded-lg text-xs bg-white/90 text-[var(--accent-primary)] hover:bg-white border-none'
-              )}
-            >
-              {eod ? 'Open EOD' : 'Start EOD'}
-            </Link>
-          </div>
-
           <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-soft)]">
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">
               Today Summary

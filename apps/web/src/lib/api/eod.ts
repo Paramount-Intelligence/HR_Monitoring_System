@@ -126,3 +126,15 @@ export const eodApi = {
     return response.data;
   },
 };
+
+export async function approveEodReport(reportId: string, note = 'Approved from Approval Center.') {
+  return eodApi.reviewEOD(reportId, 'Approved', note);
+}
+
+export async function rejectEodReport(reportId: string, note: string) {
+  return eodApi.reviewEOD(reportId, 'Rejected', note);
+}
+
+export async function requestEodRevision(reportId: string, note: string) {
+  return eodApi.reviewEOD(reportId, 'Needs Revision', note);
+}

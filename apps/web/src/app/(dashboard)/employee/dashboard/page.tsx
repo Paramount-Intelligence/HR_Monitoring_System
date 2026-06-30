@@ -21,6 +21,9 @@ import { EmployeeOverviewTab } from '@/components/employee/dashboard/EmployeeOve
 import { EmployeeWorkTasksTab } from '@/components/employee/dashboard/EmployeeWorkTasksTab';
 import { EmployeeAttendanceTab } from '@/components/employee/dashboard/EmployeeAttendanceTab';
 import { EmployeeProductivityTab } from '@/components/employee/dashboard/EmployeeProductivityTab';
+import { CompactActionCenter } from '@/components/dashboard/CompactActionCenter';
+import { DashboardKpiGrid } from '@/components/dashboard/DashboardKpiGrid';
+import { useAuth } from '@/lib/auth/AuthContext';
 import { Skeleton } from '@/components/ui/skeletons';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +53,8 @@ const EMPTY_SUMMARY: DashboardSummary = {
 };
 
 export default function EmployeeDashboard() {
+  const { user } = useAuth();
+  const dashboardRole = user?.role?.toLowerCase() === 'intern' ? 'intern' : 'employee';
   const [activeTab, setActiveTab] = useState<EmployeeDashboardTabId>('overview');
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [eod, setEod] = useState<EODReport | null>(null);
@@ -280,6 +285,14 @@ export default function EmployeeDashboard() {
             </Button>
           </>
         }
+      />
+
+      <CompactActionCenter role={dashboardRole} />
+
+      <DashboardKpiGrid
+        role={dashboardRole}
+        loading={false}
+        employeeContext={{ summary: data, eod }}
       />
 
       <EmployeeDashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />

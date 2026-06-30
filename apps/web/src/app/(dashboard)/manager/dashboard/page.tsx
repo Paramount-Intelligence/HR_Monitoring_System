@@ -16,6 +16,9 @@ import { ManagerTeamTab } from '@/components/manager/dashboard/ManagerTeamTab';
 import { ManagerApprovalsTab } from '@/components/manager/dashboard/ManagerApprovalsTab';
 import { ManagerProjectsTasksTab } from '@/components/manager/dashboard/ManagerProjectsTasksTab';
 import { ManagerEodReportsTab } from '@/components/manager/dashboard/ManagerEodReportsTab';
+import { CompactActionCenter } from '@/components/dashboard/CompactActionCenter';
+import { DashboardQuickActions } from '@/components/dashboard/DashboardQuickActions';
+import { DashboardKpiGrid } from '@/components/dashboard/DashboardKpiGrid';
 import {
   ManagerDashboardTabId,
   ManagerOverviewData,
@@ -160,6 +163,16 @@ export default function ManagerDashboardPage() {
         <Sparkles className="h-3.5 w-3.5" />
         <span className="text-[10px] font-bold uppercase tracking-[0.15em]">Manager Operations Workspace</span>
       </div>
+
+      <CompactActionCenter role="manager" />
+
+      <DashboardQuickActions role="manager" />
+
+      <DashboardKpiGrid
+        role="manager"
+        loading={overviewState.loading}
+        managerContext={overviewState.data}
+      />
 
       <ManagerDashboardTabs activeTab={activeTab} onTabChange={setActiveTab} />
 

@@ -11,7 +11,7 @@ from app.core.deps import get_current_user, get_db, require_admin
 from app.models.enums import TaskCompletionRequestStatus, TaskStatus, TimerSessionStatus, ProjectPriority
 from app.models.task import Task
 from app.models.user import User
-from app.schemas.task import TaskComplexity, TaskCreate, TaskRead, TaskUpdate, TaskCommentRead, TaskCommentCreate
+from app.schemas.task import TaskActivityEventRead, TaskComplexity, TaskCreate, TaskRead, TaskUpdate, TaskCommentRead, TaskCommentCreate, TaskCommentUpdate
 from app.schemas.task_completion_request import (
     TaskCompletionRequestCreate,
     TaskCompletionRequestRead,
@@ -179,6 +179,33 @@ def create_comment(task_id: uuid.UUID, payload: TaskCommentCreate, db: Session =
 @router.get("/{task_id}/comments", response_model=list[TaskCommentRead], summary="List comments for a task")
 def list_comments(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> list[TaskCommentRead]:
     return TaskService(db).list_comments(task_id, actor)
+
+
+@router.patch("/{task_id}/comments/{comment_id}", response_model=TaskCommentRead, summary="Edit a task comment")
+def update_comment(
+    task_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    payload: TaskCommentUpdate,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> TaskCommentRead:
+    return TaskService(db).update_comment(task_id, comment_id, payload.content, actor)
+
+
+@router.delete("/{task_id}/comments/{comment_id}", summary="Delete a task comment")
+def delete_comment(
+    task_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> dict[str, str]:
+    TaskService(db).delete_comment(task_id, comment_id, actor)
+    return {"status": "deleted"}
+
+
+@router.get("/{task_id}/activity", response_model=list[TaskActivityEventRead], summary="List task activity")
+def list_activity(task_id: uuid.UUID, db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> list[TaskActivityEventRead]:
+    return TaskService(db).list_activity(task_id, actor)
 
 
 @router.get("/admin/overview", summary="Admin organizational tasks dashboard overview")

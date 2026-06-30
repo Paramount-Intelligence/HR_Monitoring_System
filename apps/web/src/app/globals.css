@@ -58,10 +58,12 @@
 
 @layer base {
   .theme {
-    --font-heading: "Google Sans", var(--font-roboto), Arial, sans-serif;
+    --font-heading: var(--font-sans-stack);
   }
   
   :root {
+    --font-sans-stack: "Google Sans", var(--font-roboto), "Roboto", Arial, sans-serif;
+
     /* ==========================================
        PIMS CANONICAL THEME TOKENS (LIGHT MODE)
        ========================================== */
@@ -259,7 +261,7 @@
 
   html,
   body {
-    font-family: "Google Sans", var(--font-roboto), Arial, sans-serif;
+    font-family: var(--font-sans-stack);
   }
 
   body {

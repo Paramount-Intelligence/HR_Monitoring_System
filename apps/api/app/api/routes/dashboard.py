@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db, require_admin, require_admin_or_manager, require_admin_hr
 from app.core.time_utils import ensure_pk_datetime, pk_day_start, pk_now, pk_today
 from app.models.alert import Alert
+from app.models.announcement import Announcement
 from app.models.approval import Approval
 from app.models.attendance_session import AttendanceSession
 from app.models.enums import (
@@ -17,6 +18,7 @@ from app.models.enums import (
     AttendanceSessionStatus,
     ProjectStatus,
     TaskStatus,
+    TimerSessionStatus,
     TimeLogStatus,
     UserRole,
     UserStatus,
@@ -50,6 +52,7 @@ from app.schemas.dashboard import (
     ManagerApprovalsAnalyticsDashboard,
     ManagerEodReportsAnalyticsDashboard,
 )
+from app.schemas.dashboard_alerts import DashboardAlertCard, DashboardAlertsResponse
 from app.services.admin_dashboard_service import AdminDashboardService
 from app.services.admin_user_management_service import roster_statuses_for_users
 from app.services.manager_dashboard_service import ManagerDashboardService
@@ -213,6 +216,71 @@ def admin_dashboard(db: Session = Depends(get_db), actor: User = Depends(require
         active_projects=active_projects,
         open_alerts=open_alerts,
     )
+
+
+@router.get("/alerts-summary", response_model=DashboardAlertsResponse, summary="Role dashboard alert cards")
+def dashboard_alerts_summary(db: Session = Depends(get_db), actor: User = Depends(get_current_user)) -> DashboardAlertsResponse:
+    from app.models.eod_report import EODReport
+    from app.models.task_timer_session import TaskTimerSession
+    from app.services.attendance_exception_service import AttendanceExceptionService
+
+    today = pk_today()
+    cards: list[DashboardAlertCard] = []
+
+    def add(key: str, title: str, count: int, href: str, severity: str = "normal") -> None:
+        cards.append(DashboardAlertCard(key=key, title=title, count=count, href=href, severity=severity))
+
+    if actor.role in (UserRole.ADMIN, UserRole.HR_OPERATIONS):
+        exceptions = AttendanceExceptionService(db).list_exceptions(actor=actor, business_date=today, status_filter="open", scope="organization")
+        pending_approvals = db.query(Approval).filter(Approval.decision == ApprovalStatus.PENDING).count()
+        pending_eods = db.query(EODReport).filter(EODReport.status == "Pending Approval").count()
+        active_users = db.query(User).filter(User.status == UserStatus.ACTIVE).all()
+        session_map = current_shift_sessions_for_users(db, active_users)
+        absent_today = max(0, len(active_users) - len(session_map))
+        long_timers = db.query(TaskTimerSession).filter(TaskTimerSession.status == TimerSessionStatus.RUNNING).count()
+        overdue = db.query(Task).filter(Task.due_date < today, ~Task.status.in_([TaskStatus.COMPLETED, TaskStatus.REVIEWED])).count()
+        add("attendance_exceptions", "Open attendance exceptions", exceptions.summary.open, "/admin/attendance-exceptions", "high")
+        add("pending_approvals", "Pending approvals", pending_approvals, "/admin/approvals", "high")
+        add("eod_pending_review", "EODs pending review", pending_eods, "/admin/eod-reviews")
+        add("absent_today", "Users absent today", absent_today, "/admin/attendance-exceptions?type=absent")
+        add("long_running_timers", "Active timers running", long_timers, "/admin/reports?tab=time-logs")
+        add("overdue_tasks", "Overdue tasks", overdue, "/admin/tasks?status=overdue", "high")
+    elif actor.role in (UserRole.MANAGER, UserRole.TEAM_LEAD):
+        team = db.query(User).filter(User.manager_id == actor.id, User.status == UserStatus.ACTIVE).all()
+        team_ids = [u.id for u in team]
+        exceptions = AttendanceExceptionService(db).list_exceptions(actor=actor, business_date=today, status_filter="open", scope="my_team")
+        pending_eods = db.query(EODReport).filter(EODReport.user_id.in_(team_ids), EODReport.status == "Pending Approval").count() if team_ids else 0
+        team_tasks = db.query(Task).filter(Task.assigned_to.in_(team_ids)).all() if team_ids else []
+        overdue = sum(1 for t in team_tasks if t.due_date and t.due_date < today and t.status not in (TaskStatus.COMPLETED, TaskStatus.REVIEWED))
+        blockers = sum(1 for t in team_tasks if t.status == TaskStatus.BLOCKED)
+        session_map = current_shift_sessions_for_users(db, team)
+        absent_today = max(0, len(team) - len(session_map))
+        long_timers = db.query(TaskTimerSession).filter(
+            TaskTimerSession.user_id.in_(team_ids),
+            TaskTimerSession.status == TimerSessionStatus.RUNNING,
+        ).count() if team_ids else 0
+        add("team_attendance_exceptions", "Team attendance exceptions", exceptions.summary.open, "/manager/attendance-exceptions", "high")
+        add("pending_eod_reviews", "Pending EOD reviews", pending_eods, "/manager/eod-reviews")
+        add("direct_reports_absent", "Direct reports absent", absent_today, "/manager/attendance-exceptions?type=absent")
+        add("team_overdue_tasks", "Team overdue tasks", overdue, "/manager/tasks?status=overdue", "high")
+        add("team_blockers", "Team blockers", blockers, "/manager/tasks?status=blocked", "high")
+        add("long_running_timers", "Active timers running", long_timers, "/manager/time-logs")
+    else:
+        my_tasks = db.query(Task).filter(Task.assigned_to == actor.id).all()
+        overdue = sum(1 for t in my_tasks if t.due_date and t.due_date < today and t.status not in (TaskStatus.COMPLETED, TaskStatus.REVIEWED))
+        due_soon = sum(1 for t in my_tasks if t.due_date and 0 <= (t.due_date - today).days <= 2 and t.status not in (TaskStatus.COMPLETED, TaskStatus.REVIEWED))
+        active_timer = db.query(TimeLog).filter(TimeLog.user_id == actor.id, TimeLog.status == TimeLogStatus.ACTIVE).count()
+        my_eod = db.query(EODReport).filter(EODReport.user_id == actor.id, EODReport.report_date == today).first()
+        exceptions = AttendanceExceptionService(db).list_exceptions(actor=actor, business_date=today, status_filter="open", type_filter="missing_checkout")
+        announcements = db.query(Announcement).count()
+        add("my_eod_pending", "My EOD pending", 0 if my_eod else 1, "/employee/eod")
+        add("my_overdue_tasks", "My overdue tasks", overdue, "/employee/tasks?status=overdue", "high")
+        add("missing_checkout", "Missing checkout", exceptions.summary.open, "/employee/attendance", "high")
+        add("active_timer", "Active timer running", active_timer, "/employee/time-logs")
+        add("task_deadline_near", "Task deadline near", due_soon, "/employee/tasks")
+        add("important_announcement", "Important announcement", announcements, "/employee/dashboard")
+
+    return DashboardAlertsResponse(cards=cards)
 
 
 @router.get("/admin/analytics", response_model=AdminAnalyticsDashboard, summary="Admin analytics dashboard")
