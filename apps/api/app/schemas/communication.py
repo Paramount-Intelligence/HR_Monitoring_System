@@ -147,6 +147,8 @@ class ConversationRead(BaseModel):
     is_archived: bool
     created_at: datetime
     updated_at: datetime
+    avatar_url: str | None = None
+    can_update_avatar: bool = False
     # Group/channel permission settings
     who_can_send_messages: str = "all_members"
     who_can_edit_group_info: str = "admins_only"
@@ -280,6 +282,12 @@ class UpdateParticipantRoleRequest(BaseModel):
 
 
 # ─── Conversation Settings Schemas ───────────────────────────────────────────
+
+class ConversationAvatarResponse(BaseModel):
+    conversation_id: UUID
+    avatar_url: str | None
+    avatar_updated_at: datetime | None = None
+
 
 class ConversationSettingsUpdate(BaseModel):
     title: str | None = Field(None, max_length=255)

@@ -39,6 +39,48 @@ class EODSubmitRequest(BaseModel):
     next_day_plan: str | None = Field(None, max_length=5000)
 
 
+class EodAttendanceSummaryRead(BaseModel):
+    work_mode: str | None = None
+    check_in_at: datetime | None = None
+    check_out_at: datetime | None = None
+    total_hours: float = 0
+    status: str = "No Check-in"
+
+
+class EodTaskMetricsRead(BaseModel):
+    tasks_worked_on: int = 0
+    completed: int = 0
+    pending: int = 0
+    blocked: int = 0
+    key_actions: int = 0
+
+
+class EodTimeLogEntryRead(BaseModel):
+    id: uuid.UUID
+    start_time: datetime
+    end_time: datetime | None = None
+    duration_seconds: int
+    duration_hours: float
+    source: str
+    note: str | None = None
+    is_active: bool = False
+
+
+class EodTaskBreakdownItemRead(BaseModel):
+    task_id: uuid.UUID
+    task_title: str
+    project_id: uuid.UUID | None = None
+    project_name: str | None = None
+    status: str
+    priority: str | None = None
+    completed_at: datetime | None = None
+    completed_by_name: str | None = None
+    total_logged_seconds: int
+    total_logged_hours: float
+    sessions_count: int
+    time_logs: list[EodTimeLogEntryRead] = []
+
+
 class EODReportRead(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
@@ -66,3 +108,9 @@ class EODReportRead(BaseModel):
     attendance_status: str | None = None
     window_start: datetime | None = None
     window_end: datetime | None = None
+    report_date: date | None = None
+    shift_window_start: datetime | None = None
+    shift_window_end: datetime | None = None
+    attendance_summary: EodAttendanceSummaryRead | None = None
+    task_metrics: EodTaskMetricsRead | None = None
+    task_breakdown: list[EodTaskBreakdownItemRead] = []

@@ -16,6 +16,7 @@ import { ManagerPageHeader } from '@/components/manager/ManagerPageHeader';
 import { EodMetricCards } from '@/components/eod/EodMetricCards';
 import { EodAttendanceSummary } from '@/components/eod/EodAttendanceSummary';
 import { EodTaskMetrics } from '@/components/eod/EodTaskMetrics';
+import { EodShiftWorkDetails } from '@/components/eod/EodShiftWorkDetails';
 import { EodSummaryForm } from '@/components/eod/EodSummaryForm';
 import { ReportingManagerNotice } from '@/components/eod/ReportingManagerNotice';
 import {
@@ -228,6 +229,8 @@ export function MyEodPage({ roleContext }: MyEodPageProps) {
               <EodAttendanceSummary eod={eod} />
               <EodTaskMetrics eod={eod} />
             </div>
+
+            <EodShiftWorkDetails eod={eod} />
 
             <EodSummaryForm
               eod={eod}
