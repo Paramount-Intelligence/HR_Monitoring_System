@@ -17,6 +17,7 @@ import { EodMetricCards } from '@/components/eod/EodMetricCards';
 import { EodAttendanceSummary } from '@/components/eod/EodAttendanceSummary';
 import { EodTaskMetrics } from '@/components/eod/EodTaskMetrics';
 import { EodShiftWorkDetails } from '@/components/eod/EodShiftWorkDetails';
+import { EodSummaryForm } from '@/components/eod/EodSummaryForm';
 import { ReportingManagerNotice } from '@/components/eod/ReportingManagerNotice';
 import {
   buildInitialFormState,
