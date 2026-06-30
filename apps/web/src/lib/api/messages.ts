@@ -162,6 +162,8 @@ export interface Conversation {
   participants: ConversationParticipant[];
   unread_count?: number;
   last_message?: LastMessageRead | null;
+  avatar_url?: string | null;
+  can_update_avatar?: boolean;
 }
 
 export interface ConversationCreateParams {
@@ -538,6 +540,28 @@ export const messagesApi = {
 
   getIncomingCall: async (): Promise<CallSession | null> => {
     const response = await apiClient.get<CallSession | null>('/messages/calls/incoming');
+    return response.data;
+  },
+
+  uploadConversationAvatar: async (conversationId: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post<{
+      conversation_id: string;
+      avatar_url: string | null;
+      avatar_updated_at: string | null;
+    }>(`/messages/conversations/${conversationId}/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  removeConversationAvatar: async (conversationId: string) => {
+    const response = await apiClient.delete<{
+      conversation_id: string;
+      avatar_url: string | null;
+      avatar_updated_at: string | null;
+    }>(`/messages/conversations/${conversationId}/avatar`);
     return response.data;
   },
 };

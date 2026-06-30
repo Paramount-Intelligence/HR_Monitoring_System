@@ -10,14 +10,16 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db, require_admin_or_manager
 from app.core.time_utils import ensure_pk_datetime, pk_today
 from app.services.eod_service import (
-    SUBMITTABLE_STATUSES,
     format_eod_report_read,
     generate_or_refresh_eod,
     get_user_eod_report,
     notify_submitter_on_eod_review,
-    refresh_report_metrics,
     resolve_report_date,
     submit_user_eod,
+)
+from app.services.eod_metrics_service import (
+    apply_daily_metrics_to_report,
+    calculate_eod_metrics_for_user,
 )
 from app.models.attendance_session import AttendanceSession
 from app.models.eod_report import EODReport
@@ -67,11 +69,12 @@ def _format_eod(
     user_name: str,
     *,
     db: Session | None = None,
-    actor: User | None = None,
+    metrics_user: User | None = None,
 ) -> EODReportRead:
     metrics = None
-    if db is not None and actor is not None and report.status in SUBMITTABLE_STATUSES:
-        metrics = refresh_report_metrics(db, report, actor)
+    if db is not None and metrics_user is not None:
+        metrics = calculate_eod_metrics_for_user(db, metrics_user.id, report.report_date)
+        apply_daily_metrics_to_report(report, metrics)
         db.commit()
         db.refresh(report)
     return format_eod_report_read(report, user_name, metrics)
@@ -181,7 +184,7 @@ def get_my_eod(
     report = get_user_eod_report(db, actor.id, target_date)
     if not report:
         return None
-    return _format_eod(report, actor.full_name, db=db, actor=actor)
+    return _format_eod(report, actor.full_name, db=db, metrics_user=actor)
 
 
 @router.get("/eod/me/today", response_model=EODReportRead | None, summary="Get my EOD for today")
@@ -198,7 +201,7 @@ def generate_my_eod(
     actor: User = Depends(get_current_user),
 ) -> EODReportRead:
     report = generate_or_refresh_eod(db, actor)
-    return _format_eod(report, actor.full_name, db=db, actor=actor)
+    return _format_eod(report, actor.full_name, db=db, metrics_user=actor)
 
 
 @router.post("/eod/me/submit", response_model=EODReportRead, summary="Submit my EOD")
@@ -218,7 +221,7 @@ def submit_my_eod(
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    return _format_eod(report, actor.full_name, db=db, actor=actor)
+    return _format_eod(report, actor.full_name, db=db, metrics_user=actor)
 
 
 @router.get("/eod/team", response_model=list[EODReportRead], summary="Get team EODs")
@@ -265,7 +268,16 @@ def get_team_eods(
         query = query.filter(EODReport.report_date == report_date)
 
     reports = query.order_by(EODReport.report_date.desc(), EODReport.created_at.desc()).all()
-    return [_format_eod(report, user_map.get(report.user_id, "Unknown User")) for report in reports]
+    team_user_by_id = {member.id: member for member in team_members}
+    return [
+        _format_eod(
+            report,
+            user_map.get(report.user_id, "Unknown User"),
+            db=db,
+            metrics_user=team_user_by_id.get(report.user_id),
+        )
+        for report in reports
+    ]
 
 
 @router.post("/eod/{report_id}/review", response_model=EODReportRead, summary="Review an EOD")
@@ -299,4 +311,9 @@ def review_eod(report_id: uuid.UUID, payload: EODReviewRequest, db: Session = De
     db.commit()
     db.refresh(report)
     user = db.get(User, report.user_id)
-    return _format_eod(report, user.full_name if user else "Unknown User")
+    return _format_eod(
+        report,
+        user.full_name if user else "Unknown User",
+        db=db,
+        metrics_user=user,
+    )

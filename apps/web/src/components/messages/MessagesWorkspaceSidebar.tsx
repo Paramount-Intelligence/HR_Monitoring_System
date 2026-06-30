@@ -2,27 +2,16 @@
 
 import { cn } from '@/lib/utils';
 import type { Conversation } from '@/lib/api/messages';
-import { UserProfilePicture } from '@/components/user/UserProfilePicture';
+import { ConversationAvatar } from '@/components/messages/ConversationAvatar';
 import {
   Search,
   Plus,
-  Hash,
-  Users,
   MessageSquare,
   Loader2,
   MoreVertical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  type ChatListFilter,
-  getConversationDisplayName,
-  getConversationPreview,
-  getConversationTypeBadge,
-  getDirectParticipant,
-  formatConversationListTime,
-  matchesSearch,
-  filterByChatListFilter,
-} from './messages-utils';
+import { type ChatListFilter, getConversationDisplayName, getConversationPreview, getConversationTypeBadge, filterByChatListFilter, formatConversationListTime, matchesSearch } from './messages-utils';
 
 interface MessagesWorkspaceSidebarProps {
   conversations: Conversation[];
@@ -59,7 +48,6 @@ function ConversationListItem({
 }) {
   const name = getConversationDisplayName(conv, currentUserId);
   const preview = getConversationPreview(conv);
-  const directUser = getDirectParticipant(conv, currentUserId);
   const typeBadge = getConversationTypeBadge(conv.type);
   const showTypeBadge = conv.type !== 'direct';
 
@@ -75,24 +63,7 @@ function ConversationListItem({
       )}
     >
       <div className="relative shrink-0">
-        {directUser ? (
-          <UserProfilePicture
-            user={directUser}
-            userId={directUser.id}
-            name={directUser.full_name}
-            size="lg"
-            className="h-12 w-12"
-            showPresence
-          />
-        ) : (
-          <div className="h-12 w-12 rounded-full bg-[#dfe5e7] dark:bg-[#374248] flex items-center justify-center text-[#54656f] dark:text-[#aebac1]">
-            {conv.type === 'channel' ? (
-              <Hash className="h-5 w-5" />
-            ) : (
-              <Users className="h-5 w-5" />
-            )}
-          </div>
-        )}
+        <ConversationAvatar conversation={conv} currentUserId={currentUserId} size="lg" />
       </div>
 
       <div className="flex-1 min-w-0 py-2">

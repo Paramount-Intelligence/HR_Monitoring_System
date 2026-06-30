@@ -109,87 +109,127 @@ def refresh_report_metrics(db: Session, report: EODReport, actor: User) -> EodDa
 
 
 def format_eod_report_read(report: EODReport, user_name: str, metrics=None) -> "EODReportRead":
-
     from app.core.time_utils import ensure_pk_datetime
-
-    from app.schemas.ops import EODReportRead
-
-
+    from app.schemas.ops import (
+        EODReportRead,
+        EodAttendanceSummaryRead,
+        EodTaskBreakdownItemRead,
+        EodTaskMetricsRead,
+        EodTimeLogEntryRead,
+    )
 
     attendance_status = None
-
     window_start = None
-
     window_end = None
-
     logged_hours = float(report.total_hours)
+    attendance_summary = None
+    task_metrics_read = None
+    task_breakdown_read: list[EodTaskBreakdownItemRead] = []
 
     if metrics is not None:
-
         attendance_status = metrics.attendance.status
-
         window_start = metrics.window_start
-
         window_end = metrics.window_end
-
         logged_hours = metrics.logged_hours
+        attendance_summary = EodAttendanceSummaryRead(
+            work_mode=metrics.attendance.work_mode,
+            check_in_at=ensure_pk_datetime(metrics.attendance.check_in_at)
+            if metrics.attendance.check_in_at
+            else None,
+            check_out_at=ensure_pk_datetime(metrics.attendance.check_out_at)
+            if metrics.attendance.check_out_at
+            else None,
+            total_hours=metrics.attendance.total_hours,
+            status=metrics.attendance.status,
+        )
+        task_metrics_read = EodTaskMetricsRead(
+            tasks_worked_on=metrics.task_metrics.tasks_worked_on,
+            completed=metrics.task_metrics.completed,
+            pending=metrics.task_metrics.pending,
+            blocked=metrics.task_metrics.blocked,
+            key_actions=metrics.task_metrics.key_actions,
+        )
+        for item in metrics.task_breakdown:
+            task_breakdown_read.append(
+                EodTaskBreakdownItemRead(
+                    task_id=item.task_id,
+                    task_title=item.task_title,
+                    project_id=item.project_id,
+                    project_name=item.project_name,
+                    status=item.status,
+                    priority=item.priority,
+                    completed_at=ensure_pk_datetime(item.completed_at) if item.completed_at else None,
+                    completed_by_name=item.completed_by_name,
+                    total_logged_seconds=item.total_logged_seconds,
+                    total_logged_hours=item.total_logged_hours,
+                    sessions_count=item.sessions_count,
+                    time_logs=[
+                        EodTimeLogEntryRead(
+                            id=entry.id,
+                            start_time=ensure_pk_datetime(entry.start_time),
+                            end_time=ensure_pk_datetime(entry.end_time) if entry.end_time else None,
+                            duration_seconds=entry.duration_seconds,
+                            duration_hours=round(entry.duration_seconds / 3600, 2),
+                            source=entry.source,
+                            note=entry.note,
+                            is_active=entry.is_active,
+                        )
+                        for entry in item.time_logs
+                    ],
+                )
+            )
+    else:
+        attendance_summary = EodAttendanceSummaryRead(
+            work_mode=_read_work_mode(report),
+            check_in_at=ensure_pk_datetime(report.login_time) if report.login_time else None,
+            check_out_at=ensure_pk_datetime(report.logout_time) if report.logout_time else None,
+            total_hours=float(report.total_hours),
+            status=attendance_status or "No Check-in",
+        )
+        task_metrics_read = EodTaskMetricsRead(
+            tasks_worked_on=report.tasks_worked_on,
+            completed=report.completed_tasks,
+            pending=report.pending_tasks,
+            blocked=report.blocked_tasks,
+            key_actions=report.duties_performed,
+        )
 
-
+    shift_start = ensure_pk_datetime(window_start) if window_start else None
+    shift_end = ensure_pk_datetime(window_end) if window_end else None
 
     return EODReportRead(
-
         id=report.id,
-
         user_id=report.user_id,
-
         user_name=user_name,
-
         date=report.report_date,
-
+        report_date=report.report_date,
         login_time=ensure_pk_datetime(report.login_time),
-
         logout_time=ensure_pk_datetime(report.logout_time),
-
         work_mode=_read_work_mode(report),
-
         total_hours=float(report.total_hours),
-
         logged_hours=logged_hours,
-
-        tasks_worked_on=report.tasks_worked_on,
-
-        completed_tasks=report.completed_tasks,
-
-        pending_tasks=report.pending_tasks,
-
-        blocked_tasks=report.blocked_tasks,
-
-        duties_performed=report.duties_performed,
-
+        tasks_worked_on=task_metrics_read.tasks_worked_on if task_metrics_read else report.tasks_worked_on,
+        completed_tasks=task_metrics_read.completed if task_metrics_read else report.completed_tasks,
+        pending_tasks=task_metrics_read.pending if task_metrics_read else report.pending_tasks,
+        blocked_tasks=task_metrics_read.blocked if task_metrics_read else report.blocked_tasks,
+        duties_performed=task_metrics_read.key_actions if task_metrics_read else report.duties_performed,
         status=report.status,
-
         manager_comments=report.manager_comments,
-
-        productivity_score=report.productivity_score,
-
+        productivity_score=report.productivity_score if metrics is None else metrics.productivity_score,
         work_summary=report.work_summary,
-
         blockers=report.blockers,
-
         next_day_plan=report.next_day_plan,
-
         submitted_at=ensure_pk_datetime(report.submitted_at) if report.submitted_at else None,
-
         created_at=ensure_pk_datetime(report.created_at),
-
         updated_at=ensure_pk_datetime(report.updated_at),
-
         attendance_status=attendance_status,
-
-        window_start=ensure_pk_datetime(window_start) if window_start else None,
-
-        window_end=ensure_pk_datetime(window_end) if window_end else None,
-
+        window_start=shift_start,
+        window_end=shift_end,
+        shift_window_start=shift_start,
+        shift_window_end=shift_end,
+        attendance_summary=attendance_summary,
+        task_metrics=task_metrics_read,
+        task_breakdown=task_breakdown_read,
     )
 
 
@@ -357,6 +397,8 @@ def submit_user_eod(
         raise ValueError(f"EOD cannot be submitted while status is '{report.status}'.")
 
 
+
+    populate_eod_metrics(db, report, actor)
 
     report.work_summary = summary
 

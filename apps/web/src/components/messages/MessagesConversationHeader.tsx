@@ -4,7 +4,7 @@ import { ArrowLeft, Hash, Phone, Search, Settings, Users, Video } from 'lucide-r
 import { useSyncExternalStore } from 'react';
 import type { Conversation, ConversationParticipantRole } from '@/lib/api/messages';
 import { Button } from '@/components/ui/button';
-import { UserProfilePicture } from '@/components/user/UserProfilePicture';
+import { ConversationAvatar } from '@/components/messages/ConversationAvatar';
 import { cn } from '@/lib/utils';
 import { AVAILABILITY_DOT_CLASSES } from '@/lib/presence/availability';
 import { resolveAvailabilityDot } from '@/lib/presence/resolve-availability';
@@ -87,24 +87,12 @@ export function MessagesConversationHeader({
           </button>
         )}
 
-        {directUser ? (
-          <UserProfilePicture
-            user={directUser}
-            userId={directUser.id}
-            name={directUser.full_name}
-            size="lg"
-            className="h-10 w-10 shrink-0"
-            showPresence
-          />
-        ) : (
-          <div className="h-10 w-10 rounded-full bg-[#dfe5e7] dark:bg-[#374248] flex items-center justify-center text-[#54656f] shrink-0">
-            {activeConv.type === 'channel' ? (
-              <Hash className="h-5 w-5" />
-            ) : (
-              <Users className="h-5 w-5" />
-            )}
-          </div>
-        )}
+        <ConversationAvatar
+          conversation={activeConv}
+          currentUserId={currentUserId}
+          size="md"
+          className="h-10 w-10"
+        />
 
         <div className="min-w-0">
           <h2 className="text-[15px] font-semibold text-[#111b21] dark:text-[#e9edef] truncate">

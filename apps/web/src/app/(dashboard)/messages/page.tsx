@@ -46,6 +46,7 @@ import {
   type MessagesLeftPanelMode,
 } from '@/components/messages/MessagesSettingsPanel';
 import { MessagesConversationHeader } from '@/components/messages/MessagesConversationHeader';
+import { ConversationDetailsAvatar } from '@/components/messages/ConversationDetailsAvatar';
 import { MessagesChatStream } from '@/components/messages/MessagesChatStream';
 import { MessageActionsMenu } from '@/components/messages/MessageActionsMenu';
 import { MessageReplyComposerPreview } from '@/components/messages/MessageReplyComposerPreview';
@@ -676,6 +677,17 @@ function MessagesContent() {
     messagesApi.getConversations().then(data => {
       setConversations(data);
     }).catch(() => {});
+  });
+
+  useRealtimeEvent('conversation_avatar_updated', (ev) => {
+    const convId = String(ev.payload.conversation_id || '');
+    const avatarUrl = (ev.payload.avatar_url as string | null | undefined) ?? null;
+    if (!convId) return;
+    setConversations((current) =>
+      current.map((conversation) =>
+        conversation.id === convId ? { ...conversation, avatar_url: avatarUrl } : conversation,
+      ),
+    );
   });
 
   useRealtimeEvent('conversation_participants_added', (ev) => {
@@ -1366,8 +1378,20 @@ function MessagesContent() {
               </div>
             )}
 
-            {conversationPanelTab === 'details' && (
+            {conversationPanelTab === 'details' && activeConv && (
               <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 space-y-4">
+                <ConversationDetailsAvatar
+                  conversation={activeConv}
+                  conversationName={activeConvName}
+                  currentUserId={user?.id}
+                  onUpdated={(updated) => {
+                    setConversations((current) =>
+                      current.map((conversation) =>
+                        conversation.id === updated.id ? { ...conversation, ...updated } : conversation,
+                      ),
+                    );
+                  }}
+                />
                 <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-4 space-y-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">About</p>
                   <p className="text-sm font-semibold">{activeConvName}</p>

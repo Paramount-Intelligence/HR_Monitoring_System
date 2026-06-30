@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/select';
 import { formatPKDate, formatPKDateTime } from '@/lib/time';
 import { SubmittedEodSection } from '@/components/eod/SubmittedEodSection';
+import { EodShiftWorkDetails } from '@/components/eod/EodShiftWorkDetails';
 
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -201,7 +202,7 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
                       <div className="grid grid-cols-2 gap-3 mb-5">
                         <div className="bg-[var(--bg-subtle)]/50 rounded-lg p-2 border border-[var(--border-subtle)]">
                           <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter leading-none mb-1 text-center">TRACKED HOURS</p>
-                          <p className="text-sm font-bold text-[var(--text-primary)] text-center">{eod.total_hours}h</p>
+                          <p className="text-sm font-bold text-[var(--text-primary)] text-center">{eod.logged_hours ?? eod.total_hours}h</p>
                         </div>
                         <div className="bg-[var(--bg-subtle)]/50 rounded-lg p-2 border border-[var(--border-subtle)]">
                           <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-tighter leading-none mb-1 text-center">COMPLETED TASKS</p>
@@ -240,7 +241,7 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
                         <tr key={eod.id} className="hover:bg-[var(--bg-subtle)]/50 transition-colors">
                           <td className="px-6 py-4 pl-10"><span className="font-bold text-[var(--text-primary)]">{eod.user_name}</span></td>
                           <td className="px-6 py-4"><span className="text-xs font-bold text-[var(--text-secondary)]">{formatPKDate(eod.date)}</span></td>
-                          <td className="px-6 py-4"><span className="text-xs font-bold text-[var(--accent-primary)]">{eod.total_hours}h Tracked</span></td>
+                          <td className="px-6 py-4"><span className="text-xs font-bold text-[var(--accent-primary)]">{eod.logged_hours ?? eod.total_hours}h Tracked</span></td>
                           <td className="px-6 py-4"><StatusBadge status={eod.status} /></td>
                           <td className="px-6 py-4 pr-10 text-right">
                             <Button variant="ghost" size="sm" onClick={() => openReview(eod)} className="text-[var(--accent-primary)] hover:bg-[var(--bg-subtle)] font-bold text-[10px] uppercase tracking-widest">
@@ -285,7 +286,7 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
                   </div>
                   <p className="font-bold text-[var(--text-primary)] mt-1">{selectedEod.login_time} - {selectedEod.logout_time || 'ACTIVE SESSION'}</p>
                   <div className="mt-2 inline-flex items-center gap-2">
-                    <span className="bg-[var(--accent-primary)] text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold border-none">{selectedEod.total_hours}h HOURS LOGGED</span>
+                    <span className="bg-[var(--accent-primary)] text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold border-none">{selectedEod.logged_hours ?? selectedEod.total_hours}h HOURS LOGGED</span>
                     <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase">{selectedEod.work_mode}</span>
                   </div>
                 </div>
@@ -319,6 +320,9 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
                     </div>
                   </div>
                 </div>
+              </div>
+              <div className="mt-4">
+                <EodShiftWorkDetails eod={selectedEod} />
               </div>
               <div className="mt-4">
                 <SubmittedEodSection report={selectedEod} />

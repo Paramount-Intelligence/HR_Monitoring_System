@@ -390,6 +390,27 @@ class RealtimeService:
         )
 
     @staticmethod
+    def emit_conversation_avatar_updated(
+        db: Session,
+        *,
+        conversation_id: uuid.UUID,
+        avatar_url: str | None,
+        updated_at: datetime,
+    ) -> None:
+        event = RealtimeService.event(
+            "conversation_avatar_updated",
+            {
+                "conversation_id": str(conversation_id),
+                "avatar_url": avatar_url,
+                "updated_at": updated_at.isoformat(),
+            },
+            conversation_id=conversation_id,
+            entity_type="conversation",
+            entity_id=conversation_id,
+        )
+        RealtimeService.emit_to_conversation_participants(db, conversation_id, event)
+
+    @staticmethod
     def emit_conversation_participants_added(
         db: Session,
         conversation_id: uuid.UUID,

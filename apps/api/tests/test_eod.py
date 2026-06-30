@@ -143,7 +143,7 @@ def test_submit_same_date_updates_existing_record(db, eod_users):
     assert count == 1
 
 
-def test_generated_metrics_preserved_after_text_update(db, eod_users):
+def test_submit_recalculates_metrics_from_source_records(db, eod_users):
     report = EODReport(
         user_id=eod_users["employee"].id,
         report_date=date.today(),
@@ -159,13 +159,14 @@ def test_generated_metrics_preserved_after_text_update(db, eod_users):
     response = client.post(
         f"{API}/eod/me/submit",
         headers={"Authorization": f"Bearer {token}"},
-        json={"work_summary": "Submitted while preserving generated metrics for the day."},
+        json={"work_summary": "Submitted while recalculating metrics from live source records."},
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["total_hours"] == 7
-    assert body["completed_tasks"] == 4
-    assert body["productivity_score"] == 80
+    assert body["status"] == "Pending Approval"
+    assert body["logged_hours"] == body["total_hours"]
+    assert body["task_metrics"] is not None
+    assert body["attendance_summary"] is not None
 
 
 def test_manager_can_submit_own_eod(db, eod_users):

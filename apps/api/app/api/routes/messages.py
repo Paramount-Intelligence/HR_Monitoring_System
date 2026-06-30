@@ -19,6 +19,8 @@ from app.models.eod_report import EODReport
 from app.models.approval import Approval
 from app.models.notifications import Notification
 
+from app.core.time_utils import pk_now
+from app.services.conversation_avatar_storage import ConversationAvatarStorageService
 from app.services.realtime_service import RealtimeService
 from app.services.notification_service import create_message_notifications
 from app.services.websocket_manager import ws_manager
@@ -44,6 +46,7 @@ from app.schemas.communication import (
     UpdateParticipantRoleRequest,
     ConversationSettingsUpdate,
     ConversationParticipantRead,
+    ConversationAvatarResponse,
     MessageAttachmentRead,
     MessageInfoRead,
     MessageReceiptRead,
@@ -168,11 +171,49 @@ def _populate_conversation_read(
     return conv
 
 
-def _enrich_conversation_read(db: Session, conv: Conversation) -> ConversationRead:
-    """Attach live online state to participant user summaries."""
+def _can_update_conversation_avatar(
+    conv: Conversation,
+    caller_part: ConversationParticipant | None,
+    current_user: User,
+) -> bool:
+    if conv.type == ConversationType.DIRECT:
+        return False
+    if current_user.role in {UserRole.ADMIN, UserRole.MANAGER}:
+        return True
+    if not caller_part:
+        return False
+    admin_roles = {ConversationParticipantRole.OWNER, ConversationParticipantRole.ADMIN}
+    if caller_part.role in admin_roles:
+        return True
+    return (
+        conv.who_can_edit_group_info == "all_members"
+        and caller_part.role != ConversationParticipantRole.VIEWER
+    )
+
+
+def _enrich_conversation_read(
+    db: Session,
+    conv: Conversation,
+    current_user: User,
+) -> ConversationRead:
+    """Attach live online state and avatar permissions to participant summaries."""
     from app.services.user_online_enricher import UserOnlineEnricher
 
+    caller_part = next(
+        (part for part in getattr(conv, "participants", []) if part.user_id == current_user.id),
+        None,
+    )
+    if caller_part is None:
+        caller_part = (
+            db.query(ConversationParticipant)
+            .filter_by(conversation_id=conv.id, user_id=current_user.id)
+            .first()
+        )
+
     read = ConversationRead.model_validate(conv)
+    read = read.model_copy(
+        update={"can_update_avatar": _can_update_conversation_avatar(conv, caller_part, current_user)}
+    )
     if not read.participants:
         return read
     user_ids = [part.user_id for part in read.participants]
@@ -477,7 +518,7 @@ def get_conversations(
 
         results.append(conv)
 
-    return [_enrich_conversation_read(db, conv) for conv in results]
+    return [_enrich_conversation_read(db, conv, current_user) for conv in results]
 
 
 @router.post("/conversations", response_model=ConversationRead, status_code=status.HTTP_201_CREATED)
@@ -556,7 +597,9 @@ def create_conversation(
     db.commit()
     db.refresh(new_conv)
 
-    return _populate_conversation_read(new_conv, db, current_user)
+    return _enrich_conversation_read(
+        db, _populate_conversation_read(new_conv, db, current_user), current_user
+    )
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationRead)
@@ -583,7 +626,7 @@ def get_conversation(
 
     # Populate fields
     populated = _populate_conversation_read(conv, db, current_user)
-    return _enrich_conversation_read(db, populated)
+    return _enrich_conversation_read(db, populated, current_user)
 
 
 @router.get("/conversations/{conversation_id}/messages", response_model=list[MessageRead])
@@ -1645,6 +1688,127 @@ def update_conversation_settings(
     conv.participants = _get_participant_list(db, conversation_id)
 
     return conv
+
+
+@router.post(
+    "/conversations/{conversation_id}/avatar",
+    response_model=ConversationAvatarResponse,
+    summary="Upload or update conversation avatar",
+)
+async def upload_conversation_avatar(
+    conversation_id: uuid.UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ConversationAvatarResponse:
+    conv = db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    if conv.type == ConversationType.DIRECT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Direct conversations use user profile images.",
+        )
+
+    caller_part = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not caller_part:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a participant.")
+
+    if not _can_update_conversation_avatar(conv, caller_part, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this conversation avatar.",
+        )
+
+    storage = ConversationAvatarStorageService()
+    data, ext, content_type = await storage.read_and_validate(file)
+    storage.delete_by_storage_key(conv.avatar_storage_key)
+    storage.delete_by_url(conv.avatar_url)
+
+    storage_key, public_url = storage.save(conv.id, data, ext, content_type)
+    updated_at = pk_now()
+    conv.avatar_storage_key = storage_key
+    conv.avatar_url = public_url
+    conv.avatar_updated_at = updated_at
+    conv.avatar_updated_by = current_user.id
+    conv.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(conv)
+
+    RealtimeService.emit_conversation_avatar_updated(
+        db,
+        conversation_id=conv.id,
+        avatar_url=public_url,
+        updated_at=updated_at,
+    )
+
+    return ConversationAvatarResponse(
+        conversation_id=conv.id,
+        avatar_url=public_url,
+        avatar_updated_at=updated_at,
+    )
+
+
+@router.delete(
+    "/conversations/{conversation_id}/avatar",
+    response_model=ConversationAvatarResponse,
+    summary="Remove conversation avatar",
+)
+def delete_conversation_avatar(
+    conversation_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ConversationAvatarResponse:
+    conv = db.get(Conversation, conversation_id)
+    if not conv:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+
+    if conv.type == ConversationType.DIRECT:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Direct conversations use user profile images.",
+        )
+
+    caller_part = db.query(ConversationParticipant).filter_by(
+        conversation_id=conversation_id, user_id=current_user.id
+    ).first()
+    if not caller_part:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a participant.")
+
+    if not _can_update_conversation_avatar(conv, caller_part, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this conversation avatar.",
+        )
+
+    storage = ConversationAvatarStorageService()
+    storage.delete_by_storage_key(conv.avatar_storage_key)
+    storage.delete_by_url(conv.avatar_url)
+
+    updated_at = pk_now()
+    conv.avatar_storage_key = None
+    conv.avatar_url = None
+    conv.avatar_updated_at = updated_at
+    conv.avatar_updated_by = current_user.id
+    conv.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(conv)
+
+    RealtimeService.emit_conversation_avatar_updated(
+        db,
+        conversation_id=conv.id,
+        avatar_url=None,
+        updated_at=updated_at,
+    )
+
+    return ConversationAvatarResponse(
+        conversation_id=conv.id,
+        avatar_url=None,
+        avatar_updated_at=updated_at,
+    )
 
 
 @router.post("/conversations/{conversation_id}/attachments", response_model=list[MessageAttachmentRead], status_code=status.HTTP_201_CREATED)
