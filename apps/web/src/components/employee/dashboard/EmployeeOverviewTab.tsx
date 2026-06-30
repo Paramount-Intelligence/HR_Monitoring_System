@@ -10,9 +10,16 @@ import { DashboardSummary } from '@/lib/api/dashboard';
 import { EODReport } from '@/lib/api/eod';
 import { Meeting } from '@/lib/api/meetings';
 import { Notification } from '@/lib/api/notifications';
-import { cn } from '@/lib/utils';
+import { cn, formatSafeDurationFromSeconds } from '@/lib/utils';
+import { getAttendanceCheckInLabel } from '@/lib/employee/employee-overview-utils';
 import { formatPKDateTime } from '@/lib/time';
 import { format, parseISO, isValid } from 'date-fns';
+
+function formatMinutes(minutes: number): string {
+  const m = Number(minutes);
+  if (!Number.isFinite(m) || m < 0) return '—';
+  return formatSafeDurationFromSeconds(m * 60);
+}
 
 const QUICK_LINKS = [
   { href: '/employee/attendance', icon: Clock, label: 'Attendance' },
@@ -47,6 +54,7 @@ export function EmployeeOverviewTab({
   notifications,
   unreadCount,
 }: EmployeeOverviewTabProps) {
+  const attendanceLabel = getAttendanceCheckInLabel(summary?.attendance_status);
   const recentNotifications = notifications.slice(0, 5);
 
   return (
@@ -145,7 +153,7 @@ export function EmployeeOverviewTab({
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Attendance</span>
-                <span className="font-semibold">{isActive ? 'Checked in' : 'Not checked in'}</span>
+                <span className="font-semibold">{attendanceLabel}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[var(--text-secondary)]">Logged hours</span>

@@ -130,12 +130,13 @@ def _effective_window_end(
     window_end: datetime,
 ) -> datetime:
     now = _utc_now()
-    current_business_date = resolve_current_shift_business_date(
-        db.get(Shift, user.shift_id) if user.shift_id else None,
-        pk_now(),
-    )
+    shift = db.get(Shift, user.shift_id) if user.shift_id else None
+    current_business_date = resolve_current_shift_business_date(shift, pk_now())
     if report_date == current_business_date:
-        return min(now, window_end)
+        from app.services.shift_window_service import get_eod_post_shift_grace_hours
+
+        grace = timedelta(hours=get_eod_post_shift_grace_hours())
+        return min(now, window_end + grace)
     return window_end
 
 

@@ -156,6 +156,46 @@ def test_manager_can_approve_direct_report_eod_from_review_endpoint(db, approval
     assert response.json()["status"] == "Approved"
 
 
+def test_admin_eod_reviews_match_approval_center_pending_item(db, approval_users):
+    from app.models.enums import UserRole
+
+    admin = approval_users["manager"]
+    admin.role = UserRole.ADMIN
+    db.commit()
+
+    report = _pending_eod(db, approval_users["employee"].id)
+    token = _login(admin.email)
+
+    approvals = client.get(
+        f"{API}/approvals",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"type": "eod", "status": "pending", "scope": "organization"},
+    )
+    assert approvals.status_code == 200
+    approval_item = _find_eod_item(approvals.json(), report.id)
+    assert approval_item is not None
+
+    reviews = client.get(f"{API}/eod/team", headers={"Authorization": f"Bearer {token}"})
+    assert reviews.status_code == 200
+    review_ids = {row["id"] for row in reviews.json()}
+    assert str(report.id) in review_ids
+
+
+def test_generated_eod_not_in_approval_center(db, approval_users):
+    report = _pending_eod(db, approval_users["employee"].id)
+    report.status = "Generated"
+    db.commit()
+
+    token = _login(approval_users["manager"].email)
+    response = client.get(
+        f"{API}/approvals",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"type": "eod", "status": "all", "scope": "my_team"},
+    )
+    assert response.status_code == 200
+    assert _find_eod_item(response.json(), report.id) is None
+
+
 def test_approval_summary_updates_after_eod_action(db, approval_users):
     report = _pending_eod(db, approval_users["employee"].id)
     token = _login(approval_users["manager"].email)

@@ -93,7 +93,6 @@ export const dashboardCardConfig: Record<DashboardRole, DashboardRoleCardConfig>
       'missing_checkout',
       'active_timer',
       'task_deadline_near',
-      'important_announcement',
     ],
     overviewCards: [
       'logged_hours_today',
@@ -163,7 +162,6 @@ export const dashboardActionCardMeta: Record<DashboardRole, Partial<Record<Dashb
     missing_checkout: { key: 'missing_checkout', title: 'Missing checkout', chipLabel: 'Missing checkout', activeText: 'Fix attendance', href: '/employee/attendance' },
     active_timer: { key: 'active_timer', title: 'Active timer running', chipLabel: 'Active timer', activeText: 'Timer active', href: '/employee/time-logs' },
     task_deadline_near: { key: 'task_deadline_near', title: 'Task deadline near', chipLabel: 'Deadline near', activeText: 'Due soon', href: '/employee/tasks' },
-    important_announcement: { key: 'important_announcement', title: 'Important announcement', chipLabel: 'Announcement', activeText: 'Read update', href: '/employee/dashboard' },
   },
   intern: {
     my_eod_pending: { key: 'my_eod_pending', title: 'My EOD pending', chipLabel: 'EOD pending', activeText: 'Submit today', href: '/employee/eod' },

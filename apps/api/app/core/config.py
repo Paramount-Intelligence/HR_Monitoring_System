@@ -152,6 +152,7 @@ class Settings(BaseSettings):
 
     attendance_max_active_hours: int = 16
     attendance_auto_close_grace_minutes: int = 60
+    eod_post_shift_grace_hours: int = 4
     business_timezone: str = "Asia/Karachi"
 
     @model_validator(mode="after")

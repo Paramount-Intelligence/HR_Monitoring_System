@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db, require_admin, require_admin_or_manager, require_admin_hr
 from app.core.time_utils import ensure_pk_datetime, pk_day_start, pk_now, pk_today
 from app.models.alert import Alert
-from app.models.announcement import Announcement
 from app.models.approval import Approval
 from app.models.attendance_session import AttendanceSession
 from app.models.enums import (
@@ -272,13 +271,11 @@ def dashboard_alerts_summary(db: Session = Depends(get_db), actor: User = Depend
         active_timer = db.query(TimeLog).filter(TimeLog.user_id == actor.id, TimeLog.status == TimeLogStatus.ACTIVE).count()
         my_eod = db.query(EODReport).filter(EODReport.user_id == actor.id, EODReport.report_date == today).first()
         exceptions = AttendanceExceptionService(db).list_exceptions(actor=actor, business_date=today, status_filter="open", type_filter="missing_checkout")
-        announcements = db.query(Announcement).count()
         add("my_eod_pending", "My EOD pending", 0 if my_eod else 1, "/employee/eod")
         add("my_overdue_tasks", "My overdue tasks", overdue, "/employee/tasks?status=overdue", "high")
         add("missing_checkout", "Missing checkout", exceptions.summary.open, "/employee/attendance", "high")
         add("active_timer", "Active timer running", active_timer, "/employee/time-logs")
         add("task_deadline_near", "Task deadline near", due_soon, "/employee/tasks")
-        add("important_announcement", "Important announcement", announcements, "/employee/dashboard")
 
     return DashboardAlertsResponse(cards=cards)
 

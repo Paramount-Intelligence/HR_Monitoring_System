@@ -64,7 +64,6 @@ export default function HRDashboardPage() {
 
       <DashboardOverviewUpdatesSection
         limit={5}
-        announcementsViewAllHref={organizationTabHref('announcements')}
         holidaysViewAllHref={organizationTabHref('holidays')}
       />
     </div>

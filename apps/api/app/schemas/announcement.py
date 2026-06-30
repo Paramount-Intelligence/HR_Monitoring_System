@@ -35,3 +35,8 @@ class AnnouncementUpdate(BaseModel):
     start_date: datetime | None = None
     end_date: datetime | None = None
     is_active: bool | None = None
+
+
+class ActiveAnnouncementsResponse(BaseModel):
+    announcements: list[AnnouncementRead]
+    server_time: datetime

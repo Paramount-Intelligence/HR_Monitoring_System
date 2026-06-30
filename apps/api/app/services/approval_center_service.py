@@ -14,6 +14,7 @@ from app.models.leave_request import LeaveRequest
 from app.models.user import User
 from app.schemas.approvals import ApprovalCenterItem, ApprovalCenterResponse, ApprovalCenterSummary
 from app.services.eod_review_auth import can_review_eod_submitter
+from app.services.eod_review_status import EOD_REVIEW_VISIBLE_STATUSES, normalize_approval_center_eod_status
 
 PENDING_RESOLVE_ACTIONS = ["review", "approve", "request_revision", "reject"]
 REVIEW_ONLY_ACTIONS = ["review"]
@@ -75,7 +76,14 @@ class ApprovalCenterService:
     def _eod_items(self, actor: User, user_ids, start, end) -> list[ApprovalCenterItem]:
         if not user_ids:
             return []
-        q = self.db.query(EODReport, User).join(User, EODReport.user_id == User.id).filter(EODReport.user_id.in_(user_ids))
+        q = (
+            self.db.query(EODReport, User)
+            .join(User, EODReport.user_id == User.id)
+            .filter(
+                EODReport.user_id.in_(user_ids),
+                EODReport.status.in_(tuple(EOD_REVIEW_VISIBLE_STATUSES)),
+            )
+        )
         if start:
             q = q.filter(EODReport.report_date >= start)
         if end:
@@ -178,16 +186,7 @@ class ApprovalCenterService:
         ]
 
     def _eod_status(self, value: str) -> str:
-        v = (value or "").lower()
-        if "pending" in v:
-            return "pending"
-        if "reject" in v:
-            return "rejected"
-        if "revision" in v or "clarification" in v:
-            return "needs_revision"
-        if "approve" in v or "review" in v:
-            return "approved"
-        return v or "pending"
+        return normalize_approval_center_eod_status(value)
 
     def _leave_status(self, value: LeaveStatus) -> str:
         if value == LeaveStatus.NEEDS_CLARIFICATION:

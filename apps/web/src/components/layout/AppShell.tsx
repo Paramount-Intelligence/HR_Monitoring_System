@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { AnnouncementBar } from '@/components/announcements/AnnouncementBar';
 import { BrowserNotificationProvider } from '@/components/notifications/BrowserNotificationProvider';
 import { NotificationPreferencesProvider } from '@/hooks/useNotificationPreferences';
 import { RealtimeProvider } from '@/providers/RealtimeProvider';
@@ -47,6 +48,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
           <div className="flex flex-1 flex-col overflow-hidden min-w-0">
             <Header onMenuToggle={() => setIsSidebarOpen(true)} />
+            <Suspense fallback={null}>
+              <AnnouncementBar />
+            </Suspense>
 
             <main
               className={cn(

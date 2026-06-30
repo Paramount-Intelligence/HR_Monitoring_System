@@ -466,18 +466,17 @@ def test_admin_can_fetch_direct_report_manager_eod(db, admin_manager_chain):
     response = client.get(f"{API}/eod/team", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
     body = response.json()
-    assert len(body) == 1
-    assert body[0]["user_name"] == manager.full_name
+    assert any(row["user_name"] == manager.full_name for row in body)
 
 
-def test_unrelated_admin_cannot_see_manager_eod(db, admin_manager_chain):
+def test_unrelated_admin_sees_manager_eod_with_organization_scope(db, admin_manager_chain):
     manager = admin_manager_chain["manager"]
     db.add(
         EODReport(
             user_id=manager.id,
             report_date=date.today(),
             status="Pending Approval",
-            work_summary="Should not be visible to unrelated admin reviewer.",
+            work_summary="Should be visible to unrelated admin with organization scope.",
             submitted_at=datetime.now(timezone.utc),
         )
     )
@@ -486,7 +485,53 @@ def test_unrelated_admin_cannot_see_manager_eod(db, admin_manager_chain):
     token = _login(admin_manager_chain["unrelated_admin"].email)
     response = client.get(f"{API}/eod/team", headers={"Authorization": f"Bearer {token}"})
     assert response.status_code == 200
+    assert any(row["user_name"] == manager.full_name for row in response.json())
+
+
+def test_admin_my_team_scope_limits_to_direct_reports(db, admin_manager_chain):
+    manager = admin_manager_chain["manager"]
+    db.add(
+        EODReport(
+            user_id=manager.id,
+            report_date=date.today(),
+            status="Pending Approval",
+            work_summary="Should not appear for unrelated admin in my_team scope.",
+            submitted_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+    token = _login(admin_manager_chain["unrelated_admin"].email)
+    response = client.get(
+        f"{API}/eod/team",
+        headers={"Authorization": f"Bearer {token}"},
+        params={"scope": "my_team"},
+    )
+    assert response.status_code == 200
     assert response.json() == []
+
+
+def test_unrelated_admin_can_review_organization_eod(db, admin_manager_chain):
+    manager = admin_manager_chain["manager"]
+    report = EODReport(
+        user_id=manager.id,
+        report_date=date.today(),
+        status="Pending Approval",
+        work_summary="Manager EOD awaiting unrelated admin approval.",
+        submitted_at=datetime.now(timezone.utc),
+    )
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+
+    token = _login(admin_manager_chain["unrelated_admin"].email)
+    response = client.post(
+        f"{API}/eod/{report.id}/review",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"action": "Approved", "comments": "Approved org-wide"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "Approved"
 
 
 def test_admin_can_review_manager_eod(db, admin_manager_chain):

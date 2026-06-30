@@ -13,6 +13,11 @@ export interface Announcement {
   updated_at: string;
 }
 
+export interface ActiveAnnouncementsResponse {
+  announcements: Announcement[];
+  server_time: string;
+}
+
 export const announcementsApi = {
   getAnnouncements: async () => {
     const response = await apiClient.get<Announcement[]>('/announcements');
@@ -24,6 +29,12 @@ export const announcementsApi = {
         limit: params?.limit ?? 5,
         include_expired: params?.includeExpired ?? false,
       },
+    });
+    return response.data;
+  },
+  getActiveAnnouncements: async (params?: { limit?: number }) => {
+    const response = await apiClient.get<ActiveAnnouncementsResponse>('/announcements/active', {
+      params: { limit: params?.limit ?? 10 },
     });
     return response.data;
   },

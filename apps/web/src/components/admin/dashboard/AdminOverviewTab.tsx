@@ -178,7 +178,6 @@ export function AdminOverviewTab({ data, tickets, meetings }: AdminOverviewTabPr
 
       <DashboardOverviewUpdatesSection
         limit={5}
-        announcementsViewAllHref={organizationTabHref('announcements')}
         holidaysViewAllHref={organizationTabHref('holidays')}
       />
     </div>

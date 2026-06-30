@@ -13,7 +13,7 @@ export default function EODReviewsPage() {
         subtitle="Review and verify daily EOD reports from your team"
         icon={ShieldCheck}
       />
-      <EodReviewsPanel />
+      <EodReviewsPanel scope="my_team" audience="manager" />
     </ManagerPageShell>
   );
 }

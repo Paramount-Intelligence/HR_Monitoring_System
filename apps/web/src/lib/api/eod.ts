@@ -116,7 +116,7 @@ export const eodApi = {
     return response.data;
   },
 
-  getTeamEODs: async (params?: { search?: string; status?: string; report_date?: string }) => {
+  getTeamEODs: async (params?: { scope?: 'organization' | 'my_team'; search?: string; status?: string; report_date?: string }) => {
     const response = await apiClient.get<EODReport[]>('/eod/team', { params });
     return response.data;
   },

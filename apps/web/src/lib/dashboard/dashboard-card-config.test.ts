@@ -56,6 +56,11 @@ describe('dashboard card role config', () => {
     assert.equal(dashboardActionCardMeta.hr.pending_leave_requests?.chipLabel, 'Leave approvals');
   });
 
+  it('employee action cards exclude announcement chip', () => {
+    const config = getDashboardRoleConfig('employee');
+    assert.equal(config.actionCards.includes('important_announcement'), false);
+  });
+
   it('defines one overview KPI set per role without action overlap', () => {
     for (const role of roles) {
       const config = getDashboardRoleConfig(role);
