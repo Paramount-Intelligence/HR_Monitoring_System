@@ -574,10 +574,33 @@
     }
   }
 
+  @keyframes announcement-icon-pulse {
+    0%,
+    100% {
+      transform: scale(0.9);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+    }
+    50% {
+      transform: scale(1.06);
+      box-shadow: 0 0 0 5px rgba(255, 255, 255, 0);
+    }
+  }
+
+  .announcement-ticker__icon-pulse {
+    animation: announcement-icon-pulse 1.4s ease-in-out infinite;
+    will-change: transform, box-shadow;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .announcement-ticker__track {
       animation: none;
       transform: none;
+    }
+
+    .announcement-ticker__icon-pulse {
+      animation: none;
+      transform: none;
+      box-shadow: none;
     }
   }
 }

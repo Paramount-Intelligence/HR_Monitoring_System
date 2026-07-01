@@ -121,18 +121,21 @@ export function AnnouncementBar() {
   return (
     <div
       className={cn(
-        'announcement-ticker shrink-0 border-b border-yellow-600 bg-yellow-500 text-white',
+        'announcement-ticker shrink-0 border-b border-[var(--accent-primary-hover)] bg-[var(--accent-primary)] text-white',
       )}
       role="region"
       aria-label={hasAnnouncements ? 'Live company announcements' : 'Announcements status'}
       aria-live="polite"
     >
-      <div className="mx-auto flex h-12 max-w-full items-center gap-3 px-3 sm:h-14 sm:px-5 lg:px-6">
+      <div className="mx-auto flex h-10 max-w-full items-center gap-2 px-3 sm:h-11 sm:px-4 lg:px-5">
         <div
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-yellow-600 text-white sm:h-9 sm:w-9"
+          className={cn(
+            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--accent-primary-hover)] text-white sm:h-7 sm:w-7',
+            !prefersReducedMotion && 'announcement-ticker__icon-pulse',
+          )}
           aria-hidden
         >
-          <Megaphone className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" />
+          <Megaphone className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
         </div>
 
         {loading ? (
