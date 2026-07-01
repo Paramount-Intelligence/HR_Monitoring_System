@@ -25,6 +25,8 @@ from app.models.holiday import Holiday  # noqa: F401
 from app.models.announcement import Announcement  # noqa: F401
 from app.models.leave_request import LeaveRequest  # noqa: F401
 from app.models.task_comment import TaskComment  # noqa: F401
+from app.models.task_activity_event import TaskActivityEvent  # noqa: F401
+from app.models.attendance_exception import AttendanceException  # noqa: F401
 from app.models.goal import Goal  # noqa: F401
 from app.models.achievement import Achievement  # noqa: F401
 from app.models.personal_note import PersonalNote  # noqa: F401
@@ -72,6 +74,8 @@ __all__ = [
     "Announcement",
     "LeaveRequest",
     "TaskComment",
+    "TaskActivityEvent",
+    "AttendanceException",
     "Goal",
     "Achievement",
     "PersonalNote",

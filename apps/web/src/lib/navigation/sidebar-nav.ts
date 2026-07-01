@@ -17,6 +17,7 @@ import {
   Settings,
   HelpCircle,
   MessageSquare,
+  AlertTriangle,
 } from 'lucide-react';
 import { isOrganizationNavActive } from '@/lib/navigation/organization-nav';
 
@@ -75,6 +76,7 @@ export function getSidebarNavItems(role: string): SidebarNavItem[] {
         { title: 'My Attendance', href: '/manager/my-attendance', icon: Clock },
         { title: 'My Tasks', href: '/manager/my-tasks', icon: CheckSquare },
         { title: 'Approvals', href: '/manager/approvals', icon: ClipboardCheck },
+        { title: 'Attendance Exceptions', href: '/manager/attendance-exceptions', icon: AlertTriangle },
         { title: 'My EOD', href: '/manager/eod', icon: ShieldCheck },
         { title: 'EOD Reviews', href: '/manager/eod-reviews', icon: Activity },
       ];
@@ -84,6 +86,8 @@ export function getSidebarNavItems(role: string): SidebarNavItem[] {
         { title: 'HR Dashboard', href: '/hr/dashboard', icon: LayoutDashboard },
         { title: 'All Users', href: '/admin/users', icon: Users },
         { title: 'Attendance & Leaves', href: '/manager/approvals', icon: Clock },
+        { title: 'Attendance Exceptions', href: '/hr/attendance-exceptions', icon: AlertTriangle },
+        { title: 'Approvals', href: '/hr/approvals', icon: ClipboardCheck },
         { title: 'Organization', href: '/admin/organization', icon: Building },
         { title: 'Reports', href: '/admin/reports', icon: FileText },
       ];
@@ -96,6 +100,8 @@ export function getSidebarNavItems(role: string): SidebarNavItem[] {
         { title: 'Tasks', href: '/admin/tasks', icon: CheckSquare },
         { title: 'Organization', href: '/admin/organization', icon: Building },
         { title: 'EOD Reviews', href: '/admin/eod-reviews', icon: Activity },
+        { title: 'Approvals', href: '/admin/approvals', icon: ClipboardCheck },
+        { title: 'Attendance Exceptions', href: '/admin/attendance-exceptions', icon: AlertTriangle },
         { title: 'Reports', href: '/admin/reports', icon: FileText },
         { title: 'Audit Logs', href: '/admin/audit-logs', icon: ShieldCheck },
         { title: 'Call Recordings', href: '/admin/call-recordings', icon: Activity, permission: 'call_recordings.view' },

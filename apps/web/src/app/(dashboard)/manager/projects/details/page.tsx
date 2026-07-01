@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { projectsApi, Project } from '@/lib/api/projects';
+import { projectsApi, Project, ProjectHealth } from '@/lib/api/projects';
 import { usersApi } from '@/lib/api/users';
 import { User } from '@/types';
 import { getErrorMessage } from '@/lib/api/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft, MessageSquare, Pencil, Archive } from 'lucide-react';
+import { Loader2, Briefcase, Calendar, Clock, Target, CheckCircle2, XCircle, AlertCircle, ShieldCheck, ChevronLeft, MessageSquare, Pencil, Archive, Activity } from 'lucide-react';
 import { messagesApi } from '@/lib/api/messages';
 import { format, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -58,6 +58,7 @@ export default function ProjectDetailsPage() {
   const router = useRouter();
   const [id, setId] = useState<string | null>(null);
   const [project, setProject] = useState<Project | null>(null);
+  const [health, setHealth] = useState<ProjectHealth | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -109,6 +110,7 @@ export default function ProjectDetailsPage() {
     try {
       const data = await projectsApi.getProject(id as string);
       setProject(data);
+      setHealth(await projectsApi.getProjectHealth(id as string).catch(() => null));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -122,6 +124,7 @@ export default function ProjectDetailsPage() {
           usersApi.getMe()
         ]);
         setProject(projectData);
+        setHealth(await projectsApi.getProjectHealth(id as string).catch(() => null));
         setCurrentUser(userData);
       } catch (error) {
         toast.error(getErrorMessage(error));
@@ -312,6 +315,57 @@ export default function ProjectDetailsPage() {
               </CardHeader>
               <CardContent className="p-0">
                 <p className="text-sm font-bold text-rose-700/80 leading-relaxed italic">{project.rejected_reason}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {health && (
+            <Card className="border-none shadow-[var(--shadow-soft)] bg-[var(--bg-surface)] rounded-[2.5rem] overflow-hidden p-8 text-[var(--text-primary)]">
+              <CardHeader className="p-0 mb-6">
+                <CardTitle className="text-xl font-black tracking-tight flex items-center gap-3">
+                  <Activity className="h-5 w-5 text-[var(--accent-primary)]" />
+                  Project Health
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 space-y-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {[
+                    ['Completion Rate', `${health.summary.completion_rate}%`],
+                    ['Logged Hours', health.summary.total_logged_hours],
+                    ['Overdue Tasks', health.summary.overdue_tasks],
+                    ['Blocked Tasks', health.summary.blocked_tasks],
+                    ['Active Members', health.summary.active_members],
+                    ['Risk Level', health.summary.risk_level],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl border border-[var(--border-subtle)] p-4">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)]">{label}</p>
+                      <p className="mt-1 text-xl font-black capitalize">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-subtle)]">
+                  <div className="h-full bg-[var(--accent-primary)]" style={{ width: `${Math.min(100, health.summary.completion_rate)}%` }} />
+                </div>
+                <div className="grid gap-6 lg:grid-cols-2">
+                  <div>
+                    <h3 className="mb-3 text-sm font-black">Overdue Tasks</h3>
+                    {health.overdue_tasks.length === 0 ? <p className="text-sm text-[var(--text-muted)]">No overdue tasks.</p> : health.overdue_tasks.map((task) => (
+                      <div key={task.id} className="border-b border-[var(--border-subtle)] py-2 text-sm">{task.title}<span className="block text-xs text-[var(--text-muted)]">{task.assignee_name || 'Unassigned'}</span></div>
+                    ))}
+                  </div>
+                  <div>
+                    <h3 className="mb-3 text-sm font-black">Blocked Tasks</h3>
+                    {health.blocked_tasks.length === 0 ? <p className="text-sm text-[var(--text-muted)]">No blocked tasks.</p> : health.blocked_tasks.map((task) => (
+                      <div key={task.id} className="border-b border-[var(--border-subtle)] py-2 text-sm">{task.title}<span className="block text-xs text-[var(--text-muted)]">{task.assignee_name || 'Unassigned'}</span></div>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="mb-3 text-sm font-black">Recent Activity</h3>
+                  {health.recent_activity.length === 0 ? <p className="text-sm text-[var(--text-muted)]">No recent activity.</p> : health.recent_activity.map((item) => (
+                    <div key={`${item.title}-${item.created_at}`} className="border-b border-[var(--border-subtle)] py-2 text-sm">{item.description}</div>
+                  ))}
+                </div>
               </CardContent>
             </Card>
           )}

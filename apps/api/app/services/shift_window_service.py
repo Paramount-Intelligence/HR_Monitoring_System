@@ -46,9 +46,17 @@ def shift_window_to_utc(window_start: datetime, window_end: datetime) -> tuple[d
     return window_start.astimezone(timezone.utc), window_end.astimezone(timezone.utc)
 
 
+def get_eod_post_shift_grace_hours() -> int:
+    from app.core.config import settings
+
+    return max(0, int(settings.eod_post_shift_grace_hours))
+
+
 def resolve_current_shift_business_date(
     shift: Shift | None,
     now_local: datetime | None = None,
+    *,
+    grace_hours: int | None = None,
 ) -> date:
     """Map current local time to the active shift business date."""
     now = now_local or pk_now()
@@ -57,14 +65,24 @@ def resolve_current_shift_business_date(
 
     tz = get_shift_tz(shift)
     now = now.astimezone(tz) if now.tzinfo else now.replace(tzinfo=tz)
-    if is_overnight_shift(shift.start_time, shift.end_time) and now.time() < shift.end_time:
-        return now.date() - timedelta(days=1)
-    return now.date()
+    grace = get_eod_post_shift_grace_hours() if grace_hours is None else max(0, grace_hours)
+    today = now.date()
+
+    if is_overnight_shift(shift.start_time, shift.end_time):
+        for candidate in (today, today - timedelta(days=1)):
+            start, end = get_shift_window_for_business_date(shift, candidate)
+            if start <= now < end + timedelta(hours=grace):
+                return candidate
+        return today
+
+    return today
 
 
 def resolve_shift_business_date_for_timestamp(
     shift: Shift | None,
     timestamp: datetime,
+    *,
+    grace_hours: int | None = None,
 ) -> date:
     """Map a check-in/check-out timestamp to its shift business date."""
     if shift is None:
@@ -73,13 +91,15 @@ def resolve_shift_business_date_for_timestamp(
     ts = ensure_pk_datetime(timestamp)
     tz = get_shift_tz(shift)
     ts_local = ts.astimezone(tz)
+    grace = get_eod_post_shift_grace_hours() if grace_hours is None else max(0, grace_hours)
 
     if is_overnight_shift(shift.start_time, shift.end_time):
-        if ts_local.time() < shift.end_time:
-            return ts_local.date() - timedelta(days=1)
-        window_start, window_end = get_shift_window_for_business_date(shift, ts_local.date())
-        if window_start <= ts_local < window_end:
-            return ts_local.date()
+        today = ts_local.date()
+        for candidate in (today, today - timedelta(days=1)):
+            start, end = get_shift_window_for_business_date(shift, candidate)
+            if start <= ts_local < end + timedelta(hours=grace):
+                return candidate
+        return today
 
     return ts_local.date()
 

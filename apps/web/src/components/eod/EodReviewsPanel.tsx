@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { eodApi, EODReport } from '@/lib/api/eod';
+import { eodApi, EODReport, approveEodReport, rejectEodReport, requestEodRevision } from '@/lib/api/eod';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -52,9 +52,15 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
 
 interface EodReviewsPanelProps {
   feedbackLabel?: string;
+  scope?: 'organization' | 'my_team';
+  audience?: 'admin' | 'manager';
 }
 
-export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodReviewsPanelProps) {
+export function EodReviewsPanel({
+  feedbackLabel = 'Manager Feedback',
+  scope = 'my_team',
+  audience = 'manager',
+}: EodReviewsPanelProps) {
   const [eods, setEods] = useState<EODReport[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -72,6 +78,7 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
     try {
       setIsLoading(true);
       const data = await eodApi.getTeamEODs({
+        scope,
         search: debouncedSearch || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
         report_date: reportDate || undefined,
@@ -86,7 +93,7 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
 
   useEffect(() => {
     void loadEODs();
-  }, [debouncedSearch, statusFilter, reportDate]);
+  }, [debouncedSearch, statusFilter, reportDate, scope]);
 
   function openReview(eod: EODReport) {
     setSelectedEod(eod);
@@ -104,7 +111,11 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
     try {
       setReviewAction(action);
       setIsSubmitting(true);
-      const updated = await eodApi.reviewEOD(selectedEod.id, action, comments);
+      const updated = action === 'Approved'
+        ? await approveEodReport(selectedEod.id, comments || 'Approved.')
+        : action === 'Rejected'
+          ? await rejectEodReport(selectedEod.id, comments)
+          : await requestEodRevision(selectedEod.id, comments);
       setEods((current) => current.map((e) => (e.id === updated.id ? updated : e)));
       toast.success(`EOD ${action}`);
       setIsReviewOpen(false);
@@ -122,6 +133,19 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
     () => eods.filter((e) => e.status !== 'Pending Approval' && e.status !== 'Generated' && e.status !== 'Draft'),
     [eods],
   );
+
+  const hasActiveFilters = Boolean(debouncedSearch || reportDate || statusFilter !== 'all');
+
+  const clearFilters = () => {
+    setSearch('');
+    setReportDate('');
+    setStatusFilter('all');
+  };
+
+  const emptyTitle = audience === 'admin' ? 'No EOD reports found' : 'No reports to review';
+  const emptyDescription = audience === 'admin'
+    ? 'No organization EOD reports match your filters.'
+    : 'No EOD reports match your filters. Reports appear once direct reports submit their daily summaries.';
 
   const formatProductivity = (score: number | null | undefined) => {
     if (score == null || Number.isNaN(score)) return '—';
@@ -259,9 +283,12 @@ export function EodReviewsPanel({ feedbackLabel = 'Manager Feedback' }: EodRevie
 
           {eods.length === 0 && (
             <EmptyState
-              title="No reports to review"
-              description="No EOD reports match your filters. Reports appear once direct reports submit their daily summaries."
+              title={emptyTitle}
+              description={emptyDescription}
               icon={ShieldCheck}
+              action={hasActiveFilters ? (
+                <Button variant="outline" size="sm" onClick={clearFilters}>Clear filters</Button>
+              ) : undefined}
             />
           )}
         </>

@@ -14,12 +14,12 @@ export default function AdminEodReviewsPage() {
           <div>
             <h1 className="text-2xl font-black tracking-tight text-[var(--text-primary)]">EOD Reviews</h1>
             <p className="text-sm font-semibold text-[var(--text-muted)]">
-              Review EOD reports submitted by users who report to you
+              Review EOD reports submitted across the organization
             </p>
           </div>
         </div>
       </div>
-      <EodReviewsPanel feedbackLabel="Admin Feedback" />
+      <EodReviewsPanel feedbackLabel="Admin Feedback" scope="organization" audience="admin" />
     </div>
   );
 }

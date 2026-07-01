@@ -72,10 +72,51 @@ class TestShiftWindowHelpers:
         now = datetime(2026, 6, 26, 0, 30, tzinfo=PK_TZ)
         assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 25)
 
-    def test_after_shift_end_uses_current_business_date(self):
+    def test_after_shift_end_stays_on_previous_business_date_during_grace(self):
         shift = _overnight_shift()
         now = datetime(2026, 6, 26, 3, 0, tzinfo=PK_TZ)
+        assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 25)
+
+    def test_after_grace_window_rolls_to_next_business_date(self):
+        shift = _overnight_shift()
+        now = datetime(2026, 6, 26, 6, 1, tzinfo=PK_TZ)
         assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 26)
+
+    def test_two_am_after_shift_end_stays_on_start_date(self):
+        shift = _overnight_shift()
+        now = datetime(2026, 7, 1, 2, 3, tzinfo=PK_TZ)
+        assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 30)
+
+    def test_evening_shift_start_same_business_date(self):
+        shift = _overnight_shift()
+        now = datetime(2026, 6, 30, 18, 0, tzinfo=PK_TZ)
+        assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 30)
+
+    def test_one_thirty_am_stays_on_previous_business_date(self):
+        shift = _overnight_shift()
+        now = datetime(2026, 7, 1, 1, 30, tzinfo=PK_TZ)
+        assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 30)
+
+    def test_morning_after_grace_uses_next_business_date(self):
+        shift = _overnight_shift()
+        now = datetime(2026, 7, 1, 8, 0, tzinfo=PK_TZ)
+        assert resolve_current_shift_business_date(shift, now) == date(2026, 7, 1)
+
+    def test_june_30_report_date_window(self):
+        shift = _overnight_shift()
+        start, end = get_shift_window_for_business_date(shift, date(2026, 6, 30))
+        assert start == datetime(2026, 6, 30, 17, 0, tzinfo=PK_TZ)
+        assert end == datetime(2026, 7, 1, 2, 0, tzinfo=PK_TZ)
+
+    def test_checkout_during_post_shift_grace_maps_to_start_date(self):
+        shift = _overnight_shift()
+        checkout = datetime(2026, 7, 1, 2, 3, tzinfo=PK_TZ)
+        assert resolve_shift_business_date_for_timestamp(shift, checkout) == date(2026, 6, 30)
+
+    def test_day_shift_uses_calendar_date(self):
+        shift = _day_shift()
+        now = datetime(2026, 6, 25, 14, 0, tzinfo=PK_TZ)
+        assert resolve_current_shift_business_date(shift, now) == date(2026, 6, 25)
 
     def test_check_in_at_5pm_maps_to_same_business_date(self):
         shift = _overnight_shift()

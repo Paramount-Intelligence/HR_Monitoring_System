@@ -1,12 +1,19 @@
 from __future__ import annotations
 import uuid
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.deps import get_current_user, get_db
 from app.models.enums import UserRole
 from app.models.user import User
 from app.models.announcement import Announcement
-from app.schemas.announcement import AnnouncementRead, AnnouncementCreate, AnnouncementUpdate
+from app.schemas.announcement import (
+    ActiveAnnouncementsResponse,
+    AnnouncementCreate,
+    AnnouncementRead,
+    AnnouncementUpdate,
+)
 
 from app.services.realtime_service import RealtimeService
 from app.services.announcement_service import list_visible_announcements
@@ -90,6 +97,18 @@ def list_visible_announcements_for_dashboard(
         actor,
         limit=limit,
         include_expired=include_expired,
+    )
+
+
+@router.get("/active", response_model=ActiveAnnouncementsResponse, summary="Active announcements for portal ticker")
+def list_active_announcements(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> ActiveAnnouncementsResponse:
+    return ActiveAnnouncementsResponse(
+        announcements=list_visible_announcements(db, actor, limit=limit, include_expired=False),
+        server_time=datetime.now(timezone.utc),
     )
 
 @router.get("/all", response_model=list[AnnouncementRead], summary="List all announcements (Admin/HR only)")

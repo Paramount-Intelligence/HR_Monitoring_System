@@ -15,6 +15,9 @@ import { AdminUserManagementTab } from '@/components/admin/dashboard/AdminUserMa
 import { AdminCommunicationTab } from '@/components/admin/dashboard/AdminCommunicationTab';
 import { AdminProjectTasksTab } from '@/components/admin/dashboard/AdminProjectTasksTab';
 import { AdminTabError } from '@/components/admin/dashboard/AdminTabError';
+import { CompactActionCenter } from '@/components/dashboard/CompactActionCenter';
+import { DashboardQuickActions } from '@/components/dashboard/DashboardQuickActions';
+import { DashboardKpiGrid } from '@/components/dashboard/DashboardKpiGrid';
 import { Meeting } from '@/lib/api/meetings';
 import {
   CommunicationAnalyticsData,
@@ -267,7 +270,7 @@ export default function AdminDashboardPage() {
   }
 
   return (
-    <div className="space-y-5 pb-16 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
+    <div className="space-y-4 pb-16 max-w-[1600px] mx-auto animate-in fade-in duration-700 text-[var(--text-primary)]">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-[var(--accent-primary)]">
@@ -288,6 +291,25 @@ export default function AdminDashboardPage() {
           <RefreshCcw className="mr-2 h-3.5 w-3.5" /> Refresh Sync
         </Button>
       </div>
+
+      <CompactActionCenter role="admin" />
+
+      <DashboardQuickActions role="admin" />
+
+      <DashboardKpiGrid
+        role="admin"
+        loading={overviewLoading}
+        adminContext={
+          overviewData
+            ? {
+                kpis: overviewData.kpis || {},
+                taskStats: overviewData.task_statistics || {},
+                openTickets: tickets.filter((t) => !['resolved', 'closed'].includes(t.status)).length,
+                upcomingMeetings: meetings.filter((m) => m.status === 'scheduled').length,
+              }
+            : undefined
+        }
+      />
 
       <AdminDashboardTabs activeTab={activeTab} onTabChange={handleTabChange} />
 

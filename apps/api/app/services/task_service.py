@@ -15,6 +15,7 @@ TASK_FULL_ACCESS_ROLES = frozenset({UserRole.ADMIN, UserRole.HR_OPERATIONS})
 CLOSED_TASK_STATUSES = frozenset({TaskStatus.COMPLETED, TaskStatus.REVIEWED, TaskStatus.ARCHIVED})
 from app.models.project import Project
 from app.models.task import Task
+from app.models.task_activity_event import TaskActivityEvent
 from app.models.task_comment import TaskComment
 from app.models.user import User
 from app.schemas.task import TaskComplexity, TaskCreate, TaskUpdate, TaskCommentCreate
@@ -53,6 +54,7 @@ class TaskService:
         )
         self.db.add(task)
         self.db.flush()
+        self._write_activity(task.id, actor.id, "task_created", new_value=task.title)
         self._write_audit(actor, "TASK_CREATED", task.id, new_value={"title": task.title})
         self.db.commit()
         self.db.refresh(task)
@@ -184,6 +186,7 @@ class TaskService:
             from app.services.task_completion_request_service import TaskCompletionRequestService
 
             TaskCompletionRequestService(self.db).supersede_pending_for_task(task.id, actor=actor)
+        self._write_change_activity(task, actor, old_snapshot, changes)
         self._write_audit(actor, "TASK_UPDATED", task.id, old_value=old_snapshot, new_value=audit_changes)
         self.db.commit()
         self.db.refresh(task)
@@ -295,13 +298,47 @@ class TaskService:
             content=payload.content
         )
         self.db.add(comment)
+        self._write_activity(task.id, actor.id, "comment_added", new_value=payload.content[:500])
         self.db.commit()
         self.db.refresh(comment)
         return comment
 
     def list_comments(self, task_id: uuid.UUID, actor: User) -> list[TaskComment]:
         task = self.get_task(task_id, actor)
-        return self.db.query(TaskComment).filter(TaskComment.task_id == task.id).order_by(TaskComment.created_at.asc()).all()
+        return (
+            self.db.query(TaskComment)
+            .filter(TaskComment.task_id == task.id, TaskComment.deleted_at == None)
+            .order_by(TaskComment.created_at.asc())
+            .all()
+        )
+
+    def update_comment(self, task_id: uuid.UUID, comment_id: uuid.UUID, content: str, actor: User) -> TaskComment:
+        task = self.get_task(task_id, actor)
+        comment = self._get_comment(task.id, comment_id)
+        self._assert_can_moderate_comment(comment, actor)
+        old_content = comment.content
+        comment.content = content
+        self._write_activity(task.id, actor.id, "comment_updated", old_value=old_content[:500], new_value=content[:500])
+        self.db.commit()
+        self.db.refresh(comment)
+        return comment
+
+    def delete_comment(self, task_id: uuid.UUID, comment_id: uuid.UUID, actor: User) -> None:
+        task = self.get_task(task_id, actor)
+        comment = self._get_comment(task.id, comment_id)
+        self._assert_can_moderate_comment(comment, actor)
+        comment.deleted_at = datetime.now(timezone.utc)
+        self._write_activity(task.id, actor.id, "comment_deleted", old_value=comment.content[:500])
+        self.db.commit()
+
+    def list_activity(self, task_id: uuid.UUID, actor: User) -> list[TaskActivityEvent]:
+        task = self.get_task(task_id, actor)
+        return (
+            self.db.query(TaskActivityEvent)
+            .filter(TaskActivityEvent.task_id == task.id)
+            .order_by(TaskActivityEvent.created_at.desc())
+            .all()
+        )
 
 
     def _check_read_access(self, task: Task, actor: User) -> None:
@@ -345,3 +382,57 @@ class TaskService:
 
     def _write_audit(self, actor: User, action: str, entity_id: uuid.UUID, old_value: dict | None = None, new_value: dict | None = None) -> None:
         self.db.add(AuditLog(actor_user_id=actor.id, action_type=action, entity_type="task", entity_id=entity_id, old_value=old_value, new_value=new_value))
+
+    def _write_activity(
+        self,
+        task_id: uuid.UUID,
+        actor_id: uuid.UUID,
+        event_type: str,
+        old_value: str | None = None,
+        new_value: str | None = None,
+        metadata: dict | None = None,
+    ) -> None:
+        self.db.add(
+            TaskActivityEvent(
+                task_id=task_id,
+                actor_id=actor_id,
+                event_type=event_type,
+                old_value=old_value,
+                new_value=new_value,
+                extra_metadata=metadata,
+            )
+        )
+
+    def _write_change_activity(self, task: Task, actor: User, old_snapshot: dict, changes: dict) -> None:
+        field_events = {
+            "status": "status_changed",
+            "priority": "priority_changed",
+            "assigned_to": "assignee_changed",
+            "due_date": "deadline_changed",
+        }
+        for field, event_type in field_events.items():
+            if field not in changes:
+                continue
+            old = old_snapshot.get(field)
+            new_raw = getattr(task, field)
+            new = new_raw.value if hasattr(new_raw, "value") else str(new_raw) if new_raw is not None else None
+            self._write_activity(task.id, actor.id, event_type, old_value=str(old) if old is not None else None, new_value=new)
+        if task.status == TaskStatus.COMPLETED and "status" in changes:
+            self._write_activity(task.id, actor.id, "task_completed", new_value=f"{actor.full_name} marked this task as completed.")
+
+    def _get_comment(self, task_id: uuid.UUID, comment_id: uuid.UUID) -> TaskComment:
+        comment = (
+            self.db.query(TaskComment)
+            .filter(TaskComment.id == comment_id, TaskComment.task_id == task_id, TaskComment.deleted_at == None)
+            .first()
+        )
+        if not comment:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Comment not found")
+        return comment
+
+    def _assert_can_moderate_comment(self, comment: TaskComment, actor: User) -> None:
+        if comment.user_id == actor.id:
+            return
+        if actor.role in (UserRole.ADMIN, UserRole.HR_OPERATIONS, UserRole.MANAGER, UserRole.TEAM_LEAD):
+            return
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only edit or delete your own comments")

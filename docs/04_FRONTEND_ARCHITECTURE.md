@@ -49,7 +49,7 @@ The application code is located in `apps/web/src`.
 *   **Styling**: Vanilla **Tailwind CSS** for all styling.
 *   **Components**: Built on top of **shadcn/ui** (Radix UI primitives).
 *   **Icons**: **Lucide React**.
-*   **Fonts**: **Inter** (via Next.js Font optimization).
+*   **Fonts**: **Google Sans -> Roboto -> Arial -> sans-serif**.
 
 ## Important Patterns
 1.  **Date Formatting**: All dates are formatted using local helpers to ensure consistent **PKT (Asia/Karachi)** display while handling UTC from the backend.

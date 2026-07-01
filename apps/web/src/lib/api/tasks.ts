@@ -31,6 +31,26 @@ export interface Task {
   can_start_timer?: boolean;
 }
 
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TaskActivityEvent {
+  id: string;
+  task_id: string;
+  actor_id: string;
+  actor_name: string;
+  event_type: string;
+  old_value: string | null;
+  new_value: string | null;
+  created_at: string;
+}
+
 export const tasksApi = {
   getTasks: async (params?: Record<string, any>) => {
     const response = await apiClient.get<Task[]>('/tasks', { params });
@@ -100,6 +120,30 @@ export const tasksApi = {
         pause_reason: string | null;
       }[];
     }>('/tasks/admin/overview', { params });
+    return response.data;
+  },
+
+  getComments: async (taskId: string) => {
+    const response = await apiClient.get<TaskComment[]>(`/tasks/${taskId}/comments`);
+    return response.data;
+  },
+
+  createComment: async (taskId: string, content: string) => {
+    const response = await apiClient.post<TaskComment>(`/tasks/${taskId}/comments`, { content });
+    return response.data;
+  },
+
+  updateComment: async (taskId: string, commentId: string, content: string) => {
+    const response = await apiClient.patch<TaskComment>(`/tasks/${taskId}/comments/${commentId}`, { content });
+    return response.data;
+  },
+
+  deleteComment: async (taskId: string, commentId: string) => {
+    await apiClient.delete(`/tasks/${taskId}/comments/${commentId}`);
+  },
+
+  getActivity: async (taskId: string) => {
+    const response = await apiClient.get<TaskActivityEvent[]>(`/tasks/${taskId}/activity`);
     return response.data;
   },
 };

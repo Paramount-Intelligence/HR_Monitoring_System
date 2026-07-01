@@ -51,6 +51,7 @@ class TaskTimerService:
         # Update task status if not already in progress
         if task.status == TaskStatus.CREATED or task.status == TaskStatus.APPROVED:
             task.status = TaskStatus.IN_PROGRESS
+        self._write_activity(task.id, actor.id, "timer_started")
 
         self.db.commit()
         return self._reload_session(session.id)
@@ -70,6 +71,7 @@ class TaskTimerService:
         session.status = TimerSessionStatus.PAUSED
         session.paused_at = now
         session.pause_reason = reason
+        self._write_activity(session.task_id, actor.id, "timer_paused", new_value=reason.value if hasattr(reason, "value") else str(reason))
 
         self.db.commit()
         return self._reload_session(session.id)
@@ -94,6 +96,7 @@ class TaskTimerService:
         session.last_resumed_at = now
         session.paused_at = None
         session.pause_reason = None
+        self._write_activity(session.task_id, actor.id, "timer_started")
 
         self.db.commit()
         return self._reload_session(session.id)
@@ -131,6 +134,7 @@ class TaskTimerService:
         task = self.db.get(Task, session.task_id)
         if task:
             task.actual_duration_minutes = (task.actual_duration_minutes or 0) + duration_minutes
+            self._write_activity(task.id, actor.id, "timer_stopped", new_value=str(duration_minutes))
 
         # Finalize session
         session.status = TimerSessionStatus.COMPLETED
@@ -193,3 +197,15 @@ class TaskTimerService:
                 )
 
         return task
+
+    def _write_activity(self, task_id: uuid.UUID, actor_id: uuid.UUID, event_type: str, new_value: str | None = None) -> None:
+        from app.models.task_activity_event import TaskActivityEvent
+
+        self.db.add(
+            TaskActivityEvent(
+                task_id=task_id,
+                actor_id=actor_id,
+                event_type=event_type,
+                new_value=new_value,
+            )
+        )

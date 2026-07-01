@@ -14,8 +14,8 @@ const config: Config = {
   			'section-title': ['1rem', { lineHeight: '1.5rem', fontWeight: '600' }],
   		},
   		fontFamily: {
-  			sans: ['"Google Sans"', 'var(--font-roboto)', 'Arial', 'sans-serif'],
-  			heading: ['"Google Sans"', 'var(--font-roboto)', 'Arial', 'sans-serif'],
+  			sans: ['"Google Sans"', 'var(--font-roboto)', '"Roboto"', 'Arial', 'sans-serif'],
+  			heading: ['"Google Sans"', 'var(--font-roboto)', '"Roboto"', 'Arial', 'sans-serif'],
   		},
   		colors: {
   			background: 'var(--bg-base)',

@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
-import { ArrowLeft, Briefcase, Calendar, Clock, Loader2 } from 'lucide-react';
+import { ArrowLeft, Briefcase, Calendar, Clock, Loader2, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { tasksApi, Task } from '@/lib/api/tasks';
+import { tasksApi, Task, TaskActivityEvent, TaskComment } from '@/lib/api/tasks';
 import { timeLogsApi, TaskTimerSession } from '@/lib/api/timeLogs';
 import { AttendanceSession } from '@/lib/api/attendance';
 import apiClient, { getErrorMessage } from '@/lib/api/client';
@@ -21,6 +21,8 @@ import {
 } from '@/lib/time-logs/timer-utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { TaskTimer } from '@/components/tasks/TaskTimer';
 import { TaskCompleteRequestButton } from '@/components/tasks/TaskCompleteRequestButton';
@@ -38,6 +40,9 @@ export default function TaskDetailPage() {
   const [forbidden, setForbidden] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [activity, setActivity] = useState<TaskActivityEvent[]>([]);
+  const [commentBody, setCommentBody] = useState('');
 
   const loadTask = useCallback(async () => {
     if (!taskId) return;
@@ -51,6 +56,12 @@ export default function TaskDetailPage() {
         apiClient.get<AttendanceSession | null>('/attendance/active').then((res) => res.data).catch(() => null),
       ]);
       setTask(taskData);
+      const [commentData, activityData] = await Promise.all([
+        tasksApi.getComments(taskId).catch(() => []),
+        tasksApi.getActivity(taskId).catch(() => []),
+      ]);
+      setComments(commentData);
+      setActivity(activityData);
       setActiveTimer(timerData);
       setIsCheckedIn(Boolean(attendanceData && attendanceData.session_status === 'active'));
     } catch (error: unknown) {
@@ -129,6 +140,32 @@ export default function TaskDetailPage() {
     }
   };
 
+  const handleAddComment = async () => {
+    if (!task || !commentBody.trim()) return;
+    setActionLoading(true);
+    try {
+      await tasksApi.createComment(task.id, commentBody.trim());
+      setCommentBody('');
+      const [commentData, activityData] = await Promise.all([
+        tasksApi.getComments(task.id),
+        tasksApi.getActivity(task.id),
+      ]);
+      setComments(commentData);
+      setActivity(activityData);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const activityText = (event: TaskActivityEvent) => {
+    const label = event.event_type.replaceAll('_', ' ');
+    if (event.event_type === 'task_completed') return event.new_value || `${event.actor_name} marked this task as completed.`;
+    if (event.old_value || event.new_value) return `${event.actor_name}: ${label} ${event.old_value ?? ''} ${event.new_value ? `-> ${event.new_value}` : ''}`;
+    return `${event.actor_name}: ${label}`;
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center gap-3 text-[var(--text-secondary)]">
@@ -197,6 +234,15 @@ export default function TaskDetailPage() {
         </Button>
       </div>
 
+      <Tabs defaultValue="details" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="comments">Comments</TabsTrigger>
+          <TabsTrigger value="time">Time Logs</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="details">
       <Card className="border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-[var(--shadow-soft)]">
         <CardHeader className="space-y-2 border-b border-[var(--border-subtle)]">
           <CardTitle className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">
@@ -306,6 +352,49 @@ export default function TaskDetailPage() {
           />
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardHeader><CardTitle>Activity</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              {activity.length === 0 ? <p className="text-sm text-[var(--text-muted)]">No activity recorded yet.</p> : activity.map((event) => (
+                <div key={event.id} className="rounded-lg border border-[var(--border-subtle)] p-3">
+                  <p className="text-sm font-medium">{activityText(event)}</p>
+                  <p className="text-xs text-[var(--text-muted)]">{new Date(event.created_at).toLocaleString()}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="comments">
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Comments</CardTitle></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Textarea value={commentBody} onChange={(e) => setCommentBody(e.target.value)} placeholder="Add a task comment..." className="min-h-[100px]" />
+                <Button onClick={handleAddComment} disabled={actionLoading || !commentBody.trim()}>Post Comment</Button>
+              </div>
+              {comments.length === 0 ? <p className="text-sm text-[var(--text-muted)]">No comments yet.</p> : comments.map((comment) => (
+                <div key={comment.id} className="rounded-lg border border-[var(--border-subtle)] p-3">
+                  <p className="whitespace-pre-wrap text-sm">{comment.content}</p>
+                  <p className="mt-2 text-xs text-[var(--text-muted)]">{new Date(comment.created_at).toLocaleString()}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="time">
+          <Card>
+            <CardHeader><CardTitle>Time Logs</CardTitle></CardHeader>
+            <CardContent>
+              <Button asChild variant="outline"><Link href={timeLogsHref}>Open time logs</Link></Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

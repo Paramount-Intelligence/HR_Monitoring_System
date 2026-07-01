@@ -65,13 +65,23 @@ def _login(email: str) -> str:
     return response.json()["access_token"]
 
 
-def _create_announcement(db, *, created_by, title, audience="all", is_active=True, end_date=None):
+def _create_announcement(
+    db,
+    *,
+    created_by,
+    title,
+    audience="all",
+    is_active=True,
+    start_date=None,
+    end_date=None,
+):
     announcement = Announcement(
         title=title,
         content=f"Body for {title}",
         audience=audience,
         created_by=created_by,
         is_active=is_active,
+        start_date=start_date,
         end_date=end_date,
     )
     db.add(announcement)
@@ -191,3 +201,40 @@ def test_manager_sees_manager_targeted_announcement(db, visibility_users):
     )
     assert response.status_code == 200
     assert title in [item["title"] for item in response.json()]
+
+
+def test_active_endpoint_returns_visible_announcements(db, visibility_users):
+    title = f"Active Banner {uuid.uuid4().hex[:6]}"
+    _create_announcement(db, created_by=visibility_users["admin"].id, title=title, audience="all")
+    token = _login(visibility_users["employee"].email)
+    response = client.get(
+        f"{API}/announcements/active",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert "announcements" in payload
+    assert "server_time" in payload
+    titles = [item["title"] for item in payload["announcements"]]
+    assert title in titles
+
+
+def test_future_announcement_hidden_from_active_endpoint(db, visibility_users):
+    title = f"Future {uuid.uuid4().hex[:6]}"
+    _create_announcement(
+        db,
+        created_by=visibility_users["admin"].id,
+        title=title,
+        audience="all",
+        start_date=datetime.now() + timedelta(days=1),
+        end_date=datetime.now() + timedelta(days=7),
+    )
+
+    token = _login(visibility_users["employee"].email)
+    response = client.get(
+        f"{API}/announcements/active",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    titles = [item["title"] for item in response.json()["announcements"]]
+    assert title not in titles

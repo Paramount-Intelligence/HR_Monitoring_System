@@ -37,14 +37,12 @@ export function EmployeeProductivityTab({
   goals,
   notes,
 }: EmployeeProductivityTabProps) {
-  const eodStatus = eod?.status ?? 'Not Started';
   const recentNotes = notes.slice(0, 5);
   const activeGoals = goals.filter((g) => g.status !== 'completed').slice(0, 4);
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-        <AdminMetricCard title="EOD Status" value={eodStatus} icon={FileText} />
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-3">
         <AdminMetricCard
           title="Productivity Index"
           value={eod ? safeScore(eod.productivity_score) : '—'}

@@ -71,6 +71,9 @@ class TaskRead(BaseModel):
 class TaskCommentCreate(BaseModel):
     content: str = Field(..., min_length=1)
 
+class TaskCommentUpdate(BaseModel):
+    content: str = Field(..., min_length=1)
+
 class TaskCommentRead(BaseModel):
     model_config = {"from_attributes": True}
 
@@ -80,3 +83,17 @@ class TaskCommentRead(BaseModel):
     content: str
     created_at: datetime
     updated_at: datetime
+
+
+class TaskActivityEventRead(BaseModel):
+    model_config = {"from_attributes": True}
+
+    id: uuid.UUID
+    task_id: uuid.UUID
+    actor_id: uuid.UUID
+    actor_name: str
+    event_type: str
+    old_value: str | None = None
+    new_value: str | None = None
+    metadata: dict | None = Field(default=None, alias="extra_metadata")
+    created_at: datetime

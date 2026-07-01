@@ -116,7 +116,7 @@ export const eodApi = {
     return response.data;
   },
 
-  getTeamEODs: async (params?: { search?: string; status?: string; report_date?: string }) => {
+  getTeamEODs: async (params?: { scope?: 'organization' | 'my_team'; search?: string; status?: string; report_date?: string }) => {
     const response = await apiClient.get<EODReport[]>('/eod/team', { params });
     return response.data;
   },
@@ -126,3 +126,15 @@ export const eodApi = {
     return response.data;
   },
 };
+
+export async function approveEodReport(reportId: string, note = 'Approved from Approval Center.') {
+  return eodApi.reviewEOD(reportId, 'Approved', note);
+}
+
+export async function rejectEodReport(reportId: string, note: string) {
+  return eodApi.reviewEOD(reportId, 'Rejected', note);
+}
+
+export async function requestEodRevision(reportId: string, note: string) {
+  return eodApi.reviewEOD(reportId, 'Needs Revision', note);
+}

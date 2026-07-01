@@ -1,11 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import {
-  Users, ClipboardCheck, CheckSquare, AlertTriangle, Briefcase,
-  ShieldCheck, Activity, Calendar, UserPlus,
+  Users, Calendar,
 } from 'lucide-react';
-import { AdminMetricCard } from '@/components/admin/dashboard/AdminMetricCard';
 import { AdminChartCard } from '@/components/admin/dashboard/AdminChartCard';
 import { AdminTabError } from '@/components/admin/dashboard/AdminTabError';
 import { DashboardOverviewUpdatesSection } from '@/components/dashboard/DashboardOverviewUpdatesSection';
@@ -40,35 +37,14 @@ export function ManagerOverviewTab({ data, loading, error, onRetry }: Props) {
   if (error) return <AdminTabError tabName="Overview" message={error} onRetry={onRetry} />;
   if (!data) return <AdminTabError tabName="Overview" message="No data received." onRetry={onRetry} />;
 
-  const kpis = data.kpis || {};
   const health = data.team_health || { score: 0, label: '—', blocked_tasks: 0, overdue_tasks: 0, active_members: 0 };
   const trend = safeArray(data.attendance_trend);
-  const actions = safeArray(data.pending_actions);
   const activity = safeArray(data.recent_activity);
   const attention = safeArray(data.members_needing_attention);
   const meetings = safeArray<Record<string, unknown>>(data.upcoming_meetings);
 
-  const quickActions = [
-    { label: 'Team Directory', href: '/manager/team', icon: Users },
-    { label: 'Approvals', href: '/manager/approvals', icon: ClipboardCheck },
-    { label: 'Assign Task', href: '/manager/tasks', icon: UserPlus },
-    { label: 'Completion Requests', href: '/manager/tasks?tab=completion-requests', icon: CheckSquare },
-    { label: 'EOD Reviews', href: '/manager/eod-reviews', icon: ShieldCheck },
-  ];
-
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5">
-        <AdminMetricCard title="Team Members" value={safeNumber(kpis.team_members)} icon={Users} />
-        <AdminMetricCard title="Present Today" value={safeNumber(kpis.present_today)} />
-        <AdminMetricCard title="Pending Approvals" value={safeNumber(kpis.pending_approvals)} icon={ClipboardCheck} />
-        <AdminMetricCard title="Active Tasks" value={safeNumber(kpis.active_tasks)} icon={CheckSquare} />
-        <AdminMetricCard title="Overdue Tasks" value={safeNumber(kpis.overdue_tasks)} icon={AlertTriangle} />
-        <AdminMetricCard title="Projects Active" value={safeNumber(kpis.projects_in_progress)} icon={Briefcase} />
-        <AdminMetricCard title="EOD Pending" value={safeNumber(kpis.eod_reports_pending)} icon={ShieldCheck} />
-        <AdminMetricCard title="Team Workload" value={safeNumber(kpis.team_workload)} icon={Activity} />
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         <AdminChartCard title="Team Attendance Trend" className="lg:col-span-7">
           {trend.length === 0 ? (
@@ -99,24 +75,6 @@ export function ManagerOverviewTab({ data, loading, error, onRetry }: Props) {
           </div>
 
           <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-soft)]">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2">Pending Actions</p>
-            {actions.length === 0 ? (
-              <p className="text-xs text-[var(--text-muted)] italic">All clear</p>
-            ) : (
-              <ul className="space-y-2">
-                {actions.map((a, i) => (
-                  <li key={i}>
-                    <Link href={String(a.route || '/manager/approvals')} className="block rounded-lg border border-[var(--border-subtle)] px-3 py-2 hover:bg-[var(--bg-subtle)]">
-                      <p className="text-xs font-bold text-[var(--text-primary)]">{String(a.title || 'Action')}</p>
-                      <p className="text-[10px] text-[var(--text-muted)]">{String(a.description || '')}</p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-[var(--border-default)] bg-[var(--bg-elevated)] p-4 shadow-[var(--shadow-soft)]">
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-2 flex items-center gap-1">
               <Calendar className="h-3 w-3" /> Today&apos;s Meetings
             </p>
@@ -134,20 +92,6 @@ export function ManagerOverviewTab({ data, loading, error, onRetry }: Props) {
             )}
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-        {quickActions.map((a) => {
-          const Icon = a.icon;
-          return (
-            <Link key={a.href} href={a.href} className="flex items-center gap-2 rounded-lg border border-[var(--border-default)] bg-[var(--bg-elevated)] px-3 py-2.5 hover:shadow-md transition-all min-h-[52px]">
-              <div className="h-8 w-8 rounded-md bg-[var(--bg-subtle)] flex items-center justify-center shrink-0">
-                <Icon className="h-3.5 w-3.5 text-[var(--accent-primary)]" />
-              </div>
-              <span className="text-xs font-semibold">{a.label}</span>
-            </Link>
-          );
-        })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
